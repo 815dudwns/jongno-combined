@@ -34,14 +34,19 @@ def main():
         if addr in result:
             continue  # 이미 처리된 주소
         result[addr] = {
-            "state":         "complete",
-            "reason":        "",
-            "updatedAt":     UPDATED_AT,
-            "updatedBy":     "AUTO_IMPORT",
-            "updatedByName": "자동 임포트",
-            "meter_done":    True,
-            "comm_done":     True,
+            "meter_state":         "complete",
+            "meter_reason":        "",
+            "meter_updatedAt":     UPDATED_AT,
+            "meter_updatedBy":     "AUTO_IMPORT",
+            "meter_updatedByName": "자동 임포트",
+            "comm_state":          "complete",
+            "comm_reason":         "",
+            "comm_updatedAt":      UPDATED_AT,
+            "comm_updatedBy":      "AUTO_IMPORT",
+            "comm_updatedByName":  "자동 임포트",
             "checkedMeters": [],
+            "meterChecks":   {},
+            "failedMeters":  {},
         }
 
     print(f"고유 주소 수(dedup): {len(result)}")

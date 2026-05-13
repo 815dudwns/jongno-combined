@@ -36,7 +36,7 @@ function getEffectiveRole() {
     return role;
 }
 
-// 통신팀 마지막 작업 주소 (comm_done=true 중 가장 최근 updatedAt)
+// 통신팀 마지막 작업 주소 (comm_state=complete 중 가장 최근 comm_updatedAt)
 let commLastAddress = null;
 
 // ── 지도 초기화 ──────────────────────────────────────────────────
@@ -227,11 +227,8 @@ function decideMarkerStyle(meters, status, session) {
     const checkedCount = (status.checkedMeters || []).length;
     const total = meters.length;
     const failedCount = Object.keys(failedSet).length;
-
-    // 부분완료 판정: 체크+불가 합이 0보다 크고 total 미만, state는 pending
-    const partial = (status.state === 'pending') &&
-                    (checkedCount + failedCount > 0) &&
-                    (checkedCount + failedCount < total);
+    const meter_state = status.meter_state || 'pending';
+    const comm_state  = status.comm_state  || 'pending';
 
     let colorClass = '';
     let labelMain = total.toString();
@@ -240,19 +237,22 @@ function decideMarkerStyle(meters, status, session) {
 
     // 1. 통신팀 시각
     if (role === 'comm') {
-        if (status.comm_done && status.address === commLastAddress) {
+        const partial = (comm_state === 'pending') &&
+                        (checkedCount + failedCount > 0) &&
+                        (checkedCount + failedCount < total);
+        if (comm_state === 'complete' && status.address === commLastAddress) {
             colorClass = 'comm-last';
             labelMain = '✓';
-        } else if (status.comm_done) {
+        } else if (comm_state === 'complete') {
             colorClass = 'comm-done';
             labelMain = '✓';
-        } else if (status.meter_done) {
+        } else if (comm_state === 'hold') {
+            colorClass = 'blue';
+        } else if (comm_state === 'fail') {
+            colorClass = 'red';
+        } else if (meter_state === 'complete') {
             colorClass = 'comm-target';   // 초록 (가야 할 곳)
             labelMain = total.toString();
-        } else if (status.state === 'hold') {
-            colorClass = 'blue';
-        } else if (status.state === 'fail') {
-            colorClass = 'red';
         } else if (partial) {
             // 계기팀이 부분 진행 중 — 통신팀에게도 동선 예측 위해 N/M 표시
             colorClass = 'blue';
@@ -263,13 +263,16 @@ function decideMarkerStyle(meters, status, session) {
             extraClass = 'comm-bg';
         }
     }
-    // 2. 계기팀 / admin 시각
+    // 2. 계기팀 / admin(meter) 시각
     else {
-        if (status.state === 'complete') {
+        const partial = (meter_state === 'pending') &&
+                        (checkedCount + failedCount > 0) &&
+                        (checkedCount + failedCount < total);
+        if (meter_state === 'complete') {
             colorClass = 'gray';
-        } else if (status.state === 'hold') {
+        } else if (meter_state === 'hold') {
             colorClass = 'blue';
-        } else if (status.state === 'fail') {
+        } else if (meter_state === 'fail') {
             colorClass = 'red';
         } else if (partial) {
             colorClass = 'blue';
@@ -285,7 +288,7 @@ function decideMarkerStyle(meters, status, session) {
         }
 
         // 라벨에 검침일 D17 + 순위 표시 (mode에 따라)
-        if (status.state === 'pending' && !partial) {
+        if (meter_state === 'pending' && !partial) {
             const day = meters[0]?.검침일;
             const pri = meters[0]?.순위;
             if (markerMode === 'checkday' && day) {
@@ -300,7 +303,7 @@ function decideMarkerStyle(meters, status, session) {
             }
         }
 
-        if (isApprox && status.state === 'pending') labelMain = '?';
+        if (isApprox && meter_state === 'pending') labelMain = '?';
     }
 
     return { colorClass, extraClass, labelMain, labelSub };
@@ -334,8 +337,8 @@ function priLabel(p) {
 function updateCommLastAddress() {
     let latest = null, latestTs = 0;
     Object.entries(workStatus).forEach(([addr, st]) => {
-        if (st.comm_done && st.updatedAt) {
-            const ts = new Date(st.updatedAt).getTime();
+        if (st.comm_state === 'complete' && st.comm_updatedAt) {
+            const ts = new Date(st.comm_updatedAt).getTime();
             if (ts > latestTs) { latestTs = ts; latest = addr; }
         }
     });
@@ -344,7 +347,7 @@ function updateCommLastAddress() {
 
 // ── 단일 마커 생성 및 지도에 추가 ────────────────────────────────
 function createMarker(position, address, meters) {
-    const status = workStatus[address] || { state: 'pending', checkedMeters: [], reason: '' };
+    const status = workStatus[address] || makeEmptyEntry();
     const session = authGetSession();
     const style = decideMarkerStyle(meters, { ...status, address }, session);
 
@@ -384,7 +387,7 @@ function updateMarkerColor(address) {
     const marker = markers.find(m => m.address === address);
     if (!marker) return;
 
-    const status = workStatus[address] || { state: 'pending' };
+    const status = workStatus[address] || makeEmptyEntry();
     const session = authGetSession();
     const style = decideMarkerStyle(marker.meters, { ...status, address }, session);
 

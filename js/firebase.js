@@ -31,6 +31,25 @@ function decodeKey(str) {
         .replace(/_sl_/g,     '/');
 }
 
+// ── 빈 엔트리 생성 ────────────────────────────────────────────
+function makeEmptyEntry() {
+    return {
+        meter_state:         'pending',
+        meter_reason:        '',
+        meter_updatedAt:     '',
+        meter_updatedBy:     '',
+        meter_updatedByName: '',
+        comm_state:          'pending',
+        comm_reason:         '',
+        comm_updatedAt:      '',
+        comm_updatedBy:      '',
+        comm_updatedByName:  '',
+        checkedMeters: [],
+        meterChecks:   {},
+        failedMeters:  {},
+    };
+}
+
 // ── 이벤트 큐 ─────────────────────────────────────────────────
 function loadEventQueue() {
     const saved = localStorage.getItem(EVENTS_KEY);
@@ -53,14 +72,16 @@ async function flushEventQueue() {
     const queue = loadEventQueue();
     if (!queue.length) return;
 
-    // 같은 대상의 중복 이벤트는 ts 최신 것만 유지
-    const stateMap = {};   // address → latest state event
+    // 같은 대상(address+role)의 중복 이벤트는 ts 최신 것만 유지
+    // 키: address+'||'+role  — 양 팀이 같은 주소에 동시에 완료해도 각자 보존
+    const stateMap = {};
     const checkMap = {};   // address+'||'+meter → latest check event
 
     queue.forEach(ev => {
         if (ev.type === 'state' || ev.type === 'reset') {
-            if (!stateMap[ev.address] || ev.ts > stateMap[ev.address].ts)
-                stateMap[ev.address] = ev;
+            const key = ev.address + '||' + (ev.role || 'meter');
+            if (!stateMap[key] || ev.ts > stateMap[key].ts)
+                stateMap[key] = ev;
         } else if (ev.type === 'check' || ev.type === 'uncheck') {
             const key = ev.address + '||' + ev.meter;
             if (!checkMap[key] || ev.ts > checkMap[key].ts)
@@ -73,19 +94,24 @@ async function flushEventQueue() {
 
     Object.values(stateMap).forEach(ev => {
         const p = encodeKey(ev.address);
-        updates[`${p}/state`]         = ev.state;
-        updates[`${p}/reason`]        = ev.reason || '';
-        updates[`${p}/updatedAt`]     = new Date(ev.ts).toISOString();
-        updates[`${p}/updatedBy`]     = ev.updatedBy || '';
-        updates[`${p}/updatedByName`] = ev.updatedByName || '';
-        // 역할별 완료 플래그 Firebase 업데이트
-        if (ev.role === 'meter') {
-            updates[`${p}/meter_done`] = (ev.state === 'complete');
-        } else if (ev.role === 'comm') {
-            updates[`${p}/comm_done`] = (ev.state === 'complete');
-        } else if (ev.role === 'both') {
-            updates[`${p}/meter_done`] = true;
-            updates[`${p}/comm_done`]  = true;
+        const ts = new Date(ev.ts).toISOString();
+        if (ev.role === 'both') {
+            ['meter', 'comm'].forEach(prefix => {
+                updates[`${p}/${prefix}_state`]         = ev.state;
+                updates[`${p}/${prefix}_reason`]        = '';
+                updates[`${p}/${prefix}_updatedAt`]     = ts;
+                updates[`${p}/${prefix}_updatedBy`]     = ev.updatedBy || '';
+                updates[`${p}/${prefix}_updatedByName`] = ev.updatedByName || '';
+            });
+            // 강제 완료 플래그 — complete 시 true, reset 시 false
+            updates[`${p}/meter_forced_by_comm`] = (ev.state === 'complete');
+        } else {
+            const prefix = (ev.role === 'comm') ? 'comm' : 'meter';
+            updates[`${p}/${prefix}_state`]         = ev.state;
+            updates[`${p}/${prefix}_reason`]        = ev.reason || '';
+            updates[`${p}/${prefix}_updatedAt`]     = ts;
+            updates[`${p}/${prefix}_updatedBy`]     = ev.updatedBy || '';
+            updates[`${p}/${prefix}_updatedByName`] = ev.updatedByName || '';
         }
     });
 
@@ -169,25 +195,17 @@ function applyLocalChecked() {
 // ── 이벤트 기반 상태 변경 함수 ────────────────────────────────
 
 // 상태 변경 (완료/보류/불가/초기화)
-// role: 'admin' | 'meter' | 'comm' | '' — 역할별 완료 플래그(meter_done/comm_done) 갱신에 사용
+// role: 'admin' | 'meter' | 'comm' | '' — prefix(meter_/comm_) 결정에 사용
+// admin은 getEffectiveRole()로 이미 결정된 값으로 들어옴
 function saveStateEvent(address, state, reason, updatedBy, updatedByName, role) {
-    if (!workStatus[address]) {
-        workStatus[address] = {
-            state: 'pending', checkedMeters: [], reason: '',
-            meter_done: false, comm_done: false
-        };
-    }
-    workStatus[address].state         = state;
-    workStatus[address].reason        = reason || '';
-    workStatus[address].updatedAt     = new Date().toISOString();
-    workStatus[address].updatedBy     = updatedBy || '';
-    workStatus[address].updatedByName = updatedByName || '';
-    // 역할별 완료 플래그 갱신
-    if (role === 'meter') {
-        workStatus[address].meter_done = (state === 'complete');
-    } else if (role === 'comm') {
-        workStatus[address].comm_done = (state === 'complete');
-    }
+    if (!workStatus[address]) workStatus[address] = makeEmptyEntry();
+    const now = new Date().toISOString();
+    const prefix = (role === 'comm') ? 'comm' : 'meter';
+    workStatus[address][`${prefix}_state`]         = state;
+    workStatus[address][`${prefix}_reason`]        = reason || '';
+    workStatus[address][`${prefix}_updatedAt`]     = now;
+    workStatus[address][`${prefix}_updatedBy`]     = updatedBy || '';
+    workStatus[address][`${prefix}_updatedByName`] = updatedByName || '';
     localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
 
     addEvent({
@@ -203,20 +221,21 @@ function saveStateEvent(address, state, reason, updatedBy, updatedByName, role) 
 }
 
 // 통신팀이 계기팀 미완료 상태에서 완료 누른 경우 — 양쪽 다 완료 처리
+// meter_forced_by_comm=true 플래그를 박아서, 나중에 통신팀이 초기화할 때 원본 복구 가능하게
 function saveBothCompleteEvent(address, updatedBy, updatedByName) {
-    if (!workStatus[address]) {
-        workStatus[address] = {
-            state: 'pending', checkedMeters: [], reason: '',
-            meter_done: false, comm_done: false
-        };
-    }
-    workStatus[address].state         = 'complete';
-    workStatus[address].reason        = '';
-    workStatus[address].updatedAt     = new Date().toISOString();
-    workStatus[address].updatedBy     = updatedBy || '';
-    workStatus[address].updatedByName = updatedByName || '';
-    workStatus[address].meter_done    = true;
-    workStatus[address].comm_done     = true;
+    if (!workStatus[address]) workStatus[address] = makeEmptyEntry();
+    const now = new Date().toISOString();
+    workStatus[address].meter_state         = 'complete';
+    workStatus[address].meter_reason        = '';
+    workStatus[address].meter_updatedAt     = now;
+    workStatus[address].meter_updatedBy     = updatedBy || '';
+    workStatus[address].meter_updatedByName = updatedByName || '';
+    workStatus[address].comm_state          = 'complete';
+    workStatus[address].comm_reason         = '';
+    workStatus[address].comm_updatedAt      = now;
+    workStatus[address].comm_updatedBy      = updatedBy || '';
+    workStatus[address].comm_updatedByName  = updatedByName || '';
+    workStatus[address].meter_forced_by_comm = true;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
 
     addEvent({
@@ -231,11 +250,38 @@ function saveBothCompleteEvent(address, updatedBy, updatedByName) {
     });
 }
 
+// 통신팀이 강제 완료(saveBothCompleteEvent로 박힌 것)를 초기화 — 양쪽 다 pending + 플래그 제거
+function saveResetBothEvent(address, updatedBy, updatedByName) {
+    if (!workStatus[address]) workStatus[address] = makeEmptyEntry();
+    const now = new Date().toISOString();
+    workStatus[address].meter_state         = 'pending';
+    workStatus[address].meter_reason        = '';
+    workStatus[address].meter_updatedAt     = now;
+    workStatus[address].meter_updatedBy     = updatedBy || '';
+    workStatus[address].meter_updatedByName = updatedByName || '';
+    workStatus[address].comm_state          = 'pending';
+    workStatus[address].comm_reason         = '';
+    workStatus[address].comm_updatedAt      = now;
+    workStatus[address].comm_updatedBy      = updatedBy || '';
+    workStatus[address].comm_updatedByName  = updatedByName || '';
+    workStatus[address].meter_forced_by_comm = false;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+
+    addEvent({
+        address,
+        type: 'reset',
+        state: 'pending',
+        reason: '',
+        updatedBy,
+        updatedByName,
+        role: 'both',
+        ts: Date.now(),
+    });
+}
+
 // 체크 토글
 function saveCheckEvent(address, meter, checked) {
-    if (!workStatus[address]) {
-        workStatus[address] = { state: 'pending', checkedMeters: [], reason: '' };
-    }
+    if (!workStatus[address]) workStatus[address] = makeEmptyEntry();
     const cm = workStatus[address].checkedMeters || [];
     const idx = cm.indexOf(meter);
     if (checked && idx === -1) cm.push(meter);
@@ -276,22 +322,34 @@ function buildWorkStatusFromFirebase(data) {
                 .map(([encodedMeter]) => decodeKey(encodedMeter));
         }
 
+        // 구형 Firebase 데이터 폴백: meter_state/comm_state 없으면 state+meter_done/comm_done으로 추론
+        const meterState = val.meter_state
+            || (val.meter_done === true ? 'complete' : (val.state || 'pending'));
+        const commState  = val.comm_state
+            || (val.comm_done  === true ? 'complete' : 'pending');
+
         result[addr] = {
-            state:         val.state         || 'pending',
-            reason:        val.reason        || '',
-            updatedAt:     val.updatedAt     || '',
-            updatedBy:     val.updatedBy     || '',
-            updatedByName: val.updatedByName || '',
+            meter_state:         meterState,
+            meter_reason:        val.meter_reason        || (val.reason || ''),
+            meter_updatedAt:     val.meter_updatedAt     || (val.updatedAt || ''),
+            meter_updatedBy:     val.meter_updatedBy     || (val.updatedBy || ''),
+            meter_updatedByName: val.meter_updatedByName || (val.updatedByName || ''),
+            comm_state:          commState,
+            comm_reason:         val.comm_reason         || '',
+            comm_updatedAt:      val.comm_updatedAt      || '',
+            comm_updatedBy:      val.comm_updatedBy      || '',
+            comm_updatedByName:  val.comm_updatedByName  || '',
             checkedMeters,
             meterChecks,        // 원본 보관 (ts 비교용)
-            meter_done:    val.meter_done === true,
-            comm_done:     val.comm_done  === true,
+            failedMeters:       val.failedMeters || {},
+            meter_forced_by_comm: val.meter_forced_by_comm === true,
         };
     });
     return result;
 }
 
-// Firebase 데이터와 로컬 데이터를 updatedAt 기준으로 병합 (더 최신 쪽 유지)
+// Firebase 데이터와 로컬 데이터를 각 팀 prefix 별로 updatedAt 비교하여 병합
+// meter_*/comm_* 각각 독립 비교: 둘 중 더 최신 쪽 유지
 function mergeFirebaseData(firebaseData) {
     const converted = buildWorkStatusFromFirebase(firebaseData);
 
@@ -302,12 +360,37 @@ function mergeFirebaseData(firebaseData) {
             workStatus[addr] = fb;
             return;
         }
-        const fbTime    = fb.updatedAt    ? new Date(fb.updatedAt).getTime()    : 0;
-        const localTime = local.updatedAt ? new Date(local.updatedAt).getTime() : 0;
-        if (fbTime > localTime) {
-            // Firebase가 더 최신 — 단, 로컬 전용 필드(failedMeters)는 유지
-            workStatus[addr] = { ...fb, failedMeters: local.failedMeters || {} };
+
+        // meter prefix 병합
+        const fbMeterTs    = fb.meter_updatedAt    ? new Date(fb.meter_updatedAt).getTime()    : 0;
+        const localMeterTs = local.meter_updatedAt ? new Date(local.meter_updatedAt).getTime() : 0;
+        if (fbMeterTs > localMeterTs) {
+            local.meter_state         = fb.meter_state;
+            local.meter_reason        = fb.meter_reason;
+            local.meter_updatedAt     = fb.meter_updatedAt;
+            local.meter_updatedBy     = fb.meter_updatedBy;
+            local.meter_updatedByName = fb.meter_updatedByName;
         }
+
+        // comm prefix 병합
+        const fbCommTs    = fb.comm_updatedAt    ? new Date(fb.comm_updatedAt).getTime()    : 0;
+        const localCommTs = local.comm_updatedAt ? new Date(local.comm_updatedAt).getTime() : 0;
+        if (fbCommTs > localCommTs) {
+            local.comm_state         = fb.comm_state;
+            local.comm_reason        = fb.comm_reason;
+            local.comm_updatedAt     = fb.comm_updatedAt;
+            local.comm_updatedBy     = fb.comm_updatedBy;
+            local.comm_updatedByName = fb.comm_updatedByName;
+        }
+
+        // checkedMeters/meterChecks — Firebase 쪽이 있으면 덮어쓰기 (체크는 공유)
+        if (fb.checkedMeters.length > 0 || Object.keys(fb.meterChecks).length > 0) {
+            local.checkedMeters = fb.checkedMeters;
+            local.meterChecks   = fb.meterChecks;
+        }
+
+        // failedMeters — 로컬 전용 필드 유지
+        local.failedMeters = local.failedMeters || fb.failedMeters || {};
     });
 
     applyLocalChecked();

@@ -15,8 +15,17 @@ function showDetail(address, meters) {
     const adminBtn = document.getElementById('admin-upload-btn');
     if (adminBtn) adminBtn.href = `admin.html?addr=${encodeURIComponent(address)}`;
 
-    const status = workStatus[address] || { state: 'pending', checkedMeters: [], reason: '' };
+    const session = authGetSession();
+    const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : (session?.role || 'meter');
+    const myPrefix = (role === 'comm') ? 'comm' : 'meter';
+
+    const status = workStatus[address] || makeEmptyEntry();
     status.checkedMeters = status.checkedMeters || [];
+
+    const myState         = status[`${myPrefix}_state`]         || 'pending';
+    const myReason        = status[`${myPrefix}_reason`]        || '';
+    const myUpdatedByName = status[`${myPrefix}_updatedByName`] || '';
+    const myUpdatedAt     = status[`${myPrefix}_updatedAt`]     || '';
 
     document.getElementById('detail-address').textContent = address;
 
@@ -28,7 +37,7 @@ function showDetail(address, meters) {
     document.getElementById('detail-road-address').innerHTML = '📍 ' + meters[0].도로명주소 + errorTag;
 
     // 상태 색상 바 업데이트 (기능 3)
-    updateStatusBar(status.state);
+    updateStatusBar(myState);
 
     // 지도 앱 버튼 3개 — 도로명주소로 검색
     const roadAddr = meters[0].도로명주소;
@@ -46,15 +55,8 @@ function showDetail(address, meters) {
     const btnHold = document.getElementById('btn-hold');
     const btnFail = document.getElementById('btn-fail');
 
-    // 완료 상태면 초기화 버튼으로 전환
-    // comm: 본인(comm_done) 기준, meter: 본인(meter_done) 기준, admin/기타: state 기준
-    const sessionForBtn = authGetSession();
-    const roleForBtn = sessionForBtn ? sessionForBtn.role : '';
-    const myDone = roleForBtn === 'comm'  ? status.comm_done === true
-                 : roleForBtn === 'meter' ? status.meter_done === true
-                 : status.state === 'complete';
-
-    if (myDone) {
+    // 완료 상태면 초기화 버튼으로 전환 — myState(자기 팀 state) 기준
+    if (myState === 'complete') {
         btnComplete.textContent = '🔄 초기화';
         btnComplete.className = 'action-btn reset';
         btnComplete.onclick = () => resetStatus();
@@ -77,51 +79,50 @@ function showDetail(address, meters) {
         closeDetail();
     };
 
-    // 현재 상태에 맞는 버튼 활성화
+    // 현재 상태에 맞는 버튼 활성화 — myState 기준
     [btnComplete, btnHold, btnFail].forEach(btn => btn.classList.remove('active'));
-    if (status.state === 'complete') btnComplete.classList.add('active');
-    if (status.state === 'hold') btnHold.classList.add('active');
-    if (status.state === 'fail') btnFail.classList.add('active');
+    if (myState === 'complete') btnComplete.classList.add('active');
+    if (myState === 'hold')     btnHold.classList.add('active');
+    if (myState === 'fail')     btnFail.classList.add('active');
 
     const failInput = document.getElementById('fail-reason');
-    failInput.value = status.reason || '';
+    failInput.value = myReason;
     failInput.style.borderColor = '';
     failInput.oninput = (e) => {
         if (e.target.value.trim()) e.target.style.borderColor = '';
-        // 입력 중: 로컬만 저장
+        // 입력 중: 로컬만 저장 (자기 팀 reason 필드)
         if (!workStatus[currentAddress]) {
-            workStatus[currentAddress] = { state: 'pending', checkedMeters: [], reason: '' };
+            workStatus[currentAddress] = makeEmptyEntry();
         }
-        workStatus[currentAddress].reason = e.target.value;
+        const _session = authGetSession();
+        const _role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : (_session?.role || 'meter');
+        const _prefix = (_role === 'comm') ? 'comm' : 'meter';
+        workStatus[currentAddress][`${_prefix}_reason`] = e.target.value;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
     };
     // blur/Enter 시 이벤트 큐에 추가
     const flushFailReason = () => {
-        const session = authGetSession();
-        const state = workStatus[currentAddress]?.state || 'pending';
-        if (state !== 'pending') {
-            const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : (session ? session.role : '');
+        const _session = authGetSession();
+        const _role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : (_session?.role || 'meter');
+        const _prefix = (_role === 'comm') ? 'comm' : 'meter';
+        const curState = workStatus[currentAddress]?.[`${_prefix}_state`] || 'pending';
+        if (curState !== 'pending') {
             saveStateEvent(
                 currentAddress,
-                state,
+                curState,
                 failInput.value.trim(),
-                session ? session.id   : '',
-                session ? session.name : '',
-                role
+                _session ? _session.id   : '',
+                _session ? _session.name : '',
+                _role
             );
         }
     };
     failInput.addEventListener('blur', flushFailReason);
     failInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { flushFailReason(); failInput.blur(); } });
 
-    // 작업자 정보 표시 (기능 4)
-    // 디버그: showDetail에서 읽어온 status 확인
-    console.log('[showDetail] status:', {
-        state:         status.state,
-        updatedByName: status.updatedByName,
-        updatedAt:     status.updatedAt,
-    });
-    updateWorkerInfo(status);
+    // 작업자 정보 표시 (기능 4) — 자기 팀 updatedByName/updatedAt
+    console.log('[showDetail] myState:', myState, 'myUpdatedByName:', myUpdatedByName, 'myUpdatedAt:', myUpdatedAt);
+    updateWorkerInfo({ state: myState, updatedByName: myUpdatedByName, updatedAt: myUpdatedAt });
 
     // 변대주가 모두 같은 경우 공통 표시
     const allSamePole = meters.length > 0 && meters.every(m => m.변대주 === meters[0].변대주);
@@ -238,7 +239,7 @@ function getSortedMeters() {
 // 계기 개별 불가 토글
 function toggleMeterFail(meterNumber) {
     if (!workStatus[currentAddress]) {
-        workStatus[currentAddress] = { state: 'pending', checkedMeters: [], reason: '' };
+        workStatus[currentAddress] = makeEmptyEntry();
     }
     const status = workStatus[currentAddress];
     if (!status.failedMeters) status.failedMeters = {};
@@ -274,7 +275,7 @@ function saveMeterFailReason(meterNumber, reason) {
 function renderMetersList() {
     const meters = currentMeters;
     const sortedMeters = getSortedMeters();
-    const status = workStatus[currentAddress] || { state: 'pending', checkedMeters: [], reason: '' };
+    const status = workStatus[currentAddress] || makeEmptyEntry();
     const allSamePole = meters.length > 0 && meters.every(m => m.변대주 === meters[0].변대주);
     const failedMeters = status.failedMeters || {};
 
@@ -449,7 +450,7 @@ function updateStatus(state) {
     // 통신팀이 완료를 누르는데 계기팀 미완료인 경우 → 확인 다이얼로그
     if (role === 'comm' && state === 'complete') {
         const cur = workStatus[currentAddress];
-        if (!cur || cur.meter_done !== true) {
+        if (!cur || cur.meter_state !== 'complete') {
             const ok = confirm('계기팀 작업이 완료된 것 확인되었나요?\n확인하면 계기팀·통신팀 둘 다 완료 처리됩니다.');
             if (!ok) return;
             saveBothCompleteEvent(
@@ -482,8 +483,30 @@ function resetStatus() {
     if (!workStatus[currentAddress]) return;
     const session = authGetSession();
     const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : (session ? session.role : '');
+    const cur = workStatus[currentAddress];
 
-    // state만 pending으로 (체크박스/불가 유지), 역할 플래그도 함께 초기화
+    // 계기팀 초기화 시 — 통신팀이 이미 완료한 곳은 차단
+    if (role === 'meter') {
+        if (cur.comm_state === 'complete') {
+            alert('통신팀이 이미 작업했습니다.\n관리자에 문의하세요.');
+            return;
+        }
+    }
+
+    // 통신팀 초기화 시 — meter_forced_by_comm(통신팀이 강제 양쪽 완료한 케이스)이면 양쪽 다 pending
+    if (role === 'comm' && cur.meter_forced_by_comm === true) {
+        saveResetBothEvent(
+            currentAddress,
+            session ? session.id   : '',
+            session ? session.name : ''
+        );
+        if (typeof refreshAllMarkers === 'function') refreshAllMarkers();
+        else updateMarkerColor(currentAddress);
+        showDetail(currentAddress, currentMeters);
+        return;
+    }
+
+    // 일반 케이스 — 자기 팀 state만 pending으로 (체크박스/불가 유지)
     saveStateEvent(
         currentAddress, 'pending', '',
         session ? session.id   : '',
@@ -499,7 +522,7 @@ function resetStatus() {
 // 계기 체크 토글
 function toggleMeterCheck(meterNumber) {
     if (!workStatus[currentAddress]) {
-        workStatus[currentAddress] = { state: 'pending', checkedMeters: [], reason: '' };
+        workStatus[currentAddress] = makeEmptyEntry();
     }
     const checkedMeters = workStatus[currentAddress].checkedMeters || [];
     const isChecked = checkedMeters.includes(meterNumber);
