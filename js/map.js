@@ -302,7 +302,7 @@ function priLabel(p) {
     if (p === '2순위') return '2';
     if (p === '3순위') return '3';
     if (p === '4순위') return '4';
-    if (p === '과년도') return '過';
+    if (p === '과년도') return '과';
     return '';
 }
 
