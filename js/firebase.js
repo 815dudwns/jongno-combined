@@ -7,6 +7,7 @@ let workStatus = {};
 // Firebase DB 참조
 let db = null;
 let statusRef = null;
+let settingsRef = null;   // 앱 설정 (admin이 변경, 모두에게 동기화)
 
 // ── 키 인코딩/디코딩 ─────────────────────────────────────────
 // Firebase 키 금지 문자: . # $ [ ] /
@@ -111,12 +112,28 @@ function initFirebaseApp() {
             : firebase.initializeApp(firebaseConfig);
         db = firebase.database(app);
         statusRef = db.ref('workStatus/jongno');
+        settingsRef = db.ref('appSettings/jongno');
         console.log('[Firebase] 초기화 완료');
         return true;
     } catch (e) {
         console.warn('[Firebase] 초기화 실패:', e.message);
         return false;
     }
+}
+
+// ── 앱 설정 동기화 (admin이 markerMode 변경 → 모든 사용자 적용) ─────
+function saveMarkerModeRemote(mode) {
+    if (!settingsRef) return;
+    settingsRef.child('markerMode').set(mode)
+        .catch(e => console.warn('[Settings] markerMode 저장 실패:', e.message));
+}
+
+function subscribeMarkerMode(callback) {
+    if (!settingsRef) return;
+    settingsRef.child('markerMode').on('value', (snap) => {
+        const val = snap.val();
+        if (val) callback(val);
+    });
 }
 
 // ── localStorage 접근 ─────────────────────────────────────────

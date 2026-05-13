@@ -73,6 +73,21 @@ async function initMap() {
     await initFirebase();
     refreshAllMarkers();
 
+    // 마커 모드 — admin이 변경 시 Firebase 통해 모든 사용자에게 동기화
+    if (typeof subscribeMarkerMode === 'function') {
+        subscribeMarkerMode((mode) => {
+            if (mode === markerMode) return;
+            markerMode = mode;
+            localStorage.setItem('jongno_marker_mode', markerMode);
+            // 토글 UI 동기화 (admin 화면에서만 표시되지만 어쨌든 갱신)
+            const toggle = document.getElementById('marker-mode-toggle');
+            if (toggle) {
+                toggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.mode === markerMode));
+            }
+            refreshAllMarkers();
+        });
+    }
+
     // 마커 모드 토글 — admin 전용
     const session = authGetSession();
     if (session?.role === 'admin') {
@@ -84,6 +99,7 @@ async function initMap() {
                 btn.addEventListener('click', () => {
                     markerMode = btn.dataset.mode;
                     localStorage.setItem('jongno_marker_mode', markerMode);
+                    if (typeof saveMarkerModeRemote === 'function') saveMarkerModeRemote(markerMode);
                     toggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.mode === markerMode));
                     refreshAllMarkers();
                 });
