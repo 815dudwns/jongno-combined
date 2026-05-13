@@ -16,29 +16,23 @@
 .custom-marker.green .marker-number,
 .custom-marker.yellow .marker-number { color: #1f2937; }
 
-/* 검침일 그룹 6색 (채도 낮춤 = 상태 마커와 시각 위계 분리) */
-.custom-marker.day-g1 .pin-body { fill: #f5cbb1; }   /* 살구 */
-.custom-marker.day-g2 .pin-body { fill: #f5e4b1; }   /* 베이지/연노랑 */
-.custom-marker.day-g3 .pin-body { fill: #b5dfc7; }   /* 민트 */
-.custom-marker.day-g4 .pin-body { fill: #b3d4d6; }   /* 연 청록 */
-.custom-marker.day-g5 .pin-body { fill: #d0c0dc; }   /* 라벤더 */
-.custom-marker.day-g6 .pin-body { fill: #d9b8c5; }   /* 더스티 핑크 */
+/* 검침일 그룹 4색 (채도 낮춤 = 상태 마커와 시각 위계 분리) */
+.custom-marker.day-g1 .pin-body { fill: #f5cbb1; }   /* 1주차 — 살구 */
+.custom-marker.day-g2 .pin-body { fill: #b5dfc7; }   /* 2주차 — 민트 */
+.custom-marker.day-g3 .pin-body { fill: #d0c0dc; }   /* 3주차 — 라벤더 */
+.custom-marker.day-g4 .pin-body { fill: #d9b8c5; }   /* 4주차 — 더스티 핑크 */
 
 /* 검침일 그룹 마커 - 흰 원 표시 (pending 계기팀 마커) */
 .custom-marker.day-g1 .pin-circle,
 .custom-marker.day-g2 .pin-circle,
 .custom-marker.day-g3 .pin-circle,
-.custom-marker.day-g4 .pin-circle,
-.custom-marker.day-g5 .pin-circle,
-.custom-marker.day-g6 .pin-circle { display: block; }
+.custom-marker.day-g4 .pin-circle { display: block; }
 
 /* 검침일 그룹 마커 숫자 색 (밝은 배경 → 어두운 텍스트) */
 .custom-marker.day-g1 .marker-number,
 .custom-marker.day-g2 .marker-number,
 .custom-marker.day-g3 .marker-number,
-.custom-marker.day-g4 .marker-number,
-.custom-marker.day-g5 .marker-number,
-.custom-marker.day-g6 .marker-number { color: #1f2937; }
+.custom-marker.day-g4 .marker-number { color: #1f2937; }
 
 /* 우선순위 색 (채도 낮춤) */
 .custom-marker.pri-1 .pin-body { fill: #e8b8b8; }

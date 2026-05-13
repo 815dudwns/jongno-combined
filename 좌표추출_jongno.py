@@ -48,12 +48,10 @@ def day_group(day):
         d = int(str(day).strip())
     except (ValueError, TypeError):
         return None
-    if d in [1, 2, 3, 4]:           return 'G1'
-    if d in [5, 8, 9]:              return 'G2'
-    if d in [10, 11, 12]:           return 'G3'
-    if d in [15, 16, 17]:           return 'G4'
-    if d in [18, 19]:               return 'G5'
-    if d in [22, 23, 24, 25, 26]:   return 'G6'
+    if d in [1, 2, 3, 4, 5]:        return 'G1'   # 1주차
+    if d in [8, 9, 10, 11, 12]:     return 'G2'   # 2주차
+    if d in [15, 16, 17, 18, 19]:   return 'G3'   # 3주차
+    if d in [22, 23, 24, 25, 26]:   return 'G4'   # 4주차
     return None
 
 
