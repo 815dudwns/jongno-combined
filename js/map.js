@@ -300,9 +300,34 @@ function loadMarkers() {
         grouped[addr].meters.push(item);
     });
 
+    // 같은 좌표에 겹친 approximate 마커들 — 작은 원으로 분산 (안 겹치게)
+    spreadOverlappingMarkers(grouped);
+
     Object.entries(grouped).forEach(([addr, data]) => {
         const coords = new kakao.maps.LatLng(data.lat, data.lng);
         createMarker(coords, addr, data.meters);
+    });
+}
+
+// 같은 좌표에 겹친 approximate 주소 그룹을 작은 원형으로 분산
+function spreadOverlappingMarkers(grouped) {
+    const SPREAD_RADIUS = 0.0003;   // ≈ 33m
+    const coordToAddrs = {};
+    Object.entries(grouped).forEach(([addr, data]) => {
+        const isApprox = data.meters.some(m => m.좌표정확도 === 'approximate');
+        if (!isApprox) return;
+        const key = `${data.lat.toFixed(6)},${data.lng.toFixed(6)}`;
+        if (!coordToAddrs[key]) coordToAddrs[key] = [];
+        coordToAddrs[key].push(addr);
+    });
+    Object.values(coordToAddrs).forEach(addrs => {
+        if (addrs.length <= 1) return;
+        const n = addrs.length;
+        addrs.forEach((addr, i) => {
+            const angle = (2 * Math.PI * i) / n;
+            grouped[addr].lat += SPREAD_RADIUS * Math.cos(angle);
+            grouped[addr].lng += SPREAD_RADIUS * Math.sin(angle);
+        });
     });
 }
 
