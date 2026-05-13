@@ -125,10 +125,35 @@
     height: 16px;
 }
 
-/* 마커 모드 토글 (admin 전용) */
-.marker-mode-toggle {
+/* 시각 토글 (admin 전용) — 계기팀 / 통신팀 */
+.view-role-toggle {
     position: absolute;
     top: 10px;
+    right: 10px;
+    z-index: 10;
+    background: white;
+    border-radius: 8px;
+    padding: 2px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.view-role-toggle button {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 6px;
+}
+.view-role-toggle button.active {
+    background: #1e3a8a;
+    color: white;
+}
+
+/* 마커 모드 토글 (admin 전용) — 시각 토글 아래 */
+.marker-mode-toggle {
+    position: absolute;
+    top: 52px;
     right: 10px;
     z-index: 10;
     background: white;

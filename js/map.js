@@ -25,6 +25,9 @@ const DONG_GROUPS = {
 // 마커 모드: 'checkday' | 'priority' | 'both'
 let markerMode = localStorage.getItem('jongno_marker_mode') || 'checkday';
 
+// admin 전용 시각 토글: 'meter' (계기팀 화면) | 'comm' (통신팀 화면)
+let adminViewRole = localStorage.getItem('jongno_admin_view_role') || 'meter';
+
 // 통신팀 마지막 작업 주소 (comm_done=true 중 가장 최근 updatedAt)
 let commLastAddress = null;
 
@@ -74,6 +77,21 @@ async function initMap() {
                     markerMode = btn.dataset.mode;
                     localStorage.setItem('jongno_marker_mode', markerMode);
                     toggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.mode === markerMode));
+                    refreshAllMarkers();
+                });
+            });
+        }
+
+        // 시각 토글 — 계기팀 시각 / 통신팀 시각
+        const viewToggle = document.getElementById('view-role-toggle');
+        if (viewToggle) {
+            viewToggle.style.display = '';
+            viewToggle.querySelectorAll('button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.view === adminViewRole);
+                btn.addEventListener('click', () => {
+                    adminViewRole = btn.dataset.view;
+                    localStorage.setItem('jongno_admin_view_role', adminViewRole);
+                    viewToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.view === adminViewRole));
                     refreshAllMarkers();
                 });
             });
@@ -177,7 +195,9 @@ function loadMarkers() {
 
 // ── 마커 스타일 결정 함수 ────────────────────────────────────────
 function decideMarkerStyle(meters, status, session) {
-    const role = session?.role || 'admin';
+    let role = session?.role || 'admin';
+    // admin은 토글에 따라 계기팀 시각 또는 통신팀 시각으로 봄
+    if (role === 'admin') role = adminViewRole;
     const isApprox = meters.some(m => m.좌표정확도 === 'approximate');
     const failedSet = status.failedMeters || {};
     const checkedCount = (status.checkedMeters || []).length;
