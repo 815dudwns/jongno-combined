@@ -25,6 +25,14 @@
         </div>
     </div>
 
+    <!-- 검침일 필터 (계기팀 시각에서만 표시) -->
+    <div class="checkday-filter" id="checkday-filter" style="display:none;">
+        <button class="checkday-toggle" id="checkday-toggle">검침일 ▾</button>
+        <div class="checkday-panel" id="checkday-panel">
+            <!-- 체크박스 6개. JS에서 동적으로 생성 -->
+        </div>
+    </div>
+
     <!-- 시각 토글 (admin 전용) — 계기팀 시각 / 통신팀 시각 -->
     <div class="view-role-toggle" id="view-role-toggle" style="display:none;">
         <button data-view="meter" class="active">계기팀 시각</button>

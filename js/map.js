@@ -22,6 +22,16 @@ const DONG_GROUPS = {
     '숭인':            ['숭인동'],
 };
 
+// 검침일 그룹 라벨 — G1~G6
+const CHECKDAY_GROUPS = {
+    'G1': 'D1~D4 (월초)',
+    'G2': 'D5·D8·D9 (1주차)',
+    'G3': 'D10~D12 (2주차)',
+    'G4': 'D15~D17 (2~3주차)',
+    'G5': 'D18·D19 (3주차)',
+    'G6': 'D22~D26 (말일)',
+};
+
 // 마커 모드: 'checkday' | 'priority' | 'both'
 let markerMode = localStorage.getItem('jongno_marker_mode') || 'checkday';
 
@@ -69,6 +79,8 @@ async function initMap() {
     console.log('[siteData] 로드 완료:', sampleData.length, '개');
 
     populateDongGroups();
+    populateCheckdayFilter();
+    updateCheckdayFilterVisibility();
     loadMarkers();
     await initFirebase();
     refreshAllMarkers();
@@ -116,6 +128,11 @@ async function initMap() {
                     adminViewRole = btn.dataset.view;
                     localStorage.setItem('jongno_admin_view_role', adminViewRole);
                     viewToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.view === adminViewRole));
+                    updateCheckdayFilterVisibility();
+                    // 검침일 필터 적용/해제 → 마커 재생성
+                    markers.forEach(m => m.overlay.setMap(null));
+                    markers = [];
+                    loadMarkers();
                     refreshAllMarkers();
                 });
             });
@@ -192,13 +209,85 @@ function onDongGroupChange() {
     refreshAllMarkers();
 }
 
+// ── 검침일 필터 (계기팀 시각 전용) ──────────────────────────────
+function loadSelectedCheckdays() {
+    try {
+        const saved = localStorage.getItem('jongno_selected_checkdays');
+        if (saved) return new Set(JSON.parse(saved));
+    } catch {}
+    return new Set(Object.keys(CHECKDAY_GROUPS));  // 기본: 6개 전부 체크
+}
+
+function saveSelectedCheckdays(set) {
+    localStorage.setItem('jongno_selected_checkdays', JSON.stringify([...set]));
+}
+
+function populateCheckdayFilter() {
+    const panel = document.getElementById('checkday-panel');
+    const toggleBtn = document.getElementById('checkday-toggle');
+    if (!panel || !toggleBtn) return;
+
+    const selected = loadSelectedCheckdays();
+    Object.entries(CHECKDAY_GROUPS).forEach(([key, label]) => {
+        const lbl = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = key;
+        cb.checked = selected.has(key);
+        cb.addEventListener('change', onCheckdayChange);
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode(label));
+        panel.appendChild(lbl);
+    });
+
+    toggleBtn.addEventListener('click', () => {
+        panel.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+        const filter = document.getElementById('checkday-filter');
+        if (filter && !filter.contains(e.target)) {
+            panel.classList.remove('open');
+        }
+    });
+}
+
+function onCheckdayChange() {
+    const panel = document.getElementById('checkday-panel');
+    if (!panel) return;
+    const checked = new Set();
+    panel.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        if (cb.checked) checked.add(cb.value);
+    });
+    saveSelectedCheckdays(checked);
+    markers.forEach(m => m.overlay.setMap(null));
+    markers = [];
+    loadMarkers();
+    refreshAllMarkers();
+}
+
+// 계기팀 시각일 때만 검침일 필터 UI 표시
+function updateCheckdayFilterVisibility() {
+    const role = getEffectiveRole();
+    const filterEl = document.getElementById('checkday-filter');
+    if (filterEl) {
+        filterEl.style.display = (role === 'meter') ? '' : 'none';
+    }
+}
+
 // ── 전체 마커 생성 (주소 기준으로 계기 그룹핑) ──────────────────
 function loadMarkers() {
     const selectedGroups = loadSelectedGroups();
+    const selectedCheckdays = loadSelectedCheckdays();
+    const role = getEffectiveRole();
+    const applyCheckdayFilter = (role === 'meter');
+
     const grouped = {};
     sampleData.forEach(item => {
         if (!selectedGroups.has(item.동그룹)) return;
         if (item.lat == null || item.lng == null) return;
+        // 계기팀 시각에서만 검침일 그룹 필터 적용 (통신팀/admin-comm은 무시)
+        if (applyCheckdayFilter && !selectedCheckdays.has(item.검침일그룹)) return;
         const addr = item.주소;
         if (!grouped[addr]) {
             grouped[addr] = {
