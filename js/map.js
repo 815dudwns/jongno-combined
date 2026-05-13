@@ -44,8 +44,9 @@ function getEffectiveRole() {
     return role;
 }
 
-// 통신팀 마지막 작업 주소 (comm_state=complete 중 가장 최근 comm_updatedAt)
-let commLastAddress = null;
+// 가장 최근 계기팀 완료 주소 — 통신팀 입장 "다음 가야 할 곳" (찐초록)
+// 조건: meter_state='complete' AND comm_state!='complete', meter_updatedAt 최대
+let meterLatestAddress = null;
 
 // ── 지도 초기화 ──────────────────────────────────────────────────
 async function initMap() {
@@ -352,10 +353,8 @@ function decideMarkerStyle(meters, status, session) {
         const partial = (comm_state === 'pending') &&
                         (checkedCount + failedCount > 0) &&
                         (checkedCount + failedCount < total);
-        if (comm_state === 'complete' && status.address === commLastAddress) {
-            colorClass = 'comm-last';
-            labelMain = '✓';
-        } else if (comm_state === 'complete') {
+        if (comm_state === 'complete') {
+            // 통신팀 완료 — 모두 회색 (마지막 표시 없음)
             colorClass = 'comm-done';
             labelMain = '✓';
         } else if (comm_state === 'hold') {
@@ -363,7 +362,8 @@ function decideMarkerStyle(meters, status, session) {
         } else if (comm_state === 'fail') {
             colorClass = 'red';
         } else if (meter_state === 'complete') {
-            colorClass = 'comm-target';   // 초록 (가야 할 곳)
+            // 계기팀이 막 끝낸 곳(가장 최근) = 찐초록, 그 외 계기팀 완료 = 초록
+            colorClass = (status.address === meterLatestAddress) ? 'comm-last' : 'comm-target';
             labelMain = total.toString();
         } else if (partial) {
             // 계기팀이 부분 진행 중 — 통신팀에게도 동선 예측 위해 N/M 표시
@@ -445,16 +445,17 @@ function priLabel(p) {
     return '';
 }
 
-// ── 통신팀 마지막 작업 주소 갱신 ─────────────────────────────────
-function updateCommLastAddress() {
+// ── 계기팀 가장 최근 완료 주소 갱신 (통신팀 화면 찐초록) ──────────
+// meter_state='complete' AND comm_state≠'complete' 중 meter_updatedAt 최대
+function updateMeterLatestAddress() {
     let latest = null, latestTs = 0;
     Object.entries(workStatus).forEach(([addr, st]) => {
-        if (st.comm_state === 'complete' && st.comm_updatedAt) {
-            const ts = new Date(st.comm_updatedAt).getTime();
+        if (st.meter_state === 'complete' && st.comm_state !== 'complete' && st.meter_updatedAt) {
+            const ts = new Date(st.meter_updatedAt).getTime();
             if (ts > latestTs) { latestTs = ts; latest = addr; }
         }
     });
-    commLastAddress = latest;
+    meterLatestAddress = latest;
 }
 
 // ── 단일 마커 생성 및 지도에 추가 ────────────────────────────────
@@ -527,7 +528,7 @@ function updateMarkerColor(address) {
 
 // ── 전체 마커 색상 일괄 갱신 (Firebase 동기화 후 호출) ──────────
 function refreshAllMarkers() {
-    updateCommLastAddress();
+    updateMeterLatestAddress();
     markers.forEach(m => updateMarkerColor(m.address));
 }
 
