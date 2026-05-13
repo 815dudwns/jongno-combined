@@ -34,7 +34,7 @@ async function initMap() {
     const container = document.getElementById('map');
 
     // 마지막 지도 위치/줌 레벨 복원
-    const saved = (() => { try { return JSON.parse(localStorage.getItem('ami_map_view')); } catch { return null; } })();
+    const saved = (() => { try { return JSON.parse(localStorage.getItem('jongno_map_view')); } catch { return null; } })();
     const options = {
         center: new kakao.maps.LatLng(saved ? saved.lat : 37.578, saved ? saved.lng : 126.983),
         level: saved ? saved.level : 4
@@ -44,7 +44,7 @@ async function initMap() {
     // 지도 이동/줌 변경 시 현재 뷰 저장
     kakao.maps.event.addListener(map, 'idle', () => {
         const c = map.getCenter();
-        localStorage.setItem('ami_map_view', JSON.stringify({ lat: c.getLat(), lng: c.getLng(), level: map.getLevel() }));
+        localStorage.setItem('jongno_map_view', JSON.stringify({ lat: c.getLat(), lng: c.getLng(), level: map.getLevel() }));
     });
 
     // 로컬 JSON에서 현장 데이터 로드
@@ -209,6 +209,10 @@ function decideMarkerStyle(meters, status, session) {
             colorClass = 'blue';
         } else if (status.state === 'fail') {
             colorClass = 'red';
+        } else if (partial) {
+            // 계기팀이 부분 진행 중 — 통신팀에게도 동선 예측 위해 N/M 표시
+            colorClass = 'blue';
+            labelMain = `${checkedCount + failedCount}/${total}`;
         } else {
             // 계기팀 미완료 — 검침일 색 + 옅게
             colorClass = checkDayClass(meters);

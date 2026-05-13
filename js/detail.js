@@ -47,7 +47,14 @@ function showDetail(address, meters) {
     const btnFail = document.getElementById('btn-fail');
 
     // 완료 상태면 초기화 버튼으로 전환
-    if (status.state === 'complete') {
+    // comm: 본인(comm_done) 기준, meter: 본인(meter_done) 기준, admin/기타: state 기준
+    const sessionForBtn = authGetSession();
+    const roleForBtn = sessionForBtn ? sessionForBtn.role : '';
+    const myDone = roleForBtn === 'comm'  ? status.comm_done === true
+                 : roleForBtn === 'meter' ? status.meter_done === true
+                 : status.state === 'complete';
+
+    if (myDone) {
         btnComplete.textContent = '🔄 초기화';
         btnComplete.className = 'action-btn reset';
         btnComplete.onclick = () => resetStatus();
@@ -448,7 +455,9 @@ function updateStatus(state) {
                 session ? session.id   : '',
                 session ? session.name : ''
             );
-            updateMarkerColor(currentAddress);
+            // commLastAddress 갱신을 포함한 전체 마커 갱신
+            if (typeof refreshAllMarkers === 'function') refreshAllMarkers();
+            else updateMarkerColor(currentAddress);
             return;
         }
     }
@@ -461,7 +470,9 @@ function updateStatus(state) {
         session ? session.name : '',
         role
     );
-    updateMarkerColor(currentAddress);
+    // commLastAddress 갱신을 포함한 전체 마커 갱신 (찐초록 즉시 반영)
+    if (typeof refreshAllMarkers === 'function') refreshAllMarkers();
+    else updateMarkerColor(currentAddress);
 }
 
 // 주소의 작업 상태 초기화 (pending으로 되돌리기) — 체크박스는 유지
@@ -477,7 +488,8 @@ function resetStatus() {
         session ? session.role : ''
     );
 
-    updateMarkerColor(currentAddress);
+    if (typeof refreshAllMarkers === 'function') refreshAllMarkers();
+    else updateMarkerColor(currentAddress);
     showDetail(currentAddress, currentMeters);
 }
 
