@@ -101,9 +101,12 @@
     font-weight: 600;
     cursor: pointer;
 }
+/* 동그룹 패널 — 토글 옆(오른쪽)으로 펼침 (검침일 토글 안 가리게) */
 .dong-group-panel {
     display: none;
-    margin-top: 6px;
+    position: absolute;
+    top: 0;
+    left: calc(100% + 6px);
     background: white;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -111,6 +114,7 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     max-height: 50vh;
     overflow-y: auto;
+    white-space: nowrap;
 }
 .dong-group-panel.open { display: block; }
 .dong-group-panel label {
