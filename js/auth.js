@@ -1,23 +1,13 @@
 // auth.js — 인증 관련 로직 (하드코딩 계정)
 
-// 계정 목록
+// 계정 목록 (종로 합동시공 전용: 관리자 1 + 계기팀 + 통신팀)
 const ACCOUNTS = [
     { id: 'admin',  pw: '8414', name: '우영준', role: 'admin' },
-    { id: 'user01', pw: '1111', name: '김민성', role: 'user' },
-    { id: 'user02', pw: '1111', name: '이영길', role: 'user' },
-    { id: 'user03', pw: '1111', name: '김상권', role: 'user' },
-    { id: 'user04', pw: '1111', name: '김지호', role: 'user' },
-    { id: 'user05', pw: '1111', name: '장성훈', role: 'user' },
-    { id: 'user06', pw: '1111', name: '조은규', role: 'user' },
-    { id: 'user07', pw: '1111', name: '장진교', role: 'user' },
-    { id: 'user08', pw: '1111', name: '이규재', role: 'user' },
-    { id: 'user09', pw: '1111', name: '윤용운', role: 'user' },
-    { id: 'user10', pw: '1111', name: '이종우', role: 'user' },
-    { id: 'user11', pw: '1111', name: '최창호', role: 'user' },
-    { id: 'user12', pw: '1111', name: '우희근', role: 'user' },
+    { id: 'meter1', pw: '1111', name: '계기팀', role: 'meter' },
+    { id: 'comm1',  pw: '1111', name: '통신팀', role: 'comm'  },
 ];
 
-const AUTH_KEY = 'ami_auth';
+const AUTH_KEY = 'jongno_auth';
 
 /**
  * 로그인 시도

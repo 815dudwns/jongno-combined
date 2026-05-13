@@ -77,6 +77,15 @@ async function flushEventQueue() {
         updates[`${p}/updatedAt`]     = new Date(ev.ts).toISOString();
         updates[`${p}/updatedBy`]     = ev.updatedBy || '';
         updates[`${p}/updatedByName`] = ev.updatedByName || '';
+        // 역할별 완료 플래그 Firebase 업데이트
+        if (ev.role === 'meter') {
+            updates[`${p}/meter_done`] = (ev.state === 'complete');
+        } else if (ev.role === 'comm') {
+            updates[`${p}/comm_done`] = (ev.state === 'complete');
+        } else if (ev.role === 'both') {
+            updates[`${p}/meter_done`] = true;
+            updates[`${p}/comm_done`]  = true;
+        }
     });
 
     Object.values(checkMap).forEach(ev => {
@@ -101,7 +110,7 @@ function initFirebaseApp() {
             ? firebase.app()
             : firebase.initializeApp(firebaseConfig);
         db = firebase.database(app);
-        statusRef = db.ref('workStatus/charger4eleccar');
+        statusRef = db.ref('workStatus/jongno');
         console.log('[Firebase] 초기화 완료');
         return true;
     } catch (e) {
@@ -143,15 +152,25 @@ function applyLocalChecked() {
 // ── 이벤트 기반 상태 변경 함수 ────────────────────────────────
 
 // 상태 변경 (완료/보류/불가/초기화)
-function saveStateEvent(address, state, reason, updatedBy, updatedByName) {
+// role: 'admin' | 'meter' | 'comm' | '' — 역할별 완료 플래그(meter_done/comm_done) 갱신에 사용
+function saveStateEvent(address, state, reason, updatedBy, updatedByName, role) {
     if (!workStatus[address]) {
-        workStatus[address] = { state: 'pending', checkedMeters: [], reason: '' };
+        workStatus[address] = {
+            state: 'pending', checkedMeters: [], reason: '',
+            meter_done: false, comm_done: false
+        };
     }
     workStatus[address].state         = state;
     workStatus[address].reason        = reason || '';
     workStatus[address].updatedAt     = new Date().toISOString();
     workStatus[address].updatedBy     = updatedBy || '';
     workStatus[address].updatedByName = updatedByName || '';
+    // 역할별 완료 플래그 갱신
+    if (role === 'meter') {
+        workStatus[address].meter_done = (state === 'complete');
+    } else if (role === 'comm') {
+        workStatus[address].comm_done = (state === 'complete');
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
 
     addEvent({
@@ -161,6 +180,36 @@ function saveStateEvent(address, state, reason, updatedBy, updatedByName) {
         reason,
         updatedBy,
         updatedByName,
+        role,
+        ts: Date.now(),
+    });
+}
+
+// 통신팀이 계기팀 미완료 상태에서 완료 누른 경우 — 양쪽 다 완료 처리
+function saveBothCompleteEvent(address, updatedBy, updatedByName) {
+    if (!workStatus[address]) {
+        workStatus[address] = {
+            state: 'pending', checkedMeters: [], reason: '',
+            meter_done: false, comm_done: false
+        };
+    }
+    workStatus[address].state         = 'complete';
+    workStatus[address].reason        = '';
+    workStatus[address].updatedAt     = new Date().toISOString();
+    workStatus[address].updatedBy     = updatedBy || '';
+    workStatus[address].updatedByName = updatedByName || '';
+    workStatus[address].meter_done    = true;
+    workStatus[address].comm_done     = true;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+
+    addEvent({
+        address,
+        type: 'state',
+        state: 'complete',
+        reason: '',
+        updatedBy,
+        updatedByName,
+        role: 'both',          // ← 양쪽 다 갱신 표시
         ts: Date.now(),
     });
 }
@@ -217,7 +266,9 @@ function buildWorkStatusFromFirebase(data) {
             updatedBy:     val.updatedBy     || '',
             updatedByName: val.updatedByName || '',
             checkedMeters,
-            meterChecks,  // 원본 보관 (ts 비교용)
+            meterChecks,        // 원본 보관 (ts 비교용)
+            meter_done:    val.meter_done === true,
+            comm_done:     val.comm_done  === true,
         };
     });
     return result;
@@ -275,9 +326,9 @@ async function initFirebase() {
         workStatus = local;
         console.log('[Local] localStorage에서 로드 완료, 주소수:', Object.keys(workStatus).length);
     } else {
-        // 2순위: data/work-status.json
+        // 2순위: data/jongno-work-status.json
         try {
-            const res = await fetch('./data/work-status.json');
+            const res = await fetch('./data/jongno-work-status.json');
             if (!res.ok) throw new Error('fetch 실패: ' + res.status);
             const data = await res.json();
             workStatus = data;
@@ -296,24 +347,24 @@ async function initFirebase() {
         await syncFromFirebase();
         applyLocalChecked();
 
-        // 30초 간격으로 Firebase 동기화 + 큐 재시도
+        // 실시간 리스너 — Firebase 변경 즉시 반영 (30초 polling 대신)
+        statusRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                mergeFirebaseData(data);
+                if (typeof refreshAllMarkers === 'function') refreshAllMarkers();
+            }
+        });
+
+        // 10초 간격 큐 재시도 (오프라인 → 온라인 복귀 시 미전송 이벤트 처리)
         setInterval(async () => {
             await flushEventQueue();
-            await syncFromFirebase();
-            if (typeof refreshAllMarkers === 'function') {
-                refreshAllMarkers();
-            }
-        }, 30000);
+        }, 10000);
 
-        // 창/탭이 다시 활성화될 때 즉시 동기화
+        // 창/탭이 다시 활성화될 때 미전송 큐 플러시
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
-                console.log('[Sync] 창 활성화 — Firebase 동기화 시작');
                 await flushEventQueue();
-                await syncFromFirebase();
-                if (typeof refreshAllMarkers === 'function') {
-                    refreshAllMarkers();
-                }
             }
         });
     }

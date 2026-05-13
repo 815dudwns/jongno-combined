@@ -15,3 +15,83 @@
 .marker-number { position: absolute; top: 3px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: bold; color: white; line-height: 1; pointer-events: none; }
 .custom-marker.green .marker-number,
 .custom-marker.yellow .marker-number { color: #1f2937; }
+
+/* 검침일 그룹 6색 (채도 낮춤 = 상태 마커와 시각 위계 분리) */
+.custom-marker.day-g1 .pin-body { fill: #f5cbb1; }   /* 살구 */
+.custom-marker.day-g2 .pin-body { fill: #f5e4b1; }   /* 베이지/연노랑 */
+.custom-marker.day-g3 .pin-body { fill: #b5dfc7; }   /* 민트 */
+.custom-marker.day-g4 .pin-body { fill: #b3d4d6; }   /* 연 청록 */
+.custom-marker.day-g5 .pin-body { fill: #d0c0dc; }   /* 라벤더 */
+.custom-marker.day-g6 .pin-body { fill: #d9b8c5; }   /* 더스티 핑크 */
+
+/* 검침일 그룹 마커 - 흰 원 표시 (pending 계기팀 마커) */
+.custom-marker.day-g1 .pin-circle,
+.custom-marker.day-g2 .pin-circle,
+.custom-marker.day-g3 .pin-circle,
+.custom-marker.day-g4 .pin-circle,
+.custom-marker.day-g5 .pin-circle,
+.custom-marker.day-g6 .pin-circle { display: block; }
+
+/* 검침일 그룹 마커 숫자 색 (밝은 배경 → 어두운 텍스트) */
+.custom-marker.day-g1 .marker-number,
+.custom-marker.day-g2 .marker-number,
+.custom-marker.day-g3 .marker-number,
+.custom-marker.day-g4 .marker-number,
+.custom-marker.day-g5 .marker-number,
+.custom-marker.day-g6 .marker-number { color: #1f2937; }
+
+/* 우선순위 색 (채도 낮춤) */
+.custom-marker.pri-1 .pin-body { fill: #e8b8b8; }
+.custom-marker.pri-2 .pin-body { fill: #e8d3b8; }
+.custom-marker.pri-3 .pin-body { fill: #d6cfa0; }
+.custom-marker.pri-4 .pin-body { fill: #bfd5a8; }
+.custom-marker.pri-past .pin-body { fill: #b0b0b0; }  /* 과년도 */
+
+/* 우선순위 마커 - 흰 원 표시 (pending 계기팀 마커) */
+.custom-marker.pri-1 .pin-circle,
+.custom-marker.pri-2 .pin-circle,
+.custom-marker.pri-3 .pin-circle,
+.custom-marker.pri-4 .pin-circle,
+.custom-marker.pri-past .pin-circle { display: block; }
+
+/* 우선순위 마커 숫자 색 */
+.custom-marker.pri-1 .marker-number,
+.custom-marker.pri-2 .marker-number,
+.custom-marker.pri-3 .marker-number,
+.custom-marker.pri-4 .marker-number,
+.custom-marker.pri-past .marker-number { color: #1f2937; }
+
+/* 통신팀 화면 — 계기팀 완료된 곳 (가야 할 곳) */
+.custom-marker.comm-target .pin-body { fill: #4caf50; }       /* 초록 */
+.custom-marker.comm-last .pin-body { fill: #1b5e20; }         /* 찐초록 (마지막 작업) */
+.custom-marker.comm-done .pin-body { fill: #9e9e9e; }         /* 회색 */
+
+/* 통신팀 화면에서 계기팀 pending — 채도 더 옅게 */
+.custom-marker.comm-bg { opacity: 0.45; }
+
+/* 부분완료 라벨 (3/4 식) */
+.marker-fraction {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    line-height: 1;
+    color: white;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+/* 밝은 배경 마커에서 fraction 텍스트 색 */
+.custom-marker.day-g1 .marker-fraction,
+.custom-marker.day-g2 .marker-fraction,
+.custom-marker.day-g3 .marker-fraction,
+.custom-marker.day-g4 .marker-fraction,
+.custom-marker.day-g5 .marker-fraction,
+.custom-marker.day-g6 .marker-fraction,
+.custom-marker.pri-1 .marker-fraction,
+.custom-marker.pri-2 .marker-fraction,
+.custom-marker.pri-3 .marker-fraction,
+.custom-marker.pri-4 .marker-fraction,
+.custom-marker.pri-past .marker-fraction,
+.custom-marker.yellow .marker-fraction { color: #1f2937; }

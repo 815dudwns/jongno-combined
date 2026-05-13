@@ -98,7 +98,8 @@ function showDetail(address, meters) {
                 state,
                 failInput.value.trim(),
                 session ? session.id   : '',
-                session ? session.name : ''
+                session ? session.name : '',
+                session ? session.role : ''   // 역할별 완료 플래그 갱신용
             );
         }
     };
@@ -433,13 +434,32 @@ function closeDetail() {
 // 주소의 작업 상태 업데이트 후 마커 색상 갱신
 function updateStatus(state) {
     const session = authGetSession();
+    const role = session ? session.role : '';
     const reason = (document.getElementById('fail-reason')?.value || '').trim();
+
+    // 통신팀이 완료를 누르는데 계기팀 미완료인 경우 → 확인 다이얼로그
+    if (role === 'comm' && state === 'complete') {
+        const cur = workStatus[currentAddress];
+        if (!cur || cur.meter_done !== true) {
+            const ok = confirm('계기팀 작업이 완료된 것 확인되었나요?\n확인하면 계기팀·통신팀 둘 다 완료 처리됩니다.');
+            if (!ok) return;
+            saveBothCompleteEvent(
+                currentAddress,
+                session ? session.id   : '',
+                session ? session.name : ''
+            );
+            updateMarkerColor(currentAddress);
+            return;
+        }
+    }
+
     saveStateEvent(
         currentAddress,
         state,
         state === 'fail' ? reason : '',
         session ? session.id   : '',
-        session ? session.name : ''
+        session ? session.name : '',
+        role
     );
     updateMarkerColor(currentAddress);
 }
@@ -447,9 +467,15 @@ function updateStatus(state) {
 // 주소의 작업 상태 초기화 (pending으로 되돌리기) — 체크박스는 유지
 function resetStatus() {
     if (!workStatus[currentAddress]) return;
+    const session = authGetSession();
 
-    // state만 pending으로 (체크박스/불가 유지)
-    saveStateEvent(currentAddress, 'pending', '', '', '');
+    // state만 pending으로 (체크박스/불가 유지), 역할 플래그도 함께 초기화
+    saveStateEvent(
+        currentAddress, 'pending', '',
+        session ? session.id   : '',
+        session ? session.name : '',
+        session ? session.role : ''
+    );
 
     updateMarkerColor(currentAddress);
     showDetail(currentAddress, currentMeters);

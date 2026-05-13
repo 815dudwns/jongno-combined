@@ -83,6 +83,72 @@
 .meter-fail-input { width: 100%; padding: 5px 8px; font-size: 12px; border: 1.5px solid #fca5a5; border-radius: 6px; background: white; color: #374151; box-sizing: border-box; outline: none; }
 .meter-fail-input:focus { border-color: #ef4444; }
 
+/* 동그룹 필터 패널 */
+.dong-group-filter {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+}
+.dong-group-toggle {
+    padding: 8px 14px;
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.dong-group-panel {
+    display: none;
+    margin-top: 6px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    max-height: 50vh;
+    overflow-y: auto;
+}
+.dong-group-panel.open { display: block; }
+.dong-group-panel label {
+    display: flex;
+    align-items: center;
+    padding: 6px 4px;
+    font-size: 13px;
+    cursor: pointer;
+    gap: 8px;
+}
+.dong-group-panel input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+}
+
+/* 마커 모드 토글 (admin 전용) */
+.marker-mode-toggle {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+    background: white;
+    border-radius: 8px;
+    padding: 2px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.marker-mode-toggle button {
+    padding: 6px 10px;
+    font-size: 12px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 6px;
+}
+.marker-mode-toggle button.active {
+    background: #1e3a8a;
+    color: white;
+}
+
 /* 중복 행 배경색 — 20° 간격 hsl, 그룹별 구분 */
 .meter-item { border: 1px solid #e5e7eb; background: #fff; }
 .dup-row-0 { background: hsl(0,   100%, 96%); border-color: hsl(0,   80%, 88%); }

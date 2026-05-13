@@ -17,11 +17,19 @@
     <div id="toast" class="toast">복사했습니다</div>
     <button class="loc-btn" id="loc-btn" onclick="toggleLocation()">◎</button>
 
-    <!-- 지사 필터 드롭다운 -->
-    <div class="jisa-filter">
-        <select id="jisa-select" onchange="onJisaChange()">
-            <option value="">전체 지사</option>
-        </select>
+    <!-- 동그룹 필터 -->
+    <div class="dong-group-filter">
+        <button class="dong-group-toggle" id="dong-group-toggle">동그룹 ▾</button>
+        <div class="dong-group-panel" id="dong-group-panel">
+            <!-- 체크박스 8개. JS에서 동적으로 생성 -->
+        </div>
+    </div>
+
+    <!-- 마커 모드 토글 (admin 전용) -->
+    <div class="marker-mode-toggle" id="marker-mode-toggle" style="display:none;">
+        <button data-mode="checkday" class="active">검침일</button>
+        <button data-mode="priority">우선순위</button>
+        <button data-mode="both">둘다</button>
     </div>
 
     <!-- 사용자 정보 + 로그아웃 버튼 -->
