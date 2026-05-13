@@ -69,29 +69,20 @@
 /* 통신팀 화면에서 계기팀 pending — 채도 더 옅게 */
 .custom-marker.comm-bg { opacity: 0.45; }
 
-/* 부분완료 라벨 (3/4 식) */
+/* 보조 라벨 (D17 검침일, 우선순위 등) — 핀 위로 말풍선처럼 */
 .marker-fraction {
     position: absolute;
-    bottom: 6px;
+    top: -11px;
     left: 50%;
     transform: translateX(-50%);
     font-size: 9px;
     line-height: 1;
-    color: white;
+    color: #1f2937;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 3px;
+    padding: 2px 4px;
     pointer-events: none;
     white-space: nowrap;
+    font-weight: 700;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
-
-/* 밝은 배경 마커에서 fraction 텍스트 색 */
-.custom-marker.day-g1 .marker-fraction,
-.custom-marker.day-g2 .marker-fraction,
-.custom-marker.day-g3 .marker-fraction,
-.custom-marker.day-g4 .marker-fraction,
-.custom-marker.day-g5 .marker-fraction,
-.custom-marker.day-g6 .marker-fraction,
-.custom-marker.pri-1 .marker-fraction,
-.custom-marker.pri-2 .marker-fraction,
-.custom-marker.pri-3 .marker-fraction,
-.custom-marker.pri-4 .marker-fraction,
-.custom-marker.pri-past .marker-fraction,
-.custom-marker.yellow .marker-fraction { color: #1f2937; }
