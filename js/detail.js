@@ -318,7 +318,8 @@ function renderMetersList() {
                 ? `<span>${pvMain}</span><span class="seg-dup">${pv.slice(-2)}</span>`
                 : `<span>${pv}</span>`;
             const pCopyBtn = `<button class="copy-btn pole-copy-btn" data-copy="${pvMain}" title="변대주 복사" style="margin-left:3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
-            detailParts.push(`변대주 ${pHtml}${pCopyBtn}`);
+            const labelHtml = meter.변대주라벨 ? ` <span style="opacity:0.7;">(${meter.변대주라벨})</span>` : '';
+            detailParts.push(`변대주 ${pHtml}${pCopyBtn}${labelHtml}`);
         }
         if (meter.상호 && meter.상호 !== '0') detailParts.push(`상호 ${meter.상호}`);
         const details = detailParts.join(', ');
@@ -350,6 +351,23 @@ function renderMetersList() {
                </div>`
             : '';
 
+        // 불가 버튼 옆에 작은 글씨로 표시할 보조 정보 (계기 별 메타)
+        const extraParts = [];
+        if (meter.순위)          extraParts.push(`순위 ${meter.순위}`);
+        if (meter.고객번호)      extraParts.push(`고객 ${meter.고객번호}`);
+        if (meter.고객명)        extraParts.push(meter.고객명);
+        if (meter.검침일)        extraParts.push(`D${meter.검침일}`);
+        if (meter.휴대폰)        extraParts.push(meter.휴대폰);
+        if (meter.계기위치)      extraParts.push(meter.계기위치);
+        if (meter.인입주번호)    extraParts.push(`인입주 ${meter.인입주번호}`);
+        else if (meter.인입주전산화) extraParts.push(`인입주 ${meter.인입주전산화}`);
+        if (meter.검침방법)      extraParts.push(meter.검침방법);
+        if (meter.검침원)        extraParts.push(`검침원 ${meter.검침원}`);
+        if (meter.검침원연락처)  extraParts.push(meter.검침원연락처);
+        const meterMetaHtml = extraParts.length
+            ? `<div class="meter-meta">${extraParts.join(' · ')}</div>`
+            : '';
+
         // 불가 처리된 계기는 취소선 클래스 추가
         const itemClass = isFailed
             ? `meter-item ${rowClass(s2)} meter-item-failed`
@@ -363,6 +381,7 @@ function renderMetersList() {
                     <span class="meter-type">${parsedType}</span>
                     ${noHtml}${copyBtn}
                     <button class="${failBtnClass}" data-meter="${meter.계기번호}">${failBtnLabel}</button>
+                    ${meterMetaHtml}
                     ${details ? `<div class="meter-details">${details}</div>` : ''}
                     ${failInputHtml}
                 </div>
