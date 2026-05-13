@@ -1,22 +1,14 @@
 // config.js — Firebase 설정값 및 상수
 
-// TODO: 새 Firebase 프로젝트 config 입력
-// 기존 ami-work-1c49a 참고:
-//   apiKey: "AIzaSyAqVaYGYLjT4qa8nQToYlSqnqtlgoFauWU"
-//   authDomain: "ami-work-1c49a.firebaseapp.com"
-//   databaseURL: "https://ami-work-1c49a-default-rtdb.asia-southeast1.firebasedatabase.app"
-//   projectId: "ami-work-1c49a"
-//   storageBucket: "ami-work-1c49a.firebasestorage.app"
-//   messagingSenderId: "734048538037"
-//   appId: "1:734048538037:web:5514cb0a78ea03a4571dfc"
+// ami-jongno (종로 합동시공 전용 Firebase 프로젝트)
 const firebaseConfig = {
-    apiKey: "",
-    authDomain: "",
-    databaseURL: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: ""
+    apiKey: "AIzaSyAQae8iqfvkYgFxoSZNaLuCca3ldA4koUU",
+    authDomain: "ami-jongno.firebaseapp.com",
+    databaseURL: "https://ami-jongno-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "ami-jongno",
+    storageBucket: "ami-jongno.firebasestorage.app",
+    messagingSenderId: "393038393348",
+    appId: "1:393038393348:web:1e0bfa92164554c3d24551"
 };
 
 const STORAGE_KEY = 'jongno_work_status';
