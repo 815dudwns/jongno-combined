@@ -129,7 +129,8 @@ function showDetail(address, meters) {
     const commonPoleEl = document.getElementById('common-pole');
     if (allSamePole && meters[0].변대주 && meters[0].변대주 !== '0') {
         const poleText = meters[0].변대주;
-        const isDcuId = /[A-Za-z]/.test(poleText);
+        // DCUID 필드 유무로 강조 분기 (변대주만이면 강조 X, DCU 형태면 끝 2자리=차수+번호 강조)
+        const isDcuId = !!meters[0].DCUID;
         const poleMain = isDcuId ? poleText.slice(0, -2) : poleText;
         const poleHtml = isDcuId
             ? `<span>${poleMain}</span><span class="seg-dup">${poleText.slice(-2)}</span>`
@@ -312,7 +313,8 @@ function renderMetersList() {
         // 변대주가 있고 공통 표시 영역에 없는 경우만 개별 표시 (복사 버튼 포함)
         if (!allSamePole && meter.변대주 && meter.변대주 !== '0') {
             const pv = meter.변대주;
-            const pvIsDcu = /[A-Za-z]/.test(pv);
+            // DCUID 필드가 있으면 (= 변대주+차수 형태) 끝 2자리 강조. 없으면 변대주만이라 강조 X
+            const pvIsDcu = !!meter.DCUID;
             const pvMain = pvIsDcu ? pv.slice(0, -2) : pv;
             const pHtml = pvIsDcu
                 ? `<span>${pvMain}</span><span class="seg-dup">${pv.slice(-2)}</span>`
