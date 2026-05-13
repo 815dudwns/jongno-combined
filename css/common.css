@@ -1,0 +1,25 @@
+/* common.css — 공통/기본 스타일 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', sans-serif; overflow: hidden; }
+#map { width: 100%; height: 100vh; }
+
+.toast { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: rgba(17,24,39,0.85); color: white; padding: 8px 18px; border-radius: 20px; font-size: 13px; pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 9999; white-space: nowrap; }
+.toast.show { opacity: 1; }
+
+.loc-btn { position: fixed; bottom: 16px; right: 16px; z-index: 500; width: 40px; height: 40px; border-radius: 50%; border: none; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+.loc-btn.active { background: #3b82f6; color: white; }
+
+/* 사용자 정보 + 로그아웃 바 — 지도 우상단에 반투명으로 표시 */
+.user-bar { position: fixed; top: 10px; right: 10px; z-index: 500; display: flex; align-items: center; gap: 6px; background: rgba(17,24,39,0.55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); color: rgba(255,255,255,0.9); padding: 5px 10px; border-radius: 20px; font-size: 12px; line-height: 1; }
+.user-bar .user-name { font-weight: 500; letter-spacing: 0.01em; }
+.user-bar .user-divider { opacity: 0.45; }
+.user-bar .logout-btn { background: none; border: none; color: rgba(255,255,255,0.75); font-size: 12px; cursor: pointer; padding: 0; line-height: 1; }
+.user-bar .logout-btn:hover { color: #fff; text-decoration: underline; }
+/* 모바일: 터치 영역 확보 */
+@media (max-width: 640px) { .user-bar { top: 8px; right: 8px; padding: 6px 12px; font-size: 13px; } .user-bar .logout-btn { font-size: 13px; min-height: 28px; } }
+
+/* 지사 필터 드롭다운 — 지도 좌상단 */
+.jisa-filter { position: fixed; top: 10px; left: 10px; z-index: 500; }
+.jisa-filter select { background: rgba(17,24,39,0.85); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); color: #fff; border: none; padding: 7px 28px 7px 12px; border-radius: 20px; font-size: 13px; font-family: inherit; cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='white' d='M0 0l5 6 5-6z'/></svg>"); background-repeat: no-repeat; background-position: right 10px center; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+.jisa-filter select:focus { outline: 2px solid #3b82f6; }
+@media (max-width: 640px) { .jisa-filter { top: 8px; left: 8px; } .jisa-filter select { font-size: 14px; padding: 8px 30px 8px 14px; } }

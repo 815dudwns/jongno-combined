@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMI 작업지도</title>
+</head>
+<body>
+    <!-- 로그인 여부에 따라 login.html 또는 map.html로 분기 -->
+    <script src="js/auth.js"></script>
+    <script>
+        if (authGetSession()) {
+            window.location.replace('map.html');
+        } else {
+            window.location.replace('login.html');
+        }
+    </script>
+</body>
+</html>

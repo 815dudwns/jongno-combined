@@ -1,0 +1,17 @@
+/* marker.css — 마커 관련 스타일 */
+.custom-marker { position: relative; width: 20px; height: 26px; cursor: pointer; font-size: 0; /* 부모 font-size 상속 차단, 자식에서 명시적 지정 */ }
+.custom-marker svg { width: 100%; height: 100%; }
+.custom-marker.green  .pin-body { fill: #10b981; }
+.custom-marker.gray   .pin-body { fill: #4b5563; }
+.custom-marker.blue   .pin-body { fill: #3b82f6; }
+.custom-marker.red    .pin-body { fill: #ef4444; }
+.custom-marker.yellow .pin-body { fill: #f59e0b; }
+
+/* 리스트1(미완·폴백): 흰 원 표시 / 리스트2(완료·보류·불가): 꽉찬 핀 */
+.pin-circle { display: none; }
+.custom-marker.green .pin-circle,
+.custom-marker.yellow .pin-circle { display: block; }
+
+.marker-number { position: absolute; top: 3px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: bold; color: white; line-height: 1; pointer-events: none; }
+.custom-marker.green .marker-number,
+.custom-marker.yellow .marker-number { color: #1f2937; }

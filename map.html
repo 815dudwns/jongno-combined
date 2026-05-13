@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AMI 작업 지도</title>
+    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=2eae4b699110525f0dc62295ed8ed43d&autoload=false"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/marker.css">
+    <link rel="stylesheet" href="css/panel.css">
+</head>
+<body>
+    <div id="map"></div>
+
+    <div id="toast" class="toast">복사했습니다</div>
+    <button class="loc-btn" id="loc-btn" onclick="toggleLocation()">◎</button>
+
+    <!-- 지사 필터 드롭다운 -->
+    <div class="jisa-filter">
+        <select id="jisa-select" onchange="onJisaChange()">
+            <option value="">전체 지사</option>
+        </select>
+    </div>
+
+    <!-- 사용자 정보 + 로그아웃 버튼 -->
+    <div class="user-bar" id="user-bar">
+        <span class="user-name" id="user-name-display"></span>
+        <span class="user-divider">|</span>
+        <a id="admin-btn" href="admin.html" style="display:none;color:rgba(255,255,255,0.85);font-size:12px;text-decoration:none;font-weight:600;">관리자</a>
+        <span id="admin-divider" style="display:none;opacity:0.45;font-size:12px;">|</span>
+        <button class="logout-btn" onclick="authLogout()">로그아웃</button>
+    </div>
+
+    <div id="fullpage-overlay" class="fullpage-overlay">
+        <!-- 상태 색상 바 (기능 3): pending이면 투명, 나머지는 상태별 색상 -->
+        <div id="status-bar" class="status-bar"></div>
+        <div class="overlay-header">
+            <div class="overlay-address">
+                <h3 id="detail-address"></h3>
+                <p id="detail-road-address"></p>
+            </div>
+            <div class="header-buttons">
+                <div class="map-app-btns">
+                    <button class="map-app-btn" id="tmap-btn">티맵</button>
+                    <button class="map-app-btn" id="naver-btn">네이버</button>
+                    <button class="map-app-btn" id="kakao-btn">카카오</button>
+                </div>
+                <button class="close-btn" onclick="closeDetail()">×</button>
+            </div>
+        </div>
+        <!-- 작업자 정보 (기능 4): 지도앱 버튼 아래, pending이거나 정보 없으면 숨김 -->
+        <div id="worker-info" class="worker-info" style="display:none;"></div>
+        <div class="overlay-actions">
+            <div class="action-btn-row">
+                <button class="action-btn complete" id="btn-complete">✅ 완료</button>
+                <button class="action-btn hold" id="btn-hold">⏸️ 보류</button>
+                <button class="action-btn fail" id="btn-fail">❌ 불가</button>
+                <a id="admin-upload-btn" href="admin.html" style="display:none;padding:10px 12px;background:#1e3a8a;color:white;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">사진등록</a>
+            </div>
+            <div class="fail-reason-row">
+                <input type="text" class="fail-reason" id="fail-reason" placeholder="불가 사유">
+            </div>
+            <div class="search-row">
+                <input type="text" inputmode="numeric" class="meter-search" id="meter-search" placeholder="계기 검색 (숫자 2자리 이상)">
+                <button class="search-reset-btn" id="meter-search-reset" onclick="document.getElementById('meter-search').value='';renderMetersList();">✕</button>
+            </div>
+        </div>
+        <div id="common-pole" class="common-pole" style="display:none;"></div>
+        <!-- 계기 리스트 정렬 버튼 바 -->
+        <div class="meter-sort-bar" id="meter-sort-bar">
+            <button class="sort-btn" id="sort-btn-dup" onclick="toggleSort('dup')">중복 정렬</button>
+            <button class="sort-btn" id="sort-btn-maker" onclick="toggleSort('maker')">제조사 정렬</button>
+        </div>
+        <div class="overlay-meters" id="meters-list"></div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        // 로그인 체크 — 미인증이면 login.html로 이동
+        authRequire();
+
+        // 사용자 이름 표시 + 어드민 버튼
+        (function () {
+            const session = authGetSession();
+            if (session) {
+                document.getElementById('user-name-display').textContent = session.name;
+                if (session.role === 'admin') {
+                    document.getElementById('admin-btn').style.display = '';
+                    document.getElementById('admin-divider').style.display = '';
+                    document.getElementById('admin-upload-btn').style.display = '';
+                }
+            }
+        })();
+    </script>
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/firebase.js"></script>
+    <script src="js/detail.js"></script>
+    <script src="js/map.js"></script>
+</body>
+</html>

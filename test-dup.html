@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중복 계기번호 테스트</title>
+    <link rel="stylesheet" href="css/panel.css">
+    <style>
+        /* test-dup.html 전용 스타일 */
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 16px; background: #f9fafb; }
+        h2 { margin-bottom: 12px; color: #111; }
+        .stat { margin-bottom: 16px; font-size: 13px; color: #6b7280; line-height: 1.8; }
+        .stat strong { color: #111827; }
+        .stat-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+        .stat-badge.total  { background: #e5e7eb; color: #374151; }
+        .stat-badge.groups { background: #dbeafe; color: #1d4ed8; }
+        .stat-badge.dups   { background: #fee2e2; color: #b91c1c; }
+    </style>
+</head>
+<body>
+    <h2>중복 계기번호 테스트 (100개)</h2>
+    <div class="stat" id="stat"></div>
+    <div id="meters-list" class="overlay-meters" style="padding:0;background:transparent;overflow:visible;flex:none;"></div>
+
+    <script>
+    // ---------------------------------------------------------------
+    // parseType: 계기번호 2~4자리 타입코드 → 타입명 변환
+    // ---------------------------------------------------------------
+    function parseType(meterNo) {
+        const code = meterNo.substring(2, 4);
+        if (code === '17') return 'E';
+        if (code === '19') return 'EA';
+        if (['25','26','27','45','46','47'].includes(code)) return 'G';
+        if (code === '53' || code === '55') return 'Amigo';
+        return '?';
+    }
+
+    // ---------------------------------------------------------------
+    // 100개 계기 데이터 생성
+    //   계기번호 11자리: [메이커2][타입2][시리얼5][485주소2]
+    //   485주소(뒷2자리) 분포: 5~10개 그룹이 중복되도록 설계
+    // ---------------------------------------------------------------
+    (function () {
+        const MAKERS = ['35', '47', '68'];
+        const TYPES  = ['17', '19', '25', '53'];
+
+        // 100개 중 5~10개 그룹 중복이 나타나도록 485주소 풀 설계
+        // 일부 주소는 자주 등장하고, 나머지는 드물게 등장
+        // 01~20 범위에서 가중치 적용:
+        //   01~10: 각 1회만 (유니크)
+        //   11~18: 각 5~7회 (중복 그룹)
+        //   19~20: 각 4~3회 (중복 그룹)
+        // 합계 = 10*1 + (5+6+7+5+6+7+5+6) + (4+3) = 10 + 47 + 7 = 64... 조정
+
+        // 더 단순하게: 100개를 위한 485주소 배열을 직접 구성
+        // 그룹 8개 × 8개 = 64개 중복, 나머지 36개 유니크
+        const addrPool = [];
+
+        // 중복 그룹 8개 (11~18), 각 8개씩 = 64개
+        for (let g = 11; g <= 18; g++) {
+            const addr = String(g).padStart(2, '0');
+            for (let i = 0; i < 8; i++) addrPool.push(addr);
+        }
+        // 유니크 36개 (19~54 범위로 가상, 단 형식은 01~99)
+        // 실제 485주소는 01~20이나 테스트용으로 21~56 범위 사용
+        for (let g = 19; g <= 54; g++) {
+            addrPool.push(String(g).padStart(2, '0'));
+        }
+
+        // shuffle (Fisher-Yates) — 순서 섞기
+        for (let i = addrPool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [addrPool[i], addrPool[j]] = [addrPool[j], addrPool[i]];
+        }
+
+        // 계기 100개 생성
+        const meters = [];
+        for (let i = 0; i < 100; i++) {
+            const maker  = MAKERS[i % MAKERS.length];
+            const type   = TYPES[Math.floor(i / MAKERS.length) % TYPES.length];
+            const serial = String(i + 1).padStart(5, '0');
+            const addr   = addrPool[i];
+            meters.push({ 계기번호: maker + type + serial + addr });
+        }
+
+        // ---------------------------------------------------------------
+        // 중복 감지 (detail.js 동일 로직)
+        // ---------------------------------------------------------------
+        const suffix2Map = {};
+        meters.forEach(m => {
+            const s = m.계기번호.slice(-2);
+            if (!suffix2Map[s]) suffix2Map[s] = [];
+            suffix2Map[s].push(m.계기번호);
+        });
+
+        // suffix → 그룹 인덱스 (0-based)
+        const dupGroupIndex = {};
+        let gIdx = 0;
+        Object.entries(suffix2Map).forEach(([s, nos]) => {
+            if (nos.length > 1) dupGroupIndex[s] = gIdx++;
+        });
+
+        // 그룹 인덱스 → CSS 클래스
+        function rowClass(s2) {
+            if (dupGroupIndex[s2] === undefined) return '';
+            return `dup-row-${dupGroupIndex[s2] % 10}`;
+        }
+
+        // ---------------------------------------------------------------
+        // 통계 계산
+        // ---------------------------------------------------------------
+        const dupGroupCount = Object.keys(dupGroupIndex).length;
+        const dupMeterCount = Object.entries(suffix2Map)
+            .filter(([, nos]) => nos.length > 1)
+            .reduce((acc, [, nos]) => acc + nos.length, 0);
+
+        // 통계 표시
+        document.getElementById('stat').innerHTML =
+            `총 계기: <span class="stat-badge total">${meters.length}개</span>` +
+            `&nbsp;&nbsp;중복 그룹: <span class="stat-badge groups">${dupGroupCount}개</span>` +
+            `&nbsp;&nbsp;중복 계기: <span class="stat-badge dups">${dupMeterCount}개</span>` +
+            `<br><small style="color:#9ca3af">뒷 2자리(485주소) 기준 중복 감지 — seg-dup(빨강)으로 표시</small>`;
+
+        // ---------------------------------------------------------------
+        // 계기 목록 렌더링 (detail.js 동일 로직)
+        // ---------------------------------------------------------------
+        const metersList = document.getElementById('meters-list');
+        metersList.innerHTML = meters.map(meter => {
+            const parsedType = parseType(meter.계기번호);
+            const no  = meter.계기번호;
+            const s2  = no.slice(-2);
+            const isDup = dupGroupIndex[s2] !== undefined;
+
+            // 계기번호 4구간 색상 분리 HTML
+            const noHtml =
+                `<span class="meter-no-seg">` +
+                `<span class="seg-maker">${no.slice(0, 2)}</span>` +
+                `<span class="seg-type">${no.slice(2, 4)}</span>` +
+                `<span class="seg-mid">${no.slice(4, -2)}</span>` +
+                `<span class="${isDup ? 'seg-dup' : 'seg-last'}">${s2}</span>` +
+                `</span>`;
+
+            return `
+                <div class="meter-item ${rowClass(s2)}">
+                    <input type="checkbox" class="meter-checkbox">
+                    <div class="meter-info">
+                        <span class="meter-type">${parsedType}</span>
+                        ${noHtml}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    })();
+    </script>
+</body>
+</html>
