@@ -124,27 +124,43 @@ function showDetail(address, meters) {
     console.log('[showDetail] myState:', myState, 'myUpdatedByName:', myUpdatedByName, 'myUpdatedAt:', myUpdatedAt);
     updateWorkerInfo({ state: myState, updatedByName: myUpdatedByName, updatedAt: myUpdatedAt });
 
-    // 변대주가 모두 같은 경우 공통 표시
+    // 상단 강조 영역(#common-pole) — role 따라 다른 정보 강조 표시
+    //   통신팀: 변대주 (계기 전체 같은 경우)
+    //   계기팀: 순위·검침일 (첫 계기 기준)
     const allSamePole = meters.length > 0 && meters.every(m => m.변대주 === meters[0].변대주);
     const commonPoleEl = document.getElementById('common-pole');
-    if (allSamePole && meters[0].변대주 && meters[0].변대주 !== '0') {
-        const poleText = meters[0].변대주;
-        // DCUID 필드 유무로 강조 분기 (변대주만이면 강조 X, DCU 형태면 끝 2자리=차수+번호 강조)
-        const isDcuId = !!meters[0].DCUID;
-        const poleMain = isDcuId ? poleText.slice(0, -2) : poleText;
-        const poleHtml = isDcuId
-            ? `<span>${poleMain}</span><span class="seg-dup">${poleText.slice(-2)}</span>`
-            : `<span>${poleText}</span>`;
-        const poleCopyBtn = `<button class="copy-btn pole-copy-btn" data-copy="${poleMain}" title="변대주 복사" style="margin-left:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
-        commonPoleEl.innerHTML = `변대주 ${poleHtml}${poleCopyBtn}`;
-        commonPoleEl.style.display = 'block';
-        // 공통 변대주 복사 버튼 이벤트 바인딩
-        commonPoleEl.querySelector('.pole-copy-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            copyMeterNo(poleMain);
-        });
+    commonPoleEl.innerHTML = '';
+    commonPoleEl.style.display = 'none';
+
+    if (role === 'comm') {
+        // 통신팀 — 변대주 강조 (모든 계기 같은 변대주일 때만)
+        if (allSamePole && meters[0].변대주 && meters[0].변대주 !== '0') {
+            const poleText = meters[0].변대주;
+            const isDcuId = !!meters[0].DCUID;
+            const poleMain = isDcuId ? poleText.slice(0, -2) : poleText;
+            const poleHtml = isDcuId
+                ? `<span>${poleMain}</span><span class="seg-dup">${poleText.slice(-2)}</span>`
+                : `<span>${poleText}</span>`;
+            const labelHtml = meters[0].변대주라벨 ? ` <span style="opacity:0.7;font-weight:normal;">(${meters[0].변대주라벨})</span>` : '';
+            const poleCopyBtn = `<button class="copy-btn pole-copy-btn" data-copy="${poleMain}" title="변대주 복사" style="margin-left:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
+            commonPoleEl.innerHTML = `변대주 ${poleHtml}${labelHtml}${poleCopyBtn}`;
+            commonPoleEl.style.display = 'block';
+            commonPoleEl.querySelector('.pole-copy-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                copyMeterNo(poleMain);
+            });
+        }
     } else {
-        commonPoleEl.style.display = 'none';
+        // 계기팀 / admin-meter — 순위 + 검침일 강조 (계기마다 다를 수 있으니 모두 같은 값일 때만 공통 표시)
+        const allSamePri = meters.every(m => m.순위 === meters[0].순위);
+        const allSameDay = meters.every(m => m.검침일 === meters[0].검침일);
+        const parts = [];
+        if (allSamePri && meters[0].순위) parts.push(meters[0].순위);
+        if (allSameDay && meters[0].검침일) parts.push(`검침일 ${meters[0].검침일}`);
+        if (parts.length) {
+            commonPoleEl.textContent = parts.join(' · ');
+            commonPoleEl.style.display = 'block';
+        }
     }
 
     // 패널 열릴 때 검색창 초기화
@@ -309,22 +325,8 @@ function renderMetersList() {
     metersList.innerHTML = filtered.map(meter => {
         const checked = (status.checkedMeters || []).includes(meter.계기번호) ? 'checked' : '';
         const parsedType = parseType(meter.계기번호) || meter.계기타입;
-        const detailParts = [];
-        // 변대주가 있고 공통 표시 영역에 없는 경우만 개별 표시 (복사 버튼 포함)
-        if (!allSamePole && meter.변대주 && meter.변대주 !== '0') {
-            const pv = meter.변대주;
-            // DCUID 필드가 있으면 (= 변대주+차수 형태) 끝 2자리 강조. 없으면 변대주만이라 강조 X
-            const pvIsDcu = !!meter.DCUID;
-            const pvMain = pvIsDcu ? pv.slice(0, -2) : pv;
-            const pHtml = pvIsDcu
-                ? `<span>${pvMain}</span><span class="seg-dup">${pv.slice(-2)}</span>`
-                : `<span>${pv}</span>`;
-            const pCopyBtn = `<button class="copy-btn pole-copy-btn" data-copy="${pvMain}" title="변대주 복사" style="margin-left:3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
-            const labelHtml = meter.변대주라벨 ? ` <span style="opacity:0.7;">(${meter.변대주라벨})</span>` : '';
-            detailParts.push(`변대주 ${pHtml}${pCopyBtn}${labelHtml}`);
-        }
-        if (meter.상호 && meter.상호 !== '0') detailParts.push(`상호 ${meter.상호}`);
-        const details = detailParts.join(', ');
+        // 상호만 (변대주는 meta로 이동)
+        const details = (meter.상호 && meter.상호 !== '0') ? `상호 ${meter.상호}` : '';
 
         // 계기번호 4구간 색상 분리
         const no = meter.계기번호;
@@ -353,19 +355,32 @@ function renderMetersList() {
                </div>`
             : '';
 
-        // 불가 버튼 옆에 작은 글씨로 표시할 보조 정보 (계기 별 메타)
+        // 불가 버튼 옆에 작은 글씨로 표시할 보조 정보 (계기 별 메타) — role 무관, 모든 정보 동일
         const extraParts = [];
-        if (meter.순위)          extraParts.push(`순위 ${meter.순위}`);
-        if (meter.고객번호)      extraParts.push(`고객 ${meter.고객번호}`);
-        if (meter.고객명)        extraParts.push(meter.고객명);
-        if (meter.검침일)        extraParts.push(`D${meter.검침일}`);
-        if (meter.휴대폰)        extraParts.push(meter.휴대폰);
-        if (meter.계기위치)      extraParts.push(meter.계기위치);
-        if (meter.인입주번호)    extraParts.push(`인입주 ${meter.인입주번호}`);
-        else if (meter.인입주전산화) extraParts.push(`인입주 ${meter.인입주전산화}`);
-        if (meter.검침방법)      extraParts.push(meter.검침방법);
-        if (meter.검침원)        extraParts.push(`검침원 ${meter.검침원}`);
-        if (meter.검침원연락처)  extraParts.push(meter.검침원연락처);
+        if (meter.순위) extraParts.push(meter.순위);
+        const cust = [meter.고객번호, meter.고객명, meter.휴대폰].filter(Boolean);
+        if (cust.length) extraParts.push(`고객(${cust.join(', ')})`);
+        if (meter.검침일) extraParts.push(`검침일 ${meter.검침일}`);
+        if (meter.계기위치) extraParts.push(meter.계기위치);
+        if (meter.검침방법) extraParts.push(meter.검침방법);
+        if (meter.검침원 || meter.검침원연락처) {
+            const nm = (meter.검침원 || '').split(/\s+/)[0];
+            const cp = [nm, meter.검침원연락처].filter(Boolean);
+            if (cp.length) extraParts.push(`검침원(${cp.join(', ')})`);
+        }
+        const ip = [meter.인입주번호, meter.인입주전산화].filter(Boolean);
+        if (ip.length) extraParts.push(`인입주(${ip.join(', ')})`);
+        if (meter.변대주) {
+            const pv = meter.변대주;
+            const isDcu = !!meter.DCUID;
+            const pvMain = isDcu ? pv.slice(0, -2) : pv;
+            const pvHtml = isDcu
+                ? `${pvMain}<span class="seg-dup">${pv.slice(-2)}</span>`
+                : pv;
+            const labelStr = meter.변대주라벨 ? `${meter.변대주라벨}, ` : '';
+            const cpyBtn = `<button class="copy-btn pole-copy-btn" data-copy="${pvMain}" title="변대주 복사" style="margin-left:3px;vertical-align:middle;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
+            extraParts.push(`변대주(${labelStr}${pvHtml})${cpyBtn}`);
+        }
         const meterMetaHtml = extraParts.length
             ? `<div class="meter-meta">${extraParts.join(' · ')}</div>`
             : '';
