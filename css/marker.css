@@ -69,20 +69,17 @@
 /* 통신팀 화면에서 계기팀 pending — 채도 더 옅게 */
 .custom-marker.comm-bg { opacity: 0.45; }
 
-/* 보조 라벨 (D17 검침일, 우선순위 등) — 핀 위로 말풍선처럼 */
+/* 보조 라벨 (D17 검침일, 우선순위 등) — 핀 위에 텍스트만 (흰 외곽선으로 가독성) */
 .marker-fraction {
     position: absolute;
-    top: -11px;
+    top: -10px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 9px;
+    font-size: 10px;
     line-height: 1;
     color: #1f2937;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 3px;
-    padding: 2px 4px;
     pointer-events: none;
     white-space: nowrap;
     font-weight: 700;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    text-shadow: 0 0 2px white, 0 0 2px white, 0 0 2px white, 0 0 2px white;
 }
