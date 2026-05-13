@@ -100,13 +100,14 @@ function showDetail(address, meters) {
         const session = authGetSession();
         const state = workStatus[currentAddress]?.state || 'pending';
         if (state !== 'pending') {
+            const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : (session ? session.role : '');
             saveStateEvent(
                 currentAddress,
                 state,
                 failInput.value.trim(),
                 session ? session.id   : '',
                 session ? session.name : '',
-                session ? session.role : ''   // 역할별 완료 플래그 갱신용
+                role
             );
         }
     };
@@ -441,7 +442,8 @@ function closeDetail() {
 // 주소의 작업 상태 업데이트 후 마커 색상 갱신
 function updateStatus(state) {
     const session = authGetSession();
-    const role = session ? session.role : '';
+    // admin이 시각 토글로 다른 역할 선택한 경우 그 역할로 동작 (getEffectiveRole는 map.js에 정의)
+    const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : (session ? session.role : '');
     const reason = (document.getElementById('fail-reason')?.value || '').trim();
 
     // 통신팀이 완료를 누르는데 계기팀 미완료인 경우 → 확인 다이얼로그
@@ -479,13 +481,14 @@ function updateStatus(state) {
 function resetStatus() {
     if (!workStatus[currentAddress]) return;
     const session = authGetSession();
+    const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : (session ? session.role : '');
 
     // state만 pending으로 (체크박스/불가 유지), 역할 플래그도 함께 초기화
     saveStateEvent(
         currentAddress, 'pending', '',
         session ? session.id   : '',
         session ? session.name : '',
-        session ? session.role : ''
+        role
     );
 
     if (typeof refreshAllMarkers === 'function') refreshAllMarkers();

@@ -28,6 +28,14 @@ let markerMode = localStorage.getItem('jongno_marker_mode') || 'checkday';
 // admin 전용 시각 토글: 'meter' (계기팀 화면) | 'comm' (통신팀 화면)
 let adminViewRole = localStorage.getItem('jongno_admin_view_role') || 'meter';
 
+// admin은 시각 토글에 따라 effective role 결정 — 마커 표시·작업 동작 모두 적용
+function getEffectiveRole() {
+    const session = authGetSession();
+    let role = session?.role || '';
+    if (role === 'admin') role = adminViewRole;
+    return role;
+}
+
 // 통신팀 마지막 작업 주소 (comm_done=true 중 가장 최근 updatedAt)
 let commLastAddress = null;
 
