@@ -125,10 +125,10 @@
     height: 16px;
 }
 
-/* 시각 토글 (admin 전용) — 계기팀 / 통신팀 */
+/* 시각 토글 (admin 전용) — 계기팀 / 통신팀 — user-bar 아래로 */
 .view-role-toggle {
     position: absolute;
-    top: 10px;
+    top: 56px;
     right: 10px;
     z-index: 10;
     background: white;
@@ -153,7 +153,7 @@
 /* 마커 모드 토글 (admin 전용) — 시각 토글 아래 */
 .marker-mode-toggle {
     position: absolute;
-    top: 52px;
+    top: 98px;
     right: 10px;
     z-index: 10;
     background: white;
