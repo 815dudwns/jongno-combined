@@ -169,6 +169,44 @@
     return { meters: targets.length, addresses: Object.keys(byAddr).length };
   };
 
+  // 혼합 시뮬레이션 — 완전 N개 + 부분 M개
+  // 사용: simulateMixed(4, 1, 1, 1, ['무악','교남'])
+  //   → 1주차 무악교남에서 5개 주소 골라, 4개 완전 + 1개 부분(각 1개)
+  window.simulateMixed = async function (fullCount, partialCount, perPartial = 1, weekNum = 0, keywords = []) {
+    const arr = await loadSiteData();
+    let filtered = filterByKeywords(arr, keywords);
+    filtered = filterByWeek(filtered, weekNum);
+    if (filtered.length === 0) { alert('매칭 없음'); return; }
+
+    const byAddr = groupByAddr(filtered);
+    const totalNeeded = fullCount + partialCount;
+    const addrKeys = Object.keys(byAddr).slice(0, totalNeeded);
+    if (addrKeys.length === 0) { alert('주소 없음'); return; }
+
+    const me = getMe();
+    const startMs = todayStartMs();
+
+    let seq = 1, totalMeters = 0;
+    const fullList = [], partialList = [];
+    for (let i = 0; i < addrKeys.length; i++) {
+      const addr = addrKeys[i];
+      const allInAddr = arr.filter(m => (m.주소 || m.도로명주소) === addr);
+      const isFull = i < fullCount;
+      const targets = isFull ? allInAddr : allInAddr.slice(0, perPartial);
+      const reps = targets.map(m => makeReplacement(m, seq++, me, startMs));
+      totalMeters += reps.length;
+      await saveReplacements(addr, reps);
+      if (typeof updateMarkerColor === 'function') updateMarkerColor(addr);
+      if (isFull) fullList.push(`${addr} (${allInAddr.length}/${allInAddr.length})`);
+      else partialList.push(`${addr} (${targets.length}/${allInAddr.length})`);
+    }
+    console.log(`%c✅ 혼합 시뮬레이션: 완전 ${fullList.length}개 + 부분 ${partialList.length}개 (총 ${totalMeters}계기)`,
+      'color:#7c3aed;font-weight:bold;font-size:14px');
+    console.log('완전 완료:', fullList);
+    console.log('부분 완료:', partialList);
+    return { full: fullList.length, partial: partialList.length, meters: totalMeters };
+  };
+
   // Firebase에서 _simulated:true 표시된 replacement만 모두 제거
   window.clearSimulation = async function () {
     if (!statusRef) { alert('Firebase 미초기화'); return; }
@@ -203,10 +241,11 @@
 
   console.log(
     '%c[simulate-helper] 사용 가능 (Firebase 직접 저장):\n' +
-    "  simulateAddresses(addrCnt, weekNum, keywords)\n" +
-    "  simulatePartial(addrCnt, perAddr, weekNum, keywords)\n" +
-    '  simulateWeek(weekNum, count, keywords)\n' +
-    '  clearSimulation()  — _simulated 표시된 것만 일괄 제거',
+    "  simulateAddresses(addrCnt, weekNum, keywords)         — 전체 완료\n" +
+    "  simulatePartial(addrCnt, perAddr, weekNum, keywords)  — 모두 부분\n" +
+    "  simulateMixed(fullN, partialN, perPartial, week, kw)  — 완전 + 부분 섞기\n" +
+    '  simulateWeek(weekNum, count, keywords)                — 계기 단위 N개\n' +
+    '  clearSimulation()                                     — _simulated 일괄 제거',
     'color:#7c3aed;font-weight:bold'
   );
 })();
