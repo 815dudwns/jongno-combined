@@ -2,6 +2,9 @@
 
 let currentAddress = '';
 let currentMeters = [];
+// 통신팀 임시 선택 (코덱스 #3: 계기팀 checkedMeters와 분리)
+// detail 패널 열려있는 동안만 유효. 페이지 새로고침 시 휘발.
+const commTempChecked = new Set();
 
 // 현재 정렬 모드: 'none' | 'dup' | 'maker'
 let currentSortMode = 'none';
@@ -10,6 +13,8 @@ let currentSortMode = 'none';
 function showDetail(address, meters) {
     currentAddress = address;
     currentMeters = meters;
+    // 새 주소 진입 시 통신팀 임시 선택 초기화
+    commTempChecked.clear();
 
     // 어드민 사진등록 버튼 — 통신팀 시각일 때만 표시 (admin이라도 계기팀 시각이면 숨김)
     const adminBtn = document.getElementById('admin-upload-btn');
@@ -520,9 +525,15 @@ function renderMetersList() {
             ? `<button class="meter-remove-added-btn" data-meter="${meter.계기번호}" title="추가 취소" style="margin-left:4px;padding:3px 8px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">🗑</button>`
             : '';
 
-        // 통신팀 시각에서는 비활성 계기 = 체크박스 disabled. 통신팀 완료 = 체크 자동 + disabled
+        // 통신팀 시각: 비활성 계기 = disabled. 통신팀 완료 = 체크 자동 + disabled.
+        // 통신팀 체크 = 별도 임시 선택(commTempChecked) — 계기팀 checkedMeters와 분리 (코덱스 #3)
         const checkboxDisabled = (isCommView && (!isReplaced || commDone)) ? 'disabled' : '';
-        const checkboxChecked = (isCommView && commDone) ? 'checked' : checked;
+        let checkboxChecked;
+        if (isCommView) {
+            checkboxChecked = commDone || commTempChecked.has(meter.계기번호) ? 'checked' : '';
+        } else {
+            checkboxChecked = checked;
+        }
         const itemStyle = isCommView && !isReplaced
             ? ' style="opacity:0.4;"'
             : (commDone ? ' style="background:#f3f4f6;"' : '');
@@ -546,9 +557,18 @@ function renderMetersList() {
 
     // 체크박스, 복사 버튼, 개별 불가 버튼/입력창 이벤트 바인딩
     setTimeout(() => {
+        const _viewRole = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : ((authGetSession() || {}).role || 'meter');
+        const _isCommView = (_viewRole === 'comm');
         document.querySelectorAll('.meter-checkbox').forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
-                toggleMeterCheck(e.target.dataset.meter);
+                const m = e.target.dataset.meter;
+                if (_isCommView) {
+                    // 통신팀 = 임시 선택 (Firebase 안 박음)
+                    if (e.target.checked) commTempChecked.add(m);
+                    else commTempChecked.delete(m);
+                } else {
+                    toggleMeterCheck(m);
+                }
             });
         });
         document.querySelectorAll('.copy-btn').forEach(btn => {
@@ -639,20 +659,18 @@ function renderMetersList() {
     }, 100);
 }
 
-// 통신팀 — 체크된 활성 계기(계기팀 교체 완료한 것 중 체크)를 일괄 완료
+// 통신팀 — commTempChecked(임시 선택) 중 활성 계기(계기팀 완료)를 일괄 완료
 // comm_completed_list/{meter_id}: { done_at, worker }
 async function bulkCommComplete(address) {
     const session = authGetSession();
     const me = session?.id || 'unknown';
-    const meName = session?.name || me;
     const status = workStatus[address] || makeEmptyEntry();
     const replList = status.replacement_list || {};
-    const checkedSet = new Set(status.checkedMeters || []);
 
-    // 활성(계기팀 완료) + 체크된 계기만
-    const targets = Object.keys(replList).filter(m => checkedSet.has(m));
+    // commTempChecked 중 활성 계기만 (코덱스 #3)
+    const targets = [...commTempChecked].filter(m => replList[m]);
     if (targets.length === 0) {
-        alert('체크된 활성 계기 없음 (계기팀 교체 완료한 계기에만 체크 가능)');
+        alert('체크된 활성 계기 없음 (활성 계기에 체크 필요)');
         return;
     }
 
@@ -660,14 +678,12 @@ async function bulkCommComplete(address) {
     const addrKey = (typeof encodeKey === 'function') ? encodeKey(address) : address;
 
     try {
-        // Firebase 일괄 업데이트
         if (statusRef) {
             const updates = {};
             targets.forEach(m => {
-                updates[`${addrKey}/comm_completed_list/${m}`] = {
-                    done_at: now,
-                    worker: me,
-                };
+                updates[`${addrKey}/comm_completed_list/${m}`] = { done_at: now, worker: me };
+                // 코덱스 #4: 혹시 남아있을 옛 meterChecks 정리 (stale 방지)
+                updates[`${addrKey}/meterChecks/${m}`] = null;
             });
             await statusRef.update(updates);
         }
@@ -675,9 +691,13 @@ async function bulkCommComplete(address) {
         if (!status.comm_completed_list) status.comm_completed_list = {};
         targets.forEach(m => {
             status.comm_completed_list[m] = { done_at: now, worker: me };
-            checkedSet.delete(m);
+            commTempChecked.delete(m);
+            // 로컬 meterChecks/checkedMeters에서도 제거
+            if (status.meterChecks && status.meterChecks[m]) delete status.meterChecks[m];
+            if (Array.isArray(status.checkedMeters)) {
+                status.checkedMeters = status.checkedMeters.filter(x => x !== m);
+            }
         });
-        status.checkedMeters = [...checkedSet];
         workStatus[address] = status;
 
         alert(`✅ 통신팀 완료: ${targets.length}건`);

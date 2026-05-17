@@ -402,7 +402,7 @@ function mergeFirebaseData(firebaseData) {
         local.failedMeters = local.failedMeters || fb.failedMeters || {};
     });
 
-    applyLocalChecked();
+    // applyLocalChecked 제거 (코덱스 #2: Firebase가 source of truth, local check 덮어쓰기 금지)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
 }
 
@@ -472,7 +472,8 @@ async function initFirebase() {
     }
 
     if (firebaseOk) {
-        applyLocalChecked();
+        // applyLocalChecked는 Firebase가 비어 폴백한 경우에만 (코덱스 #2)
+        if (!firebaseLoaded) applyLocalChecked();
 
         // 실시간 리스너 — Firebase 변경 즉시 반영 (30초 polling 대신)
         statusRef.on('value', (snapshot) => {

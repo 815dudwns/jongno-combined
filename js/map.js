@@ -349,11 +349,13 @@ function decideMarkerStyle(meters, status, session) {
     // 1. 통신팀 시각
     if (role === 'comm') {
         // 계기팀 활성 계기 수 = replacement_list 길이 (계기팀이 교체 완료한 것)
-        // 통신팀 완료 수 = comm_completed_list 길이
+        // 통신팀 완료 수 = comm_completed_list 중 replacement_list와 교집합만 (코덱스 #5)
         const addedCount = Object.keys(status.added_meters || {}).length;
         const totalAll = total + addedCount;
-        const replacedCount = Object.keys(status.replacement_list || {}).length;
-        const commDoneCount = Object.keys(status.comm_completed_list || {}).length;
+        const replList = status.replacement_list || {};
+        const commCompletedList = status.comm_completed_list || {};
+        const replacedCount = Object.keys(replList).length;
+        const commDoneCount = Object.keys(commCompletedList).filter(m => replList[m]).length;
         const activeCount = replacedCount;  // 통신팀에게 활성된 계기 수
         const isCommAllDone = (activeCount > 0 && commDoneCount >= activeCount);
         const isCommPartial = (commDoneCount > 0 && !isCommAllDone);
