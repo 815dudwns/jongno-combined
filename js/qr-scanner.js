@@ -15,16 +15,22 @@ const QrScanner = (() => {
   }
 
   async function start() {
+    console.log('[QR] start, Html5Qrcode:', typeof Html5Qrcode);
     if (typeof Html5Qrcode === 'undefined') {
-      return showError('스캔 라이브러리 로드 실패 — 직접 입력해 주세요');
+      return showError('html5-qrcode 라이브러리 로드 실패 — CDN 차단 의심');
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      return showError('이 브라우저는 카메라 미지원 (HTTPS 필요)');
     }
     try {
       _cameras = await Html5Qrcode.getCameras();
+      console.log('[QR] cameras:', _cameras);
     } catch (e) {
+      console.error('[QR] getCameras 실패:', e);
       return showError(camErrorMsg(e));
     }
     if (!_cameras || _cameras.length === 0) {
-      return showError('카메라를 찾을 수 없습니다');
+      return showError('카메라를 찾을 수 없습니다 (권한 거부 또는 미지원)');
     }
     _camIndex = 0;
     document.getElementById('qr-switch-btn').style.display = _cameras.length > 1 ? '' : 'none';
@@ -36,11 +42,11 @@ const QrScanner = (() => {
     _scanner = new Html5Qrcode('qr-reader');
 
     const config = {
-      fps: 15,
+      fps: 20,
       qrbox: (w, h) => {
-        const bw = Math.floor(w * 0.9);
-        const bh = Math.floor(Math.min(h * 0.5, bw * 0.45));
-        return { width: bw, height: bh };
+        // QR은 정사각형 — 화면 좁은 쪽의 70%
+        const size = Math.floor(Math.min(w, h) * 0.7);
+        return { width: size, height: size };
       },
       formatsToSupport: [
         Html5QrcodeSupportedFormats.QR_CODE,
@@ -67,7 +73,7 @@ const QrScanner = (() => {
       await _scanner.start(cameraId, config,
         (text) => onDetected(text),
         () => {}); // 매 프레임 디코딩 실패 무시
-      await applyZoom(1.5);
+      await applyZoom(2.0);  // 광각 회피 + QR 인식률 향상
     } catch (e) {
       showError(camErrorMsg(e));
     }
