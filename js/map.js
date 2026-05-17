@@ -147,11 +147,9 @@ function loadSelectedGroups() {
             const arr = JSON.parse(saved);
             return new Set(arr);
         }
-    } catch {
-        // 파싱 실패 시 전체 선택
-    }
-    // 기본값: 8개 전부 체크
-    return new Set(Object.keys(DONG_GROUPS));
+    } catch {}
+    // 기본값: 모두 무체크 (작업자가 본인 구역만 선택)
+    return new Set();
 }
 
 function saveSelectedGroups(groupSet) {

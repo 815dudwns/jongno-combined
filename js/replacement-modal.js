@@ -9,18 +9,8 @@ const RplModal = (() => {
   let keepOldPhotoUrl = null;  // 수정 모드에서 사진 재선택 안 했을 때 기존 URL 유지
   let keepNewPhotoUrl = null;
 
-  // DRY-RUN 모드: URL ?dryrun=1 → localStorage 자동 저장 (한 번 켜면 유지)
-  //              URL ?dryrun=0 → localStorage 제거 (해제)
-  // Firebase 저장·Storage 업로드 모두 skip, 토스트만 표시
-  function isDryRun() {
-    try {
-      const u = new URL(location.href);
-      const p = u.searchParams.get('dryrun');
-      if (p === '1') { localStorage.setItem('rpl_dryrun', '1'); return true; }
-      if (p === '0') { localStorage.removeItem('rpl_dryrun'); return false; }
-    } catch {}
-    return localStorage.getItem('rpl_dryrun') === '1';
-  }
+  // DRY-RUN 제거됨 — 항상 Firebase 직접 저장 (영준님 결정 2026-05-17)
+  function isDryRun() { return false; }
 
   function open(address, meter, prefillOldId, editData) {
     currentAddress = address;
@@ -37,9 +27,7 @@ const RplModal = (() => {
     // 모달 제목 — 추가 모드는 "계기 추가", 그 외는 "계기 교체 등록"
     const headerH3 = document.querySelector('#rpl-modal h3');
     if (headerH3) {
-      const dryBadge = isDryRun() ? ' <span style="font-size:11px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:4px;">🧪 DRY-RUN</span>' : '';
-      const titleText = !meter ? '계기 추가' : (editData ? '계기 교체 수정' : '계기 교체 등록');
-      headerH3.innerHTML = titleText + dryBadge;
+      headerH3.textContent = !meter ? '계기 추가' : (editData ? '계기 교체 수정' : '계기 교체 등록');
     }
 
     const isAddMode = !meter;
