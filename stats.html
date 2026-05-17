@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>작업 통계 - 종로 합동시공</title>
+  <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=34971d772a01373b33122da2255312b3&autoload=false"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/config.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, 'Noto Sans KR', sans-serif; background: #f3f4f6; min-height: 100vh; color: #1f2937; }
+
+    .header { background: #1e3a8a; color: white; padding: 12px 16px; position: sticky; top: 0; z-index: 200; display: flex; align-items: center; gap: 10px; }
+    .header a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 14px; font-weight: 600; }
+    .header h1 { font-size: 16px; font-weight: 700; flex: 1; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 12px; }
+
+    .date-bar { background: white; border-radius: 10px; padding: 10px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .date-bar input { flex: 1; padding: 10px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 15px; min-width: 0; }
+    .date-bar button { padding: 10px 14px; background: #1d4ed8; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .date-bar button.sec { background: #f3f4f6; color: #374151; border: 1.5px solid #d1d5db; }
+
+    .summary { background: white; border-radius: 10px; padding: 12px; margin-bottom: 12px; display: flex; gap: 10px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .summary-item { flex: 1; min-width: 100px; text-align: center; padding: 6px; border-radius: 8px; background: #ecfdf5; }
+    .summary-item .label { font-size: 11px; color: #047857; }
+    .summary-item .value { font-size: 22px; font-weight: 800; color: #047857; }
+
+    .tabs { display: flex; gap: 6px; background: #e5e7eb; padding: 4px; border-radius: 10px; margin-bottom: 12px; }
+    .tab-btn { flex: 1; padding: 10px; background: transparent; color: #6b7280; border: none; border-radius: 7px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+    .tab-btn.active { background: white; color: #1d4ed8; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    #stats-map { width: 100%; height: 70vh; border-radius: 10px; background: #e5e7eb; }
+
+    .list-item { background: white; border-radius: 10px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; gap: 12px; }
+    .seq-badge { width: 40px; height: 40px; flex-shrink: 0; background: #10b981; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; }
+    .li-body { flex: 1; min-width: 0; font-size: 13px; line-height: 1.5; }
+    .li-body .addr { font-weight: 700; color: #111827; margin-bottom: 4px; }
+    .li-body .arrow { color: #7c3aed; font-weight: 700; }
+    .li-body .meta { color: #6b7280; font-size: 12px; margin-top: 4px; }
+    .li-photos { display: flex; gap: 4px; flex-shrink: 0; }
+    .li-photos img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; cursor: pointer; }
+
+    .empty { text-align: center; color: #9ca3af; padding: 40px 8px; font-size: 14px; }
+    .err { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 10px; padding: 12px; margin-bottom: 12px; font-size: 13px; }
+
+    /* 사진 라이트박스 */
+    .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 9000; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .lightbox.active { display: flex; }
+    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .lightbox-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.2); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; }
+
+    /* 카카오맵 커스텀 마커 (번호 표시) */
+    .stat-marker { background: #10b981; color: white; border: 2px solid white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+    .stat-marker.multi { background: #7c3aed; width: 36px; height: 36px; font-size: 11px; padding: 2px; line-height: 1; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="map.html">← 지도</a>
+    <h1>작업 통계</h1>
+  </div>
+
+  <div class="container">
+    <div class="date-bar">
+      <input type="date" id="date-input">
+      <button class="sec" id="btn-today">오늘</button>
+      <button id="btn-refresh">조회</button>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="map">🗺 지도</button>
+      <button class="tab-btn" data-tab="list">📋 통계</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-map">
+      <div id="stats-map"></div>
+    </div>
+
+    <div class="tab-panel" id="tab-list">
+      <div id="list-container"></div>
+    </div>
+  </div>
+
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightbox-close">×</button>
+    <img id="lightbox-img" alt="">
+  </div>
+
+<script>
+authRequire();
+
+// admin 권한 체크
+(function () {
+  const session = authGetSession();
+  if (!session || session.role !== 'admin') {
+    alert('관리자 권한 필요');
+    location.href = 'map.html';
+  }
+})();
+
+// Firebase init
+const fbApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+const db = fbApp.database();
+
+let map = null;
+let markers = [];
+let cachedData = null;  // 그날 replacement 목록
+
+// 날짜 → ms 범위
+function dayRange(yyyymmdd) {
+  const [y, m, d] = yyyymmdd.split('-').map(Number);
+  const start = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+  const end = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+  return { start, end };
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// 카카오맵 초기화 (지도 탭 활성 시점에 한 번만)
+function ensureMap() {
+  if (map) return;
+  kakao.maps.load(() => {
+    const container = document.getElementById('stats-map');
+    map = new kakao.maps.Map(container, {
+      center: new kakao.maps.LatLng(37.5760, 126.9850),  // 종로구 기본
+      level: 6,
+    });
+    drawMarkers();
+  });
+}
+
+function clearMarkers() {
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+}
+
+function drawMarkers() {
+  if (!map || !cachedData) return;
+  clearMarkers();
+
+  // 주소별 그룹핑 → 한 주소에 여러 작업이면 번호 묶음
+  const byAddr = {};
+  cachedData.forEach(item => {
+    const key = item.address;
+    if (!byAddr[key]) byAddr[key] = [];
+    byAddr[key].push(item);
+  });
+
+  const bounds = new kakao.maps.LatLngBounds();
+  Object.entries(byAddr).forEach(([addr, items]) => {
+    // 좌표는 site-data가 아니라 첫 item의 lat/lng (siteData에서 가져와야 함)
+    // 일단 시도: items[0].lat/lng 가정. 없으면 skip.
+    const lat = items[0].lat;
+    const lng = items[0].lng;
+    if (!lat || !lng) return;
+
+    const pos = new kakao.maps.LatLng(lat, lng);
+    bounds.extend(pos);
+
+    const seqs = items.map(i => i.daily_seq).sort((a, b) => a - b);
+    const label = seqs.length === 1 ? String(seqs[0]) : seqs.join(',');
+    const isMulti = seqs.length > 1;
+
+    const content = `<div class="stat-marker ${isMulti ? 'multi' : ''}">${label}</div>`;
+    const overlay = new kakao.maps.CustomOverlay({
+      position: pos,
+      content,
+      yAnchor: 0.5,
+    });
+    overlay.setMap(map);
+    markers.push(overlay);
+  });
+
+  if (!bounds.isEmpty()) {
+    map.setBounds(bounds);
+  }
+}
+
+function renderList() {
+  const container = document.getElementById('list-container');
+  if (!cachedData || cachedData.length === 0) {
+    container.innerHTML = '<div class="empty">그날 작업 기록 없음</div>';
+    return;
+  }
+  const sorted = [...cachedData].sort((a, b) => (a.daily_seq || 0) - (b.daily_seq || 0));
+  container.innerHTML = sorted.map(item => {
+    const time = new Date(item.replaced_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    const mfgYm = item.new_meter_mfg_ym || '';
+    const removalVal = item.removal_value ?? '';
+    const editedTag = item.last_edited_at
+      ? `<span style="color:#7c3aed;">(수정됨)</span>`
+      : '';
+    return `
+      <div class="list-item">
+        <div class="seq-badge">${item.daily_seq || '?'}</div>
+        <div class="li-body">
+          <div class="addr">${item.address} ${editedTag}</div>
+          <div><b>${item.old_meter_id}</b> <span class="arrow">→</span> <b>${item.new_meter_id}</b></div>
+          <div class="meta">철거값 ${removalVal} kWh · 제조 ${mfgYm} · 작업자 ${item.worker} · ${time}</div>
+        </div>
+        <div class="li-photos">
+          ${item.old_meter_photo ? `<img src="${item.old_meter_photo}" alt="기존" data-full="${item.old_meter_photo}">` : ''}
+          ${item.new_meter_photo ? `<img src="${item.new_meter_photo}" alt="신규" data-full="${item.new_meter_photo}">` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.querySelectorAll('.li-photos img').forEach(img => {
+    img.onclick = () => openLightbox(img.dataset.full);
+  });
+}
+
+function renderSummary() {
+  const summary = document.getElementById('summary');
+  const n = cachedData?.length || 0;
+  const workers = new Set();
+  const addrs = new Set();
+  cachedData?.forEach(i => {
+    if (i.worker) workers.add(i.worker);
+    if (i.address) addrs.add(i.address);
+  });
+  summary.innerHTML = `
+    <div class="summary-item"><div class="label">총 작업</div><div class="value">${n}</div></div>
+    <div class="summary-item"><div class="label">주소 수</div><div class="value">${addrs.size}</div></div>
+    <div class="summary-item"><div class="label">작업자</div><div class="value">${workers.size}</div></div>
+  `;
+}
+
+// site-data 캐시 (한 번만 fetch)
+let siteDataByMeterId = null;
+async function loadSiteData() {
+  if (siteDataByMeterId) return siteDataByMeterId;
+  const res = await fetch('./data/jongno-site-data.json');
+  const arr = await res.json();
+  siteDataByMeterId = {};
+  arr.forEach(m => {
+    if (m.계기번호) siteDataByMeterId[String(m.계기번호)] = m;
+  });
+  return siteDataByMeterId;
+}
+
+async function loadData() {
+  const dateVal = document.getElementById('date-input').value;
+  if (!dateVal) return;
+  const { start, end } = dayRange(dateVal);
+
+  const [wsSnap, sdMap] = await Promise.all([
+    db.ref('workStatus').once('value'),
+    loadSiteData(),
+  ]);
+  const ws = wsSnap.val() || {};
+
+  // workStatus 순회하며 그날 replacement_list 추출
+  // 좌표·주소 = 기존 계기번호로 site-data 매칭
+  const items = [];
+  Object.entries(ws).forEach(([addrKey, val]) => {
+    const rl = val.replacement_list;
+    if (!rl) return;
+    Object.values(rl).forEach(r => {
+      const ts = r.replaced_at;
+      if (typeof ts !== 'number' || ts < start || ts > end) return;
+      const decoded = decodeKey(addrKey);
+      const matched = sdMap[String(r.old_meter_id)] || {};
+      items.push({
+        ...r,
+        address: decoded,
+        lat: matched.lat,
+        lng: matched.lng,
+        road_addr: matched.도로명주소,
+        jibun_addr: matched.주소,
+      });
+    });
+  });
+
+  cachedData = items;
+  renderSummary();
+  renderList();
+  if (map) drawMarkers();
+}
+
+// 키 인코딩 helper (firebase.js와 동일)
+function decodeKey(str) {
+  return str
+    .replace(/_dot_/g, '.').replace(/_hash_/g, '#').replace(/_dollar_/g, '$')
+    .replace(/_lb_/g, '[').replace(/_rb_/g, ']').replace(/_sl_/g, '/');
+}
+
+// 라이트박스
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('active');
+}
+document.getElementById('lightbox-close').onclick =
+  () => document.getElementById('lightbox').classList.remove('active');
+document.getElementById('lightbox').onclick = (e) => {
+  if (e.target.id === 'lightbox') e.currentTarget.classList.remove('active');
+};
+
+// 탭
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    if (tab === 'map') {
+      ensureMap();
+      setTimeout(() => map && map.relayout(), 50);
+    }
+  };
+});
+
+// 날짜 바
+document.getElementById('date-input').value = todayStr();
+document.getElementById('btn-today').onclick = () => {
+  document.getElementById('date-input').value = todayStr();
+  loadData();
+};
+document.getElementById('btn-refresh').onclick = loadData;
+
+loadData();
+</script>
+</body>
+</html>

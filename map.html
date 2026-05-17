@@ -4,12 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>종로 합동시공 지도</title>
-    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=2eae4b699110525f0dc62295ed8ed43d&autoload=false"></script>
+    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=34971d772a01373b33122da2255312b3&autoload=false"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <!-- QR/바코드 라이브 스캔 -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <link rel="stylesheet" href="css/common.css">
     <link rel="stylesheet" href="css/marker.css">
-    <link rel="stylesheet" href="css/panel.css">
+    <link rel="stylesheet" href="css/panel.css?v=20260517f">
+    <link rel="stylesheet" href="css/replacement-modal.css?v=20260517f">
 </head>
 <body>
     <div id="map"></div>
@@ -52,6 +56,8 @@
         <span class="user-divider">|</span>
         <a id="admin-btn" href="admin.html" style="display:none;color:rgba(255,255,255,0.85);font-size:12px;text-decoration:none;font-weight:600;">관리자</a>
         <span id="admin-divider" style="display:none;opacity:0.45;font-size:12px;">|</span>
+        <a id="stats-btn" href="stats.html" style="display:none;color:rgba(255,255,255,0.85);font-size:12px;text-decoration:none;font-weight:600;">📊 통계</a>
+        <span id="stats-divider" style="display:none;opacity:0.45;font-size:12px;">|</span>
         <button class="logout-btn" onclick="authLogout()">로그아웃</button>
     </div>
 
@@ -80,6 +86,7 @@
                 <button class="action-btn hold" id="btn-hold">⏸️ 보류</button>
                 <button class="action-btn fail" id="btn-fail">❌ 불가</button>
                 <a id="admin-upload-btn" href="admin.html" style="display:none;padding:10px 12px;background:#1e3a8a;color:white;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">사진등록</a>
+                <button class="action-btn" id="btn-add-meter" style="display:none;border-color:#7c3aed;color:#7c3aed;white-space:nowrap;">+ 계기 추가</button>
             </div>
             <div class="fail-reason-row">
                 <input type="text" class="fail-reason" id="fail-reason" placeholder="불가 사유">
@@ -98,6 +105,87 @@
         <div class="overlay-meters" id="meters-list"></div>
     </div>
 
+    <!-- 계기 교체 입력 모달 -->
+    <div id="rpl-modal" class="rpl-modal">
+      <div class="rpl-card">
+        <div class="rpl-header">
+          <div style="flex:1;min-width:0;">
+            <h3>계기 교체 등록</h3>
+            <p id="rpl-title-addr" style="font-size:12px;color:#6b7280;margin:2px 0 0;line-height:1.3;word-break:break-all;"></p>
+          </div>
+          <span class="rpl-seq" id="rpl-seq">오늘 ?번째</span>
+          <button class="rpl-close" id="rpl-close">×</button>
+        </div>
+
+        <div class="rpl-field rpl-add-only" style="display:none;">
+          <label>계기 11자리</label>
+          <input type="text" id="rpl-old-meter-id" inputmode="numeric" maxlength="11" placeholder="">
+          <div class="rpl-alpha-row" style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">
+            <button type="button" class="rpl-alpha-btn" data-ch="A">A</button>
+            <button type="button" class="rpl-alpha-btn" data-ch="B">B</button>
+            <button type="button" class="rpl-alpha-btn" data-ch="G">G</button>
+            <button type="button" class="rpl-alpha-btn" data-ch="L">L</button>
+            <button type="button" class="rpl-alpha-btn" data-ch="BS" style="margin-left:auto;background:#fee2e2;color:#dc2626;">⌫</button>
+          </div>
+        </div>
+
+        <div class="rpl-photo rpl-replace-only" id="rpl-old-photo">
+          <span class="rpl-photo-label">📷 기존 계기 사진 (탭하여 선택)</span>
+          <img class="rpl-photo-preview" alt="기존 계기">
+        </div>
+        <input type="file" id="rpl-old-photo-input" accept="image/*" style="display:none;">
+
+        <div class="rpl-photo rpl-replace-only" id="rpl-new-photo">
+          <span class="rpl-photo-label">📷 새 계기 사진 (탭하여 선택)</span>
+          <img class="rpl-photo-preview" alt="새 계기">
+        </div>
+        <input type="file" id="rpl-new-photo-input" accept="image/*" style="display:none;">
+
+        <div class="rpl-field rpl-replace-only">
+          <label>철거 제번 (kWh)</label>
+          <input type="text" id="rpl-removal-value" inputmode="numeric" placeholder="예: 12345">
+        </div>
+
+        <div class="rpl-field rpl-replace-only">
+          <label>새 계기번호</label>
+          <div class="rpl-input-with-qr">
+            <input type="text" id="rpl-new-meter-id" inputmode="numeric" maxlength="11" placeholder="QR 또는 직접 입력">
+            <button class="rpl-qr-btn" id="rpl-qr-btn">📷 QR</button>
+          </div>
+        </div>
+
+        <div class="rpl-field rpl-replace-only">
+          <label>제조년월 (선택/수정 가능)</label>
+          <div class="rpl-mfg-row">
+            <select id="rpl-mfg-y"></select>
+            <select id="rpl-mfg-m"></select>
+          </div>
+        </div>
+
+        <div class="rpl-footer">
+          <button class="rpl-btn cancel" id="rpl-cancel">취소</button>
+          <button class="rpl-btn save" id="rpl-save">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="rpl-toast" class="rpl-toast"></div>
+
+    <!-- QR 라이브 스캔 오버레이 (전체 화면) -->
+    <div id="qr-scan-overlay" style="display:none;position:fixed;inset:0;background:black;z-index:3000;flex-direction:column;">
+      <div style="display:flex;align-items:center;padding:10px 14px;background:#111;color:white;">
+        <span id="qr-cam-label" style="flex:1;font-size:13px;font-weight:600;">📷 QR / 바코드 스캔</span>
+        <button id="qr-switch-btn" style="display:none;margin-right:8px;padding:6px 10px;background:#374151;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;">🔄 카메라</button>
+        <button id="qr-close-btn" style="padding:6px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">✕</button>
+      </div>
+      <div id="qr-reader" style="width:100%;flex:1;background:black;"></div>
+      <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
+      <div style="display:flex;gap:6px;padding:8px;background:#111;">
+        <button id="qr-zoom-out" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">➖ 줌</button>
+        <button id="qr-zoom-in" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">➕ 줌</button>
+      </div>
+    </div>
+
     <script src="js/auth.js"></script>
     <script>
         // 로그인 체크 — 미인증이면 login.html로 이동
@@ -112,6 +200,8 @@
                     document.getElementById('admin-btn').style.display = '';
                     document.getElementById('admin-divider').style.display = '';
                     document.getElementById('admin-upload-btn').style.display = '';
+                    document.getElementById('stats-btn').style.display = '';
+                    document.getElementById('stats-divider').style.display = '';
                 }
             }
         })();
@@ -119,7 +209,11 @@
     <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/firebase.js"></script>
-    <script src="js/detail.js"></script>
-    <script src="js/map.js"></script>
+    <script src="js/detail.js?v=20260517f"></script>
+    <script src="js/map.js?v=20260517f"></script>
+    <script src="js/qr-scanner.js?v=20260517f"></script>
+    <script src="js/photo-uploader.js?v=20260517f"></script>
+    <script src="js/replacement-modal.js?v=20260517f"></script>
+    <script src="js/simulate-helper.js?v=20260517m"></script>
 </body>
 </html>

@@ -1,0 +1,57 @@
+/* replacement-modal.css — 계기 교체 입력 모달 */
+
+.rpl-modal {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh;
+  background: rgba(0,0,0,0.5); z-index: 2000;
+  display: none; align-items: center; justify-content: center;
+}
+.rpl-modal.active { display: flex; }
+
+.rpl-card {
+  width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto;
+  background: white; border-radius: 12px; padding: 16px; margin: 12px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+.rpl-header { display: flex; justify-content: space-between; align-items: center; }
+.rpl-header h3 { font-size: 16px; font-weight: 700; color: #111827; margin: 0; }
+.rpl-seq { font-size: 12px; font-weight: 600; color: #10b981; background: #ecfdf5; padding: 4px 12px; border-radius: 999px; display: inline-flex; align-items: baseline; gap: 4px; }
+.rpl-seq .num { font-size: 26px; font-weight: 900; line-height: 1; }
+.rpl-close { width: 32px; height: 32px; border: none; background: #e5e7eb; border-radius: 6px; cursor: pointer; font-size: 20px; line-height: 1; color: #374151; font-weight: 600; }
+
+.rpl-field { display: flex; flex-direction: column; gap: 4px; }
+.rpl-field label { font-size: 12px; font-weight: 600; color: #6b7280; }
+.rpl-field input { padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; }
+.rpl-field input:focus { outline: none; border-color: #3b82f6; }
+
+.rpl-photo {
+  display: flex; flex-direction: column; gap: 6px;
+  border: 2px dashed #e5e7eb; border-radius: 8px; padding: 12px; align-items: center;
+  cursor: pointer; transition: all 0.2s;
+}
+.rpl-photo:active { background: #f9fafb; }
+.rpl-photo.has-photo { border-style: solid; border-color: #10b981; padding: 4px; }
+.rpl-photo-label { font-size: 13px; color: #6b7280; }
+.rpl-photo-preview { display: none; width: 100%; max-height: 200px; object-fit: contain; border-radius: 4px; }
+.rpl-photo.has-photo .rpl-photo-preview { display: block; }
+.rpl-photo.has-photo .rpl-photo-label { display: none; }
+
+.rpl-input-with-qr { display: flex; gap: 6px; }
+.rpl-input-with-qr input { flex: 1; }
+.rpl-qr-btn { padding: 10px 14px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+
+.rpl-mfg-row { display: flex; gap: 6px; }
+.rpl-mfg-row input { flex: 1; text-align: center; }
+
+.rpl-alpha-btn { padding: 8px 14px; background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; border-radius: 6px; font-size: 14px; font-weight: 700; cursor: pointer; min-width: 38px; }
+.rpl-alpha-btn:active { background: #ddd6fe; }
+
+.rpl-footer { display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; }
+.rpl-btn { flex: 1; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; background: white; }
+.rpl-btn.cancel { color: #6b7280; }
+.rpl-btn.save { border-color: #10b981; color: #10b981; }
+.rpl-btn.save:active { background: #10b981; color: white; }
+.rpl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.rpl-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(17,24,39,0.92); color: white; padding: 10px 16px; border-radius: 999px; font-size: 13px; z-index: 3000; display: none; }
+.rpl-toast.active { display: block; }

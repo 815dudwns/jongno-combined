@@ -377,15 +377,30 @@ function decideMarkerStyle(meters, status, session) {
     }
     // 2. 계기팀 / admin(meter) 시각
     else {
+        // 자동 계산 (영준님 명세):
+        // - 모두 교체 완료 → gray (완료)
+        // - 일부 완료 → blue (보류 + N/M)
+        // - 불가만 있고 완료 없음 → red
+        // 추가된 계기(added_meters)도 작업 대상에 포함
+        const addedCount = Object.keys(status.added_meters || {}).length;
+        const totalAll = total + addedCount;
+        const replacedCount = Object.keys(status.replacement_list || {}).length;
+        const isAllReplaced = (totalAll > 0 && replacedCount === totalAll);
+        const isPartialReplaced = (replacedCount > 0 && !isAllReplaced);
+
         const partial = (meter_state === 'pending') &&
                         (checkedCount + failedCount > 0) &&
                         (checkedCount + failedCount < total);
-        if (meter_state === 'complete') {
+        if (meter_state === 'complete' || isAllReplaced) {
             colorClass = 'gray';
+            labelMain = String(totalAll);
         } else if (meter_state === 'hold') {
             colorClass = 'blue';
         } else if (meter_state === 'fail') {
             colorClass = 'red';
+        } else if (isPartialReplaced) {
+            colorClass = 'blue';
+            labelMain = `${replacedCount}/${totalAll}`;
         } else if (partial) {
             colorClass = 'blue';
             labelMain = `${checkedCount + failedCount}/${total}`;

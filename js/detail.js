@@ -11,13 +11,39 @@ function showDetail(address, meters) {
     currentAddress = address;
     currentMeters = meters;
 
-    // 어드민 사진등록 버튼에 현재 주소 전달
+    // 어드민 사진등록 버튼 — 통신팀 시각일 때만 표시 (admin이라도 계기팀 시각이면 숨김)
     const adminBtn = document.getElementById('admin-upload-btn');
     if (adminBtn) adminBtn.href = `admin.html?addr=${encodeURIComponent(address)}`;
 
     const session = authGetSession();
     const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : (session?.role || 'meter');
     const myPrefix = (role === 'comm') ? 'comm' : 'meter';
+
+    // 계기팀에 중복정렬 버튼 숨김 (통신팀에서만 사용)
+    const dupSortBtn = document.getElementById('sort-btn-dup');
+    if (dupSortBtn) dupSortBtn.style.display = (role === 'comm') ? '' : 'none';
+
+    // 계기팀 액션 = "불가 + 계기추가"만. 완료/보류 버튼 숨김.
+    // (주소 상태는 계기 단위 작업으로 자동 계산됨)
+    const isMeter = (role === 'meter');
+    document.getElementById('btn-complete').style.display = isMeter ? 'none' : '';
+    document.getElementById('btn-hold').style.display = isMeter ? 'none' : '';
+
+    // 사진등록 버튼 — 통신팀 시각일 때만 (admin도 계기팀 시각이면 숨김)
+    if (adminBtn) {
+        const sessionAll = authGetSession();
+        const isAdmin = sessionAll?.role === 'admin';
+        const showUpload = isAdmin && (role === 'comm');
+        adminBtn.style.display = showUpload ? '' : 'none';
+    }
+
+    // "+ 계기 추가" 버튼 — 계기팀/admin만 노출
+    const addMeterBtn = document.getElementById('btn-add-meter');
+    if (addMeterBtn) {
+      const showAdd = (role === 'meter') || (role === 'admin');
+      addMeterBtn.style.display = showAdd ? '' : 'none';
+      addMeterBtn.onclick = () => (typeof RplModal !== 'undefined') && RplModal.open(address, null);
+    }
 
     const status = workStatus[address] || makeEmptyEntry();
     status.checkedMeters = status.checkedMeters || [];
@@ -27,20 +53,40 @@ function showDetail(address, meters) {
     const myUpdatedByName = status[`${myPrefix}_updatedByName`] || '';
     const myUpdatedAt     = status[`${myPrefix}_updatedAt`]     || '';
 
-    document.getElementById('detail-address').textContent = address;
+    // 작은 SVG 복사 아이콘 (기존 meter copy-btn과 동일 스타일)
+    const COPY_ICON_SVG = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+    const copyIconHtml = (id, title) =>
+        `<button class="copy-btn" id="${id}" title="${title}" style="margin-left:6px;vertical-align:middle;">${COPY_ICON_SVG}</button>`;
+
+    const jibunAddr = meters[0].주소 || address;
+    const roadAddr = meters[0].도로명주소 || '';
+
+    // 헤더 주소 = 그룹 키 (보통 도로명) + 옆에 복사 버튼 (해당 형태)
+    document.getElementById('detail-address').innerHTML =
+        address + copyIconHtml('copy-addr-btn', '주소 복사');
 
     // 좌표정확도가 approximate인 계기가 하나라도 있으면 "주소 오류" 표시
     const hasApproximate = meters.some(m => m.좌표정확도 === 'approximate');
     const errorTag = hasApproximate
         ? ' <span style="color:#ef4444;font-size:12px;">(주소 오류)</span>'
         : '';
-    document.getElementById('detail-road-address').innerHTML = '📍 ' + meters[0].도로명주소 + errorTag;
+    // 도로명 / 지번 — 각각 옆에 복사 아이콘 (도로명은 헤더 주소와 같을 수 있어 다르면만 표시)
+    let roadLine = '';
+    if (roadAddr && roadAddr !== address) {
+        roadLine = '📍 ' + roadAddr + copyIconHtml('copy-road-btn', '도로명 복사') + errorTag;
+    } else {
+        roadLine = '📍 ' + roadAddr + errorTag;
+    }
+    let jibunLine = '';
+    if (jibunAddr && jibunAddr !== address) {
+        jibunLine = `<br><span style="color:#9ca3af;">🏠 ${jibunAddr}</span>` + copyIconHtml('copy-jibun-btn', '지번 복사');
+    }
+    document.getElementById('detail-road-address').innerHTML = roadLine + jibunLine;
 
     // 상태 색상 바 업데이트 (기능 3)
     updateStatusBar(myState);
 
     // 지도 앱 버튼 3개 — 도로명주소로 검색
-    const roadAddr = meters[0].도로명주소;
     document.getElementById('tmap-btn').onclick = () => {
         window.location.href = `tmap://search?name=${encodeURIComponent(roadAddr)}`;
     };
@@ -50,6 +96,18 @@ function showDetail(address, meters) {
     document.getElementById('kakao-btn').onclick = () => {
         window.location.href = `kakaomap://search?q=${encodeURIComponent(roadAddr)}`;
     };
+
+    // 주소 복사 핸들러 — copyMeterNo (기존 helper) 또는 navigator.clipboard
+    const doCopy = (text, label) => {
+        if (typeof copyMeterNo === 'function') { copyMeterNo(text); return; }
+        navigator.clipboard?.writeText(text);
+    };
+    const addrBtn = document.getElementById('copy-addr-btn');
+    if (addrBtn) addrBtn.onclick = (e) => { e.stopPropagation(); doCopy(address); };
+    const roadBtn2 = document.getElementById('copy-road-btn');
+    if (roadBtn2) roadBtn2.onclick = (e) => { e.stopPropagation(); doCopy(roadAddr); };
+    const jibunBtn2 = document.getElementById('copy-jibun-btn');
+    if (jibunBtn2) jibunBtn2.onclick = (e) => { e.stopPropagation(); doCopy(jibunAddr); };
 
     const btnComplete = document.getElementById('btn-complete');
     const btnHold = document.getElementById('btn-hold');
@@ -66,18 +124,37 @@ function showDetail(address, meters) {
         btnComplete.onclick = () => { updateStatus('complete'); closeDetail(); };
     }
 
-    btnHold.onclick = () => { updateStatus('hold'); closeDetail(); };
-    btnFail.onclick = () => {
-        const failInput = document.getElementById('fail-reason');
-        const reason = failInput.value.trim();
-        if (!reason) {
-            failInput.style.borderColor = '#ef4444';
-            return;
-        }
-        failInput.style.borderColor = '';
-        updateStatus('fail');
-        closeDetail();
-    };
+    // 보류 상태면 초기화 버튼으로 전환
+    if (myState === 'hold') {
+        btnHold.textContent = '🔄 초기화';
+        btnHold.className = 'action-btn reset';
+        btnHold.onclick = () => resetStatus();
+    } else {
+        btnHold.textContent = '⏸️ 보류';
+        btnHold.className = 'action-btn hold';
+        btnHold.onclick = () => { updateStatus('hold'); closeDetail(); };
+    }
+
+    // 불가 상태면 초기화 버튼으로 전환
+    if (myState === 'fail') {
+        btnFail.textContent = '🔄 초기화';
+        btnFail.className = 'action-btn reset';
+        btnFail.onclick = () => resetStatus();
+    } else {
+        btnFail.textContent = '❌ 불가';
+        btnFail.className = 'action-btn fail';
+        btnFail.onclick = () => {
+            const failInput = document.getElementById('fail-reason');
+            const reason = failInput.value.trim();
+            if (!reason) {
+                failInput.style.borderColor = '#ef4444';
+                return;
+            }
+            failInput.style.borderColor = '';
+            updateStatus('fail');
+            closeDetail();
+        };
+    }
 
     // 현재 상태에 맞는 버튼 활성화 — myState 기준
     [btnComplete, btnHold, btnFail].forEach(btn => btn.classList.remove('active'));
@@ -229,8 +306,8 @@ function updateWorkerInfo(status) {
 // ── 계기 목록 렌더링 ─────────────────────────────────────────
 
 // 현재 정렬 모드에 따라 계기 목록을 정렬해서 반환
-function getSortedMeters() {
-    const meters = currentMeters;
+function getSortedMeters(metersOverride) {
+    const meters = metersOverride || currentMeters;
     if (currentSortMode === 'dup') {
         // 뒤 2자리 기준 그룹 정렬 (같은 뒤2자리끼리 인접)
         return [...meters].sort((a, b) => {
@@ -290,9 +367,22 @@ function saveMeterFailReason(meterNumber, reason) {
 
 // 계기 목록 HTML 생성 및 렌더링
 function renderMetersList() {
-    const meters = currentMeters;
-    const sortedMeters = getSortedMeters();
     const status = workStatus[currentAddress] || makeEmptyEntry();
+
+    // 작업자가 "+계기 추가"로 등록한 계기 → 가상 meter 객체로 합치기
+    // (site-data에 없으므로 변대주·검침일·타입 등은 빈 값)
+    const addedMeters = status.added_meters || {};
+    const addedAsMeters = Object.keys(addedMeters).map(id => ({
+        계기번호: String(id),
+        계기타입: '',
+        상호: '',
+        변대주: '',
+        _isAdded: true,
+    }));
+
+    // currentMeters는 site-data 원본. 합쳐서 표시
+    const meters = [...currentMeters, ...addedAsMeters];
+    const sortedMeters = getSortedMeters(meters);
     const allSamePole = meters.length > 0 && meters.every(m => m.변대주 === meters[0].변대주);
     const failedMeters = status.failedMeters || {};
 
@@ -390,14 +480,35 @@ function renderMetersList() {
             ? `meter-item ${rowClass(s2)} meter-item-failed`
             : `meter-item ${rowClass(s2)}`;
 
+        // 계기팀/admin에게만 "교체/수정" 버튼 노출
+        // - 미등록 = "📝 교체" (보라색, 새로 등록)
+        // - 이미 등록 = "✏️ 수정" (녹색, prefill 모드)
+        const _role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : ((authGetSession() || {}).role || 'meter');
+        const showRpl = (_role === 'meter') || (_role === 'admin');
+        const isReplaced = !!((status.replacement_list || {})[meter.계기번호]);
+        const rplBtnHtml = showRpl
+            ? (isReplaced
+                ? `<button class="meter-rpl-btn" data-meter="${meter.계기번호}" data-mode="edit" style="margin-left:6px;padding:3px 8px;background:#10b981;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">✏️ 수정</button>`
+                : `<button class="meter-rpl-btn" data-meter="${meter.계기번호}" style="margin-left:6px;padding:3px 8px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">📝 교체</button>`)
+            : '';
+        // "추가" 배지 — 작업자가 수동 추가한 계기 (site-data에 없는)
+        const addedBadge = meter._isAdded
+            ? `<span style="margin-left:6px;padding:2px 7px;background:#fef3c7;color:#92400e;border:1px solid #fbbf24;border-radius:6px;font-size:10px;font-weight:700;">추가</span>`
+            : '';
+        // 추가 계기는 삭제 버튼 (잘못 추가한 경우 제거)
+        const removeAddedBtnHtml = meter._isAdded
+            ? `<button class="meter-remove-added-btn" data-meter="${meter.계기번호}" title="추가 취소" style="margin-left:4px;padding:3px 8px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">🗑</button>`
+            : '';
+
         return `
             <div class="${itemClass}">
                 <input type="checkbox" class="meter-checkbox"
                        data-meter="${meter.계기번호}" ${checked}>
                 <div class="meter-info">
                     <span class="meter-type">${parsedType}</span>
-                    ${noHtml}${copyBtn}
+                    ${noHtml}${copyBtn}${addedBadge}
                     <button class="${failBtnClass}" data-meter="${meter.계기번호}">${failBtnLabel}</button>
+                    ${rplBtnHtml}${removeAddedBtnHtml}
                     ${meterMetaHtml}
                     ${details ? `<div class="meter-details">${details}</div>` : ''}
                     ${failInputHtml}
@@ -425,6 +536,52 @@ function renderMetersList() {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 toggleMeterFail(btn.dataset.meter);
+            });
+        });
+
+        // 추가 계기 삭제 버튼 (🗑) — added_meters에서 제거
+        document.querySelectorAll('.meter-remove-added-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const meterNo = String(btn.dataset.meter);
+                if (!confirm(`추가된 계기 ${meterNo} 삭제?`)) return;
+                try {
+                    const addrKey = (typeof encodeKey === 'function') ? encodeKey(currentAddress) : currentAddress;
+                    if (statusRef) {
+                        await statusRef.child(addrKey).child('added_meters').child(meterNo).remove();
+                    }
+                    if (workStatus[currentAddress]?.added_meters) {
+                        delete workStatus[currentAddress].added_meters[meterNo];
+                    }
+                    renderMetersList();
+                } catch (err) {
+                    alert('삭제 실패: ' + (err.message || err));
+                }
+            });
+        });
+
+        // 계기별 "교체/수정" 버튼 → 모달 열기 (계기 객체 함께 전달)
+        document.querySelectorAll('.meter-rpl-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof RplModal === 'undefined') return;
+                const meterNo = String(btn.dataset.meter);
+                const mode = btn.dataset.mode === 'edit' ? 'edit' : 'new';
+                // site-data 원본에서 먼저 찾고, 없으면 추가된 계기에서
+                let meter = currentMeters.find(m => String(m.계기번호) === meterNo);
+                if (!meter) {
+                    const addedMap = (workStatus[currentAddress] || {}).added_meters || {};
+                    if (addedMap[meterNo]) {
+                        meter = { 계기번호: meterNo, 계기타입: '', 상호: '', 변대주: '', _isAdded: true };
+                    }
+                }
+                // 수정 모드면 기존 replacement 데이터 prefill
+                if (mode === 'edit') {
+                    const existing = (workStatus[currentAddress] || {}).replacement_list?.[meterNo];
+                    RplModal.open(currentAddress, meter, null, existing);
+                } else {
+                    RplModal.open(currentAddress, meter);
+                }
             });
         });
 
