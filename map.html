@@ -4,8 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>종로 합동시공 지도</title>
-    <!-- 즉시 인증 체크 — body 로딩 전에 redirect (캐시된 화면 노출 차단) -->
+    <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
     <script>
+      // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
+      // 폰 사용자가 콘솔 없이도 새 버전 받게
+      (function () {
+        const APP_VERSION = '20260517u';
+        if (localStorage.getItem('app_version') !== APP_VERSION) {
+          const keep = {};
+          ['jongno_auth', 'jongno_event_queue'].forEach(k => {
+            const v = localStorage.getItem(k);
+            if (v !== null) keep[k] = v;
+          });
+          localStorage.clear();
+          Object.entries(keep).forEach(([k, v]) => localStorage.setItem(k, v));
+          localStorage.setItem('app_version', APP_VERSION);
+        }
+      })();
+      // 인증 체크
       if (!localStorage.getItem('jongno_auth')) {
         window.location.replace('login.html');
       }

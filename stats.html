@@ -4,9 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>작업 통계 - 종로 합동시공</title>
-  <!-- 즉시 인증 체크 -->
+  <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
+      const APP_VERSION = '20260517u';
+      if (localStorage.getItem('app_version') !== APP_VERSION) {
+        const keep = {};
+        ['jongno_auth', 'jongno_event_queue'].forEach(k => {
+          const v = localStorage.getItem(k);
+          if (v !== null) keep[k] = v;
+        });
+        localStorage.clear();
+        Object.entries(keep).forEach(([k, v]) => localStorage.setItem(k, v));
+        localStorage.setItem('app_version', APP_VERSION);
+      }
       const raw = localStorage.getItem('jongno_auth');
       if (!raw) { window.location.replace('login.html'); return; }
       try {
