@@ -63,28 +63,29 @@ function showDetail(address, meters) {
     const copyIconHtml = (id, title) =>
         `<button class="copy-btn" id="${id}" title="${title}" style="margin-left:6px;vertical-align:middle;">${COPY_ICON_SVG}</button>`;
 
-    const jibunAddr = meters[0].주소 || address;
-    const roadAddr = meters[0].도로명주소 || '';
+    const jibunAddr = (meters[0] && meters[0].주소) || address || '';
+    const roadAddr  = (meters[0] && meters[0].도로명주소) || '';
 
-    // 헤더 주소 = 그룹 키 (보통 도로명) + 옆에 복사 버튼 (해당 형태)
+    // 헤더 = 도로명(있으면) 우선, 없으면 지번. 복사 버튼은 표시된 주소를 복사.
+    const headerAddr = roadAddr || jibunAddr;
     document.getElementById('detail-address').innerHTML =
-        address + copyIconHtml('copy-addr-btn', '주소 복사');
+        headerAddr + copyIconHtml('copy-addr-btn', '주소 복사');
 
     // 좌표정확도가 approximate인 계기가 하나라도 있으면 "주소 오류" 표시
     const hasApproximate = meters.some(m => m.좌표정확도 === 'approximate');
     const errorTag = hasApproximate
         ? ' <span style="color:#ef4444;font-size:12px;">(주소 오류)</span>'
         : '';
-    // 도로명 / 지번 — 각각 옆에 복사 아이콘 (도로명은 헤더 주소와 같을 수 있어 다르면만 표시)
+
+    // 도로명/지번 라인 — 각각 별도 복사 버튼 (헤더와 중복돼도 항상 노출)
     let roadLine = '';
-    if (roadAddr && roadAddr !== address) {
+    if (roadAddr) {
         roadLine = '📍 ' + roadAddr + copyIconHtml('copy-road-btn', '도로명 복사') + errorTag;
-    } else {
-        roadLine = '📍 ' + roadAddr + errorTag;
     }
     let jibunLine = '';
-    if (jibunAddr && jibunAddr !== address) {
-        jibunLine = `<br><span style="color:#9ca3af;">🏠 ${jibunAddr}</span>` + copyIconHtml('copy-jibun-btn', '지번 복사');
+    if (jibunAddr) {
+        const br = roadLine ? '<br>' : '';
+        jibunLine = `${br}<span style="color:#9ca3af;">🏠 ${jibunAddr}</span>` + copyIconHtml('copy-jibun-btn', '지번 복사');
     }
     document.getElementById('detail-road-address').innerHTML = roadLine + jibunLine;
 
@@ -102,13 +103,15 @@ function showDetail(address, meters) {
         window.location.href = `kakaomap://search?q=${encodeURIComponent(roadAddr)}`;
     };
 
-    // 주소 복사 핸들러 — copyMeterNo (기존 helper) 또는 navigator.clipboard
-    const doCopy = (text, label) => {
-        if (typeof copyMeterNo === 'function') { copyMeterNo(text); return; }
-        navigator.clipboard?.writeText(text);
+    // 주소 복사 핸들러 — falsy면 무시 ('undefined' 문자열이 클립보드로 새는 것 방지)
+    const doCopy = (text) => {
+        const s = (text == null) ? '' : String(text);
+        if (!s) return;
+        if (typeof copyMeterNo === 'function') { copyMeterNo(s); return; }
+        navigator.clipboard?.writeText(s);
     };
     const addrBtn = document.getElementById('copy-addr-btn');
-    if (addrBtn) addrBtn.onclick = (e) => { e.stopPropagation(); doCopy(address); };
+    if (addrBtn) addrBtn.onclick = (e) => { e.stopPropagation(); doCopy(headerAddr); };
     const roadBtn2 = document.getElementById('copy-road-btn');
     if (roadBtn2) roadBtn2.onclick = (e) => { e.stopPropagation(); doCopy(roadAddr); };
     const jibunBtn2 = document.getElementById('copy-jibun-btn');
