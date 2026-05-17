@@ -83,7 +83,13 @@ const RplModal = (() => {
       } else {
         loadLastMfgYm();
       }
-      loadDailySeq();
+      if (isEditMode && editData.daily_seq) {
+        // 수정 모드 = 원본 daily_seq 그대로 표시 (새로 카운트 X)
+        document.getElementById('rpl-seq').innerHTML =
+          `<span class="num">${editData.daily_seq}</span> 번째`;
+      } else {
+        loadDailySeq();
+      }
     }
   }
 

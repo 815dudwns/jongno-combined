@@ -389,6 +389,13 @@ function mergeFirebaseData(firebaseData) {
             local.meterChecks   = fb.meterChecks;
         }
 
+        // replacement_list / added_meters — Firebase가 정답 (서버 데이터 우선)
+        // (계기 교체 등록 데이터는 메모리 캐시 X, 항상 Firebase 동기화)
+        if (fb.replacement_list !== undefined) local.replacement_list = fb.replacement_list;
+        else if (firebaseData[addr]?.replacement_list !== undefined) local.replacement_list = firebaseData[addr].replacement_list;
+        if (fb.added_meters !== undefined) local.added_meters = fb.added_meters;
+        else if (firebaseData[addr]?.added_meters !== undefined) local.added_meters = firebaseData[addr].added_meters;
+
         // failedMeters — 로컬 전용 필드 유지
         local.failedMeters = local.failedMeters || fb.failedMeters || {};
     });
