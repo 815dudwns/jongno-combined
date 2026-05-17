@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>종로 합동시공 지도</title>
+    <!-- 즉시 인증 체크 — body 로딩 전에 redirect (캐시된 화면 노출 차단) -->
+    <script>
+      if (!localStorage.getItem('jongno_auth')) {
+        window.location.replace('login.html');
+      }
+    </script>
     <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=2eae4b699110525f0dc62295ed8ed43d&autoload=false"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>

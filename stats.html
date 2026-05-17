@@ -4,6 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>작업 통계 - 종로 합동시공</title>
+  <!-- 즉시 인증 체크 -->
+  <script>
+    (function () {
+      const raw = localStorage.getItem('jongno_auth');
+      if (!raw) { window.location.replace('login.html'); return; }
+      try {
+        const s = JSON.parse(raw);
+        if (s.role !== 'admin') { window.location.replace('map.html'); }
+      } catch { window.location.replace('login.html'); }
+    })();
+  </script>
   <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=2eae4b699110525f0dc62295ed8ed43d&autoload=false"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
