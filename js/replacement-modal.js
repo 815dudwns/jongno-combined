@@ -41,7 +41,9 @@ const RplModal = (() => {
       el.style.display = isAddMode ? 'none' : '';
     });
 
-    document.getElementById('rpl-seq').style.display = isAddMode ? 'none' : '';
+    // 삭제 버튼 — 수정모드일 때만 노출
+    const delBtn = document.getElementById('rpl-delete');
+    if (delBtn) delBtn.style.display = isEditMode ? '' : 'none';
 
     const oldIdInput = document.getElementById('rpl-old-meter-id');
     if (isAddMode) {
@@ -82,13 +84,6 @@ const RplModal = (() => {
         if (m) document.getElementById('rpl-mfg-m').value = m;
       } else {
         loadLastMfgYm();
-      }
-      if (isEditMode && editData.daily_seq) {
-        // 수정 모드 = 원본 daily_seq 그대로 표시 (새로 카운트 X)
-        document.getElementById('rpl-seq').innerHTML =
-          `<span class="num">${editData.daily_seq}</span> 번째`;
-      } else {
-        loadDailySeq();
       }
     }
   }
@@ -155,26 +150,6 @@ const RplModal = (() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d.getTime();
-  }
-
-  // Firebase workStatus 순회 → 그날 그 작업자 replacement 개수 + 1
-  function loadDailySeq() {
-    const session = (typeof authGetSession === 'function') ? authGetSession() : null;
-    const me = session ? (session.id || session.username || session.name) : '';
-    let cnt = 0;
-    try {
-      const start = todayStartMs();
-      const ws = (typeof workStatus !== 'undefined') ? workStatus : {};
-      for (const addr in ws) {
-        const rl = ws[addr] && ws[addr].replacement_list;
-        if (!rl) continue;
-        for (const k in rl) {
-          const r = rl[k];
-          if (r && r.worker === me && typeof r.replaced_at === 'number' && r.replaced_at >= start) cnt++;
-        }
-      }
-    } catch (e) {}
-    document.getElementById('rpl-seq').innerHTML = `오늘 <span class="num">${cnt + 1}</span> 번째`;
   }
 
   function toast(msg) {
@@ -292,26 +267,12 @@ const RplModal = (() => {
               : Promise.resolve({ url: keepNewPhotoUrl })),
       ]);
 
-      // daily_seq · 시각 · 작업자 — 수정 모드면 원본 유지, 신규면 새로
-      let dailySeq, replacedAt, worker;
+      // 시각 · 작업자 — 수정 모드면 원본 유지, 신규면 새로
+      let replacedAt, worker;
       if (editingData) {
-        dailySeq = editingData.daily_seq;
         replacedAt = editingData.replaced_at;
         worker = editingData.worker;
       } else {
-        dailySeq = 1;
-        try {
-          const start = todayStartMs();
-          const ws = (typeof workStatus !== 'undefined') ? workStatus : {};
-          for (const addr in ws) {
-            const rl = ws[addr] && ws[addr].replacement_list;
-            if (!rl) continue;
-            for (const k in rl) {
-              const r = rl[k];
-              if (r && r.worker === me && typeof r.replaced_at === 'number' && r.replaced_at >= start) dailySeq++;
-            }
-          }
-        } catch {}
         replacedAt = ts;
         worker = me;
       }
@@ -325,7 +286,6 @@ const RplModal = (() => {
         new_meter_photo: newRes.url,
         worker,
         replaced_at: replacedAt,
-        daily_seq: dailySeq,
       };
       if (editingData) {
         replacement.last_edited_at = ts;
@@ -335,7 +295,7 @@ const RplModal = (() => {
       if (dryRun) {
         console.log('[DRY RUN] replacement_list', addrKey, oldMeterId, replacement);
         saveLastMfgYm(y, m);
-        toast(editingData ? '🧪 [DRY RUN] 수정 모의' : `🧪 [DRY RUN] 저장 모의 (오늘 ${dailySeq}번째)`);
+        toast(editingData ? '🧪 [DRY RUN] 수정 모의' : '🧪 [DRY RUN] 저장 모의');
         setTimeout(close, 800);
         return;
       }
@@ -349,7 +309,7 @@ const RplModal = (() => {
       workStatus[currentAddress].replacement_list[oldMeterId] = replacement;
 
       saveLastMfgYm(y, m);
-      toast(editingData ? '✏️ 수정 완료' : `✅ 저장 완료 (오늘 ${dailySeq}번째)`);
+      toast(editingData ? '✏️ 수정 완료' : '✅ 저장 완료');
       setTimeout(close, 800);
 
       if (typeof updateMarkerColor === 'function') updateMarkerColor(currentAddress);
@@ -363,10 +323,59 @@ const RplModal = (() => {
     }
   }
 
+  async function onDelete() {
+    if (!editingData) return;
+    const oldId = editingData.old_meter_id || (currentMeter && (currentMeter.계기번호 || currentMeter.meter_id));
+    if (!oldId) return toast('대상 계기번호 없음');
+
+    const ok = confirm(`이 교체 기록을 삭제할까요?\n\n계기 ${oldId}\n주소 ${currentAddress}\n\n삭제 후 되돌릴 수 없습니다.`);
+    if (!ok) return;
+
+    const delBtn = document.getElementById('rpl-delete');
+    delBtn.disabled = true;
+    delBtn.textContent = '삭제 중...';
+
+    try {
+      const dryRun = isDryRun();
+      if (!dryRun && (!db || !statusRef)) throw new Error('Firebase 미초기화');
+      const addrKey = (typeof encodeKey === 'function') ? encodeKey(currentAddress) : currentAddress;
+
+      if (dryRun) {
+        console.log('[DRY RUN] delete replacement', addrKey, oldId);
+      } else {
+        await statusRef.child(addrKey).child('replacement_list').child(String(oldId)).remove();
+        // added_meters에 들어있으면 함께 정리 (추가모드로 들어온 계기였던 경우)
+        const am = workStatus[currentAddress] && workStatus[currentAddress].added_meters;
+        if (am && am[oldId]) {
+          await statusRef.child(addrKey).child('added_meters').child(String(oldId)).remove();
+          delete workStatus[currentAddress].added_meters[oldId];
+        }
+      }
+
+      // 로컬 반영
+      const rl = workStatus[currentAddress] && workStatus[currentAddress].replacement_list;
+      if (rl) delete rl[oldId];
+
+      toast('🗑 삭제 완료');
+      setTimeout(close, 600);
+
+      if (typeof updateMarkerColor === 'function') updateMarkerColor(currentAddress);
+      if (typeof renderMetersList === 'function') renderMetersList();
+    } catch (e) {
+      console.error(e);
+      toast(`삭제 실패: ${e.message || e}`);
+    } finally {
+      delBtn.disabled = false;
+      delBtn.textContent = '🗑 삭제';
+    }
+  }
+
   function init() {
     document.getElementById('rpl-close').onclick = close;
     document.getElementById('rpl-cancel').onclick = close;
     document.getElementById('rpl-save').onclick = onSave;
+    const delBtn = document.getElementById('rpl-delete');
+    if (delBtn) delBtn.onclick = onDelete;
     document.getElementById('rpl-old-photo').onclick = () =>
       document.getElementById('rpl-old-photo-input').click();
     document.getElementById('rpl-new-photo').onclick = () =>

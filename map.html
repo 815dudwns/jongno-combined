@@ -9,7 +9,7 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260517u';
+        const APP_VERSION = '20260518a';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
           ['jongno_auth', 'jongno_event_queue'].forEach(k => {
@@ -40,10 +40,10 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <!-- QR/바코드 라이브 스캔 -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <link rel="stylesheet" href="css/common.css?v=20260517u">
-    <link rel="stylesheet" href="css/marker.css?v=20260517u">
-    <link rel="stylesheet" href="css/panel.css?v=20260517u">
-    <link rel="stylesheet" href="css/replacement-modal.css?v=20260517u">
+    <link rel="stylesheet" href="css/common.css?v=20260518a">
+    <link rel="stylesheet" href="css/marker.css?v=20260518a">
+    <link rel="stylesheet" href="css/panel.css?v=20260518a">
+    <link rel="stylesheet" href="css/replacement-modal.css?v=20260518a">
 </head>
 <body>
     <div id="map"></div>
@@ -143,7 +143,6 @@
             <h3>계기 교체 등록</h3>
             <p id="rpl-title-addr" style="font-size:12px;color:#6b7280;margin:2px 0 0;line-height:1.3;word-break:break-all;"></p>
           </div>
-          <span class="rpl-seq" id="rpl-seq">오늘 ?번째</span>
           <button class="rpl-close" id="rpl-close">×</button>
         </div>
 
@@ -193,6 +192,7 @@
         </div>
 
         <div class="rpl-footer">
+          <button class="rpl-btn" id="rpl-delete" style="display:none;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;">🗑 삭제</button>
           <button class="rpl-btn cancel" id="rpl-cancel">취소</button>
           <button class="rpl-btn save" id="rpl-save">저장</button>
         </div>
@@ -236,14 +236,14 @@
             }
         })();
     </script>
-    <script src="js/config.js?v=20260517u"></script>
-    <script src="js/utils.js?v=20260517u"></script>
-    <script src="js/firebase.js?v=20260517u"></script>
-    <script src="js/detail.js?v=20260517u"></script>
-    <script src="js/map.js?v=20260517u"></script>
-    <script src="js/qr-scanner.js?v=20260517u"></script>
-    <script src="js/photo-uploader.js?v=20260517u"></script>
-    <script src="js/replacement-modal.js?v=20260517u"></script>
-    <script src="js/simulate-helper.js?v=20260517u"></script>
+    <script src="js/config.js?v=20260518a"></script>
+    <script src="js/utils.js?v=20260518a"></script>
+    <script src="js/firebase.js?v=20260518a"></script>
+    <script src="js/detail.js?v=20260518a"></script>
+    <script src="js/map.js?v=20260518a"></script>
+    <script src="js/qr-scanner.js?v=20260518a"></script>
+    <script src="js/photo-uploader.js?v=20260518a"></script>
+    <script src="js/replacement-modal.js?v=20260518a"></script>
+    <script src="js/simulate-helper.js?v=20260518a"></script>
 </body>
 </html>
