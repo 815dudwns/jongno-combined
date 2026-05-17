@@ -127,6 +127,26 @@ body.login-page #map {
     cursor: not-allowed;
 }
 
+/* 사용설명서 링크 */
+.guide-link {
+    display: block;
+    margin-top: 20px;
+    padding: 10px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    text-decoration: none;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 16px;
+    transition: color 0.15s;
+}
+
+.guide-link:hover,
+.guide-link:active {
+    color: #3b82f6;
+}
+
 /* 모바일 최적화 */
 @media (max-width: 400px) {
     .login-card {

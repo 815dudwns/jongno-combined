@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>종로 합동시공 — 계기팀 사용설명서</title>
+<style>
+  :root {
+    --primary: #1e3a8a;
+    --primary-light: #3b82f6;
+    --green: #10b981;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --purple: #7c3aed;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-400: #9ca3af;
+    --gray-600: #6b7280;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-900);
+    line-height: 1.6;
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 18px 80px;
+  }
+
+  /* 헤더 */
+  .hero {
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    color: white;
+    border-radius: 16px;
+    padding: 32px 24px;
+    text-align: center;
+    margin-bottom: 28px;
+    box-shadow: 0 8px 24px rgba(30, 58, 138, 0.25);
+  }
+  .hero .icon { font-size: 48px; line-height: 1; }
+  .hero h1 {
+    margin: 12px 0 6px;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .hero .sub { font-size: 14px; opacity: 0.9; margin: 0; }
+  .hero .badge {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 4px 12px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* 목차 */
+  .toc {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 28px;
+  }
+  .toc h3 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--gray-600);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .toc ol {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 14px;
+  }
+  .toc ol li { margin: 4px 0; }
+  .toc a { color: var(--gray-800); text-decoration: none; }
+  .toc a:hover { color: var(--primary); }
+
+  /* 섹션 */
+  section {
+    background: white;
+    border-radius: 14px;
+    padding: 24px 22px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .step-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .step-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--primary);
+    color: white;
+    font-weight: 800;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-head h2 {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--gray-900);
+  }
+  h3.sub-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 18px 0 8px;
+    color: var(--gray-800);
+  }
+
+  p { margin: 8px 0; }
+  ul, ol { padding-left: 22px; }
+  ul li, ol li { margin: 6px 0; }
+  strong { color: var(--gray-900); }
+  code, .key {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--gray-100);
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 0.9em;
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  /* 정보 박스 */
+  .info-box {
+    background: #eff6ff;
+    border-left: 4px solid var(--primary-light);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 12px 0;
+    font-size: 14px;
+  }
+  .info-box.warn {
+    background: #fef3c7;
+    border-color: var(--amber);
+  }
+  .info-box.tip {
+    background: #ecfdf5;
+    border-color: var(--green);
+  }
+  .info-box.danger {
+    background: #fee2e2;
+    border-color: var(--red);
+  }
+  .info-box .label {
+    font-weight: 800;
+    margin-right: 6px;
+  }
+
+  /* 계정 카드 */
+  .account-card {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin: 10px 0;
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr;
+    gap: 6px 14px;
+    align-items: center;
+    font-size: 14px;
+  }
+  .account-card .lbl {
+    font-size: 11px;
+    color: var(--gray-600);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .account-card .val {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 700;
+    color: var(--gray-900);
+  }
+
+  /* 마커 데모 */
+  .marker-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--gray-200);
+  }
+  .marker-row:last-child { border-bottom: none; }
+  .marker-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    flex-shrink: 0;
+  }
+  .marker-row .desc { font-size: 14px; }
+  .marker-row .desc strong { display: block; font-size: 14px; margin-bottom: 2px; }
+  .marker-row .desc .meta { color: var(--gray-600); font-size: 12px; }
+
+  /* 가짜 버튼 */
+  .demo-btn {
+    display: inline-block;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    border: 2px solid;
+    background: white;
+    margin: 2px 4px 2px 0;
+    vertical-align: middle;
+  }
+  .demo-btn.complete { color: var(--green); border-color: var(--green); }
+  .demo-btn.hold { color: var(--amber); border-color: var(--amber); }
+  .demo-btn.fail { color: var(--red); border-color: var(--red); }
+  .demo-btn.add { color: var(--purple); border-color: var(--purple); }
+  .demo-btn.edit { color: var(--primary); border-color: var(--primary); }
+  .demo-btn.primary { background: var(--primary); color: white; border-color: var(--primary); }
+  .demo-btn.qr { background: #fef3c7; color: #92400e; border-color: var(--amber); }
+
+  /* 입력 시뮬레이션 박스 */
+  .demo-input {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 16px;
+    margin: 12px 0;
+  }
+  .demo-input .field {
+    margin-bottom: 12px;
+  }
+  .demo-input .field:last-child { margin-bottom: 0; }
+  .demo-input .field-label {
+    font-size: 12px;
+    color: var(--gray-600);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .demo-input .field-input {
+    background: white;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    color: var(--gray-800);
+  }
+
+  /* 작업 흐름 단계 */
+  .flow {
+    display: grid;
+    gap: 10px;
+    margin: 14px 0;
+  }
+  .flow-step {
+    background: var(--gray-50);
+    border-radius: 10px;
+    padding: 12px 14px;
+    border-left: 4px solid var(--primary);
+  }
+  .flow-step .n {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    background: var(--primary);
+    color: white;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 22px;
+    margin-right: 8px;
+  }
+
+  /* 푸터 */
+  footer {
+    text-align: center;
+    color: var(--gray-400);
+    font-size: 12px;
+    padding-top: 28px;
+  }
+
+  /* 강조 텍스트 */
+  .hl-red { color: var(--red); font-weight: 700; }
+  .hl-blue { color: var(--primary); font-weight: 700; }
+  .hl-green { color: var(--green); font-weight: 700; }
+
+  @media (max-width: 480px) {
+    .container { padding: 16px 12px 60px; }
+    section { padding: 20px 16px; border-radius: 12px; }
+    .hero { padding: 24px 18px; border-radius: 12px; }
+    .hero h1 { font-size: 20px; }
+    .account-card { grid-template-columns: auto 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="hero">
+    <div class="icon">📡</div>
+    <h1>종로 합동시공 지도</h1>
+    <p class="sub">계기팀 작업자 사용설명서</p>
+    <span class="badge">한전KDN 강북지사</span>
+  </div>
+
+  <div class="toc">
+    <h3>목차</h3>
+    <ol>
+      <li><a href="#step1">로그인</a></li>
+      <li><a href="#step2">지도 화면 보기</a></li>
+      <li><a href="#step3">작업 주소 열기</a></li>
+      <li><a href="#step4">계기 교체 등록 (핵심)</a></li>
+      <li><a href="#step5">계기 추가 · 수정 · 삭제</a></li>
+      <li><a href="#step6">작업 완료 처리</a></li>
+      <li><a href="#tips">자주 묻는 것 · 팁</a></li>
+    </ol>
+  </div>
+
+  <!-- STEP 1 -->
+  <section id="step1">
+    <div class="step-head">
+      <div class="step-num">1</div>
+      <h2>로그인</h2>
+    </div>
+    <p>주소창에서 종로 시스템 URL로 접속하면 로그인 화면이 뜹니다. 계기팀 계정으로 들어가세요.</p>
+
+    <div class="account-card">
+      <span class="lbl">아이디</span><span class="val">meter1</span>
+      <span class="lbl">비밀번호</span><span class="val">1111</span>
+    </div>
+
+    <div class="info-box tip">
+      <span class="label">💡 한 번 로그인하면</span>
+      폰에서 자동으로 기억합니다. 다음부터 바로 지도 화면이 열려요.
+    </div>
+    <div class="info-box warn">
+      <span class="label">⚠️ 새 버전이 나오면</span>
+      자동으로 캐시가 갱신됩니다. 그냥 평소처럼 새로고침만 하세요.
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section id="step2">
+    <div class="step-head">
+      <div class="step-num">2</div>
+      <h2>지도 화면 보기</h2>
+    </div>
+
+    <h3 class="sub-title">마커 색깔이 의미하는 것</h3>
+    <p>지도 위 동그라미 마커가 작업 대상지입니다. 색깔은 <strong>검침일</strong>에 따라 달라집니다.</p>
+
+    <div class="marker-row">
+      <div class="marker-dot" style="background:#ef4444"></div>
+      <div class="desc"><strong>빨강 / 주황 / 노랑</strong><span class="meta">검침일별 색상 구분</span></div>
+    </div>
+    <div class="marker-row">
+      <div class="marker-dot" style="background:#10b981"></div>
+      <div class="desc"><strong>초록</strong><span class="meta">검침일별 색상 구분</span></div>
+    </div>
+    <div class="marker-row">
+      <div class="marker-dot" style="background:#3b82f6"></div>
+      <div class="desc"><strong>파랑 / 보라</strong><span class="meta">검침일별 색상 구분</span></div>
+    </div>
+    <div class="marker-row">
+      <div class="marker-dot" style="background:#9ca3af"></div>
+      <div class="desc"><strong>회색</strong><span class="meta">완료한 주소 (이미 처리됨)</span></div>
+    </div>
+
+    <h3 class="sub-title">화면 위쪽 버튼들</h3>
+    <ul>
+      <li><span class="key">동그룹 ▾</span> — 어느 동을 볼지 선택 (체크박스로 다중 선택)</li>
+      <li><span class="key">검침일 ▾</span> — 검침일별로 필터링 (오늘 처리할 검침일만 보기 가능)</li>
+      <li><span class="key">◎</span> (오른쪽 아래) — 내 위치로 지도 이동 / 추적 토글</li>
+      <li><span class="key">로그아웃</span> (오른쪽 위) — 끝낼 때만 사용</li>
+    </ul>
+
+    <div class="info-box">
+      <span class="label">📍 GPS 추적 모드</span>
+      <span class="key">◎</span> 버튼을 다시 누르면 폰 이동에 따라 지도가 따라옵니다. 한 번 더 누르면 해제.
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section id="step3">
+    <div class="step-head">
+      <div class="step-num">3</div>
+      <h2>작업 주소 열기</h2>
+    </div>
+    <p>지도에서 <strong>마커를 탭</strong>하면 그 주소의 상세 패널이 열립니다.</p>
+
+    <h3 class="sub-title">패널 위쪽 — 주소 + 길찾기</h3>
+    <ul>
+      <li>도로명·지번 주소가 같이 나옵니다. <strong>주소 옆 작은 복사 아이콘</strong>을 누르면 주소가 복사돼서 다른 앱(문자 등)에 붙여넣기 가능.</li>
+      <li><span class="demo-btn primary">티맵</span><span class="demo-btn primary">네이버</span><span class="demo-btn primary">카카오</span> — 해당 앱으로 바로 길찾기.</li>
+    </ul>
+
+    <h3 class="sub-title">패널 가운데 — 작업 상태</h3>
+    <p>그 주소에 등록된 <strong>계기 리스트</strong>가 표시됩니다. 각 계기마다 체크박스가 있고 계기번호·제조사·검침일 정보가 보입니다.</p>
+
+    <ul>
+      <li><span class="key">중복 정렬</span> — 변대주(뒤 2자리) 같은 계기끼리 묶어서 정렬</li>
+      <li><span class="key">제조사 정렬</span> — 제조사별 묶음 정렬</li>
+      <li><span class="key">계기 검색 ✕</span> — 계기 끝번호 2자리 이상 입력하면 빠른 찾기</li>
+    </ul>
+
+    <div class="info-box tip">
+      <span class="label">🟡 "추가" 노란 배지</span>
+      엑셀에 없던 계기를 현장에서 직접 추가한 것입니다. 옆에 🗑 휴지통을 누르면 삭제됩니다.
+    </div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section id="step4">
+    <div class="step-head">
+      <div class="step-num">4</div>
+      <h2>계기 교체 등록 (핵심 작업)</h2>
+    </div>
+
+    <p>리스트에서 <strong>교체할 계기를 탭</strong>하면 <strong>계기 교체 등록 모달</strong>이 열립니다. 5가지를 입력하세요.</p>
+
+    <div class="demo-input">
+      <div class="field">
+        <div class="field-label">📷 ① 기존 계기 사진 (탭하여 선택)</div>
+        <div class="field-input" style="color: var(--gray-400);">앨범에서 사진 선택</div>
+      </div>
+      <div class="field">
+        <div class="field-label">📷 ② 새 계기 사진 (탭하여 선택)</div>
+        <div class="field-input" style="color: var(--gray-400);">앨범에서 사진 선택</div>
+      </div>
+      <div class="field">
+        <div class="field-label">③ 철거 제번 (kWh)</div>
+        <div class="field-input" style="color: var(--gray-400);">예: 12345</div>
+      </div>
+      <div class="field">
+        <div class="field-label">④ 새 계기번호 <span style="color:var(--purple);font-weight:800;">[QR]</span></div>
+        <div class="field-input" style="color: var(--gray-400);">QR 또는 직접 입력</div>
+      </div>
+      <div class="field">
+        <div class="field-label">⑤ 제조년월</div>
+        <div class="field-input" style="color: var(--gray-400);">2026년 · 5월</div>
+      </div>
+    </div>
+
+    <h3 class="sub-title">사진 입력 (① ②)</h3>
+    <div class="info-box danger">
+      <span class="label">📂 사진은 앨범에서 고르기</span>
+      카메라가 아니라 <strong>이미 찍어둔 사진을 앨범에서 선택</strong>합니다. 미리 사진을 다 찍어두고 앨범에서 가져오세요.
+    </div>
+    <p>선택한 사진은 자동으로 압축·업로드됩니다 (1280px, 약 200KB 수준).</p>
+
+    <h3 class="sub-title">철거 제번 (③)</h3>
+    <p>철거하는 기존 계기의 <strong>현재 검침값(kWh)</strong>을 숫자로 입력합니다.</p>
+
+    <h3 class="sub-title">새 계기번호 (④) — QR 스캐너 사용</h3>
+    <p><span class="demo-btn qr">📷 QR</span> 버튼을 누르면 카메라 화면이 뜹니다.</p>
+    <ul>
+      <li>새 계기 QR/바코드를 사각 박스 안에 맞추세요.</li>
+      <li>인식되면 자동으로 번호가 입력되고 카메라가 꺼집니다.</li>
+      <li>줌이 부족하면 <span class="key">➕ 줌</span> / <span class="key">➖ 줌</span> 으로 조절.</li>
+      <li>카메라가 여러 개면 <span class="key">🔄 카메라</span> 로 전환.</li>
+      <li>인식 안 되면 <span class="key">✕</span> 닫고 직접 입력해도 됩니다.</li>
+    </ul>
+
+    <div class="info-box">
+      <span class="label">🔤 AMIGO 계기 (영문 포함)</span>
+      QR 스캔 시 A / B / G / L 같은 영문 prefix는 자동으로 보존됩니다. 특수문자(하이픈, 공백)는 자동으로 제거.
+    </div>
+
+    <h3 class="sub-title">제조년월 (⑤)</h3>
+    <p>드롭다운에서 <strong>연도 + 월</strong>을 선택. 기본값이 채워져 있으니 다르면 바꾸세요.</p>
+
+    <h3 class="sub-title">저장</h3>
+    <p>모든 항목 입력 후 <span class="demo-btn primary">저장</span> 누르면 Firebase에 즉시 저장됩니다.</p>
+    <ul>
+      <li>상단 <strong>"오늘 N번째"</strong> 카운터가 자동으로 매겨집니다 (작업자별 일일 일련번호).</li>
+      <li>저장 즉시 다른 기기에서도 똑같이 보입니다.</li>
+      <li>관리자 통계 페이지에 사진까지 자동 반영.</li>
+    </ul>
+
+    <div class="info-box warn">
+      <span class="label">📡 통신 끊겨도</span>
+      네트워크 일시 끊김 시에는 큐에 저장돼 복구되면 자동 업로드됩니다. 너무 오래 끊기면 화면에 경고가 나옵니다.
+    </div>
+  </section>
+
+  <!-- STEP 5 -->
+  <section id="step5">
+    <div class="step-head">
+      <div class="step-num">5</div>
+      <h2>계기 추가 · 수정 · 삭제</h2>
+    </div>
+
+    <h3 class="sub-title">➕ 계기 추가 — 엑셀에 없는 계기를 발견했을 때</h3>
+    <p>리스트 위쪽 <span class="demo-btn add">+ 계기 추가</span> 버튼.</p>
+    <ul>
+      <li>계기번호 11자리 입력.</li>
+      <li>AMIGO 같이 영문이 들어가면 <span class="key">A</span> <span class="key">B</span> <span class="key">G</span> <span class="key">L</span> 보조 버튼 활용.</li>
+      <li><span class="key">⌫</span> 로 한 글자씩 지우기.</li>
+      <li>추가된 계기는 <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700;">추가</span> 배지로 표시됩니다.</li>
+    </ul>
+
+    <h3 class="sub-title">✏️ 수정 — 잘못 입력했을 때</h3>
+    <p>이미 교체 등록한 계기 옆 <span class="demo-btn edit">✏️ 수정</span> 버튼.</p>
+    <ul>
+      <li>기존 입력 내용이 그대로 채워진 상태로 모달이 열립니다.</li>
+      <li>사진을 다시 선택하지 않으면 기존 사진 그대로 유지됩니다.</li>
+      <li>고친 부분만 바꾸고 <span class="demo-btn primary">수정 저장</span>.</li>
+    </ul>
+
+    <h3 class="sub-title">🗑 삭제</h3>
+    <p>현장 추가 계기(노란 "추가" 배지) 옆 🗑 휴지통 아이콘. 잘못 추가한 경우만 삭제됩니다 (엑셀 원본은 삭제 불가).</p>
+  </section>
+
+  <!-- STEP 6 -->
+  <section id="step6">
+    <div class="step-head">
+      <div class="step-num">6</div>
+      <h2>작업 완료 처리</h2>
+    </div>
+
+    <p>주소 패널 위쪽에 3개의 상태 버튼이 있습니다.</p>
+    <p>
+      <span class="demo-btn complete">✅ 완료</span>
+      <span class="demo-btn hold">⏸️ 보류</span>
+      <span class="demo-btn fail">❌ 불가</span>
+    </p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <span class="n">✅</span><strong>완료</strong> — 그 주소의 작업이 다 끝났을 때. 마커가 회색으로 바뀌고 패널이 닫힙니다.
+      </div>
+      <div class="flow-step">
+        <span class="n">⏸️</span><strong>보류</strong> — 일단 다음에 하기. 주소가 보류 상태로 표시됩니다.
+      </div>
+      <div class="flow-step">
+        <span class="n">❌</span><strong>불가</strong> — 작업이 불가능한 사유가 있을 때. 누르면 <strong>"불가 사유"</strong> 입력칸이 나옵니다 (예: 부재중, 단전, 계기 분실 등).
+      </div>
+    </div>
+
+    <div class="info-box">
+      <span class="label">🔄 다시 누르면 초기화</span>
+      이미 선택한 상태(완료/보류/불가) 버튼을 한 번 더 누르면 미처리 상태로 되돌립니다.
+    </div>
+
+    <div class="info-box tip">
+      <span class="label">💡 핵심 흐름</span>
+      <strong>① 계기마다 교체 등록 → ② 다 끝나면 ✅ 완료</strong>. 계기 교체 등록 자체가 그 계기에 대한 처리이고, "완료" 버튼은 그 주소 작업이 전체적으로 끝났음을 표시합니다.
+    </div>
+  </section>
+
+  <!-- TIPS -->
+  <section id="tips">
+    <div class="step-head">
+      <div class="step-num">?</div>
+      <h2>자주 묻는 것 · 팁</h2>
+    </div>
+
+    <h3 class="sub-title">Q. 다른 사람이 작업한 게 안 보여요</h3>
+    <p>새로고침해보세요. 보통 30초 안에 자동 동기화됩니다. 그래도 안 보이면 로그아웃 후 다시 로그인.</p>
+
+    <h3 class="sub-title">Q. 폰을 바꿨는데 작업한 게 보이나요?</h3>
+    <p>네. 모든 데이터는 Firebase 서버에 저장되니까 어떤 폰에서 로그인해도 똑같이 보입니다.</p>
+
+    <h3 class="sub-title">Q. 사진을 미리 안 찍었어요</h3>
+    <p>지금 찍으세요. 그리고 앨범에서 골라서 업로드하면 됩니다. 같은 작업 흐름입니다.</p>
+
+    <h3 class="sub-title">Q. 한 주소에 계기가 너무 많아요</h3>
+    <p>리스트 위 <span class="key">계기 검색</span> 칸에 끝번호 <strong>2자리 이상</strong> 입력하면 즉시 필터링됩니다. <span class="key">중복 정렬</span> 누르면 변대주 묶음으로 정렬도 됩니다.</p>
+
+    <h3 class="sub-title">Q. 작업 중 사람이 부재중이면?</h3>
+    <p><span class="demo-btn fail">❌ 불가</span> 누르고 <strong>불가 사유</strong>에 "부재중" 입력. 나중에 다시 방문할 때 같은 주소를 열어 사유를 보고 재시도하세요.</p>
+
+    <h3 class="sub-title">Q. 통신팀이 따로 들어와도 됩니까?</h3>
+    <p>네. 통신팀은 자기 화면(통신팀 시각)이 따로 있어서 계기팀 작업과 영향 없이 별도로 진행합니다. 같은 주소를 동시에 봐도 충돌 없습니다.</p>
+
+    <div class="info-box danger" style="margin-top: 22px;">
+      <span class="label">🆘 문제 생기면</span>
+      앱이 멈추거나 이상하면 <strong>새로고침 → 안 되면 로그아웃 → 다시 로그인</strong>. 그래도 안 되면 캡쳐해서 관리자(우영준)에게 전달해주세요.
+    </div>
+  </section>
+
+  <footer>
+    종로 합동시공 지도 · 한전KDN 강북지사<br>
+    문의: 관리자 (admin / 우영준)
+  </footer>
+
+</div>
+</body>
+</html>
