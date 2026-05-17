@@ -348,34 +348,36 @@ function decideMarkerStyle(meters, status, session) {
 
     // 1. 통신팀 시각
     if (role === 'comm') {
-        // 계기팀 작업 자동 계산 (replacement_list 기반)
+        // 계기팀 활성 계기 수 = replacement_list 길이 (계기팀이 교체 완료한 것)
+        // 통신팀 완료 수 = comm_completed_list 길이
         const addedCount = Object.keys(status.added_meters || {}).length;
         const totalAll = total + addedCount;
         const replacedCount = Object.keys(status.replacement_list || {}).length;
-        const isMeterAllDone = (totalAll > 0 && replacedCount === totalAll);
-        const isMeterPartial = (replacedCount > 0 && !isMeterAllDone);
+        const commDoneCount = Object.keys(status.comm_completed_list || {}).length;
+        const activeCount = replacedCount;  // 통신팀에게 활성된 계기 수
+        const isCommAllDone = (activeCount > 0 && commDoneCount >= activeCount);
+        const isCommPartial = (commDoneCount > 0 && !isCommAllDone);
 
-        const partial = (comm_state === 'pending') &&
-                        (checkedCount + failedCount > 0) &&
-                        (checkedCount + failedCount < total);
-        if (comm_state === 'complete') {
+        if (comm_state === 'complete' || isCommAllDone) {
+            // 통신팀이 활성 계기 모두 완료 → 회색
             colorClass = 'comm-done';
-            labelMain = '✓';
+            labelMain = activeCount > 0 ? `${commDoneCount}/${activeCount}` : '✓';
         } else if (comm_state === 'hold') {
             colorClass = 'blue';
         } else if (comm_state === 'fail') {
             colorClass = 'red';
-        } else if (meter_state === 'complete' || isMeterAllDone) {
-            // 계기팀 전체 완료 → 통신팀에게 활성 신호 (초록)
-            colorClass = (status.address === meterLatestAddress) ? 'comm-last' : 'comm-target';
-            labelMain = String(totalAll);
-        } else if (isMeterPartial) {
-            // 계기팀 부분 완료 → 그만큼만 통신팀에게 활성 + 분수 표시
-            colorClass = 'comm-target';
-            labelMain = `${replacedCount}/${totalAll}`;
-        } else if (partial) {
+        } else if (isCommPartial) {
+            // 통신팀 부분 완료 → 보류색 + 분수
             colorClass = 'blue';
-            labelMain = `${checkedCount + failedCount}/${total}`;
+            labelMain = `${commDoneCount}/${activeCount}`;
+        } else if (activeCount === totalAll && totalAll > 0) {
+            // 계기팀 전체 완료, 통신팀 미작업 → 활성 (초록)
+            colorClass = (status.address === meterLatestAddress) ? 'comm-last' : 'comm-target';
+            labelMain = String(activeCount);
+        } else if (activeCount > 0) {
+            // 계기팀 부분 완료 → 일부만 활성 + 분수 (계기팀 진행률)
+            colorClass = 'comm-target';
+            labelMain = `${activeCount}/${totalAll}`;
         } else {
             // 계기팀 미작업 — 검침일 색 + 옅게 (비활성)
             colorClass = checkDayClass(meters);

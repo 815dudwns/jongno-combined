@@ -114,10 +114,16 @@ function showDetail(address, meters) {
     const btnFail = document.getElementById('btn-fail');
 
     // 완료 상태면 초기화 버튼으로 전환 — myState(자기 팀 state) 기준
+    // 통신팀 시각 = 체크된 활성 계기 일괄 완료 (comm_completed_list에 저장)
+    const isCommRole = (role === 'comm');
     if (myState === 'complete') {
         btnComplete.textContent = '🔄 초기화';
         btnComplete.className = 'action-btn reset';
         btnComplete.onclick = () => resetStatus();
+    } else if (isCommRole) {
+        btnComplete.textContent = '✅ 완료';
+        btnComplete.className = 'action-btn complete';
+        btnComplete.onclick = () => bulkCommComplete(address);
     } else {
         btnComplete.textContent = '✅ 완료';
         btnComplete.className = 'action-btn complete';
@@ -481,15 +487,29 @@ function renderMetersList() {
             : `meter-item ${rowClass(s2)}`;
 
         // 계기팀/admin에게만 "교체/수정" 버튼 노출
-        // - 미등록 = "📝 교체" (보라색, 새로 등록)
-        // - 이미 등록 = "✏️ 수정" (녹색, prefill 모드)
         const _role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : ((authGetSession() || {}).role || 'meter');
         const showRpl = (_role === 'meter') || (_role === 'admin');
-        const isReplaced = !!((status.replacement_list || {})[meter.계기번호]);
+        const replInfo = (status.replacement_list || {})[meter.계기번호];
+        const isReplaced = !!replInfo;
         const rplBtnHtml = showRpl
             ? (isReplaced
                 ? `<button class="meter-rpl-btn" data-meter="${meter.계기번호}" data-mode="edit" style="margin-left:6px;padding:3px 8px;background:#10b981;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">✏️ 수정</button>`
                 : `<button class="meter-rpl-btn" data-meter="${meter.계기번호}" style="margin-left:6px;padding:3px 8px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">📝 교체</button>`)
+            : '';
+
+        // 통신팀 시각: 계기팀 완료한 계기만 활성. 활성 계기 = "기존 → 신" 표시
+        const isCommView = (_role === 'comm');
+        const commDone = isCommView && !!((status.comm_completed_list || {})[meter.계기번호]);
+        const arrowHtml = isCommView && isReplaced
+            ? ` <span style="color:#7c3aed;font-weight:700;">→ ${replInfo.new_meter_id}</span>`
+            : '';
+        // 통신팀 시각에서 비활성(계기팀 미작업) 계기는 옅게
+        const inactiveCommStyle = isCommView && !isReplaced
+            ? ' style="opacity:0.4;"'
+            : '';
+        // 통신팀 완료 = 회색 + 취소선
+        const commDoneStyle = commDone
+            ? ' style="opacity:0.5;text-decoration:line-through;"'
             : '';
         // "추가" 배지 — 작업자가 수동 추가한 계기 (site-data에 없는)
         const addedBadge = meter._isAdded
@@ -500,13 +520,20 @@ function renderMetersList() {
             ? `<button class="meter-remove-added-btn" data-meter="${meter.계기번호}" title="추가 취소" style="margin-left:4px;padding:3px 8px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">🗑</button>`
             : '';
 
+        // 통신팀 시각에서는 비활성 계기 = 체크박스 disabled. 통신팀 완료 = 체크 자동 + disabled
+        const checkboxDisabled = (isCommView && (!isReplaced || commDone)) ? 'disabled' : '';
+        const checkboxChecked = (isCommView && commDone) ? 'checked' : checked;
+        const itemStyle = isCommView && !isReplaced
+            ? ' style="opacity:0.4;"'
+            : (commDone ? ' style="background:#f3f4f6;"' : '');
+
         return `
-            <div class="${itemClass}">
+            <div class="${itemClass}"${itemStyle}>
                 <input type="checkbox" class="meter-checkbox"
-                       data-meter="${meter.계기번호}" ${checked}>
-                <div class="meter-info">
+                       data-meter="${meter.계기번호}" ${checkboxChecked} ${checkboxDisabled}>
+                <div class="meter-info"${commDoneStyle}>
                     <span class="meter-type">${parsedType}</span>
-                    ${noHtml}${copyBtn}${addedBadge}
+                    ${noHtml}${copyBtn}${addedBadge}${arrowHtml}
                     <button class="${failBtnClass}" data-meter="${meter.계기번호}">${failBtnLabel}</button>
                     ${rplBtnHtml}${removeAddedBtnHtml}
                     ${meterMetaHtml}
@@ -610,6 +637,56 @@ function renderMetersList() {
             };
         }
     }, 100);
+}
+
+// 통신팀 — 체크된 활성 계기(계기팀 교체 완료한 것 중 체크)를 일괄 완료
+// comm_completed_list/{meter_id}: { done_at, worker }
+async function bulkCommComplete(address) {
+    const session = authGetSession();
+    const me = session?.id || 'unknown';
+    const meName = session?.name || me;
+    const status = workStatus[address] || makeEmptyEntry();
+    const replList = status.replacement_list || {};
+    const checkedSet = new Set(status.checkedMeters || []);
+
+    // 활성(계기팀 완료) + 체크된 계기만
+    const targets = Object.keys(replList).filter(m => checkedSet.has(m));
+    if (targets.length === 0) {
+        alert('체크된 활성 계기 없음 (계기팀 교체 완료한 계기에만 체크 가능)');
+        return;
+    }
+
+    const now = Date.now();
+    const addrKey = (typeof encodeKey === 'function') ? encodeKey(address) : address;
+
+    try {
+        // Firebase 일괄 업데이트
+        if (statusRef) {
+            const updates = {};
+            targets.forEach(m => {
+                updates[`${addrKey}/comm_completed_list/${m}`] = {
+                    done_at: now,
+                    worker: me,
+                };
+            });
+            await statusRef.update(updates);
+        }
+        // 로컬 반영
+        if (!status.comm_completed_list) status.comm_completed_list = {};
+        targets.forEach(m => {
+            status.comm_completed_list[m] = { done_at: now, worker: me };
+            checkedSet.delete(m);
+        });
+        status.checkedMeters = [...checkedSet];
+        workStatus[address] = status;
+
+        alert(`✅ 통신팀 완료: ${targets.length}건`);
+        renderMetersList();
+        if (typeof updateMarkerColor === 'function') updateMarkerColor(address);
+    } catch (e) {
+        console.error(e);
+        alert('저장 실패: ' + (e.message || e));
+    }
 }
 
 // 정렬 버튼 토글 — 같은 버튼을 다시 누르면 원래 순서(none)로 복귀

@@ -344,8 +344,9 @@ function buildWorkStatusFromFirebase(data) {
             failedMeters:       val.failedMeters || {},
             meter_forced_by_comm: val.meter_forced_by_comm === true,
             // 계기 단위 작업 데이터 — 코덱스 #5 fix: 변환 결과에 포함되어야 sync됨
-            replacement_list:   val.replacement_list || {},
-            added_meters:       val.added_meters     || {},
+            replacement_list:    val.replacement_list    || {},
+            added_meters:        val.added_meters        || {},
+            comm_completed_list: val.comm_completed_list || {},
         };
     });
     return result;
@@ -392,10 +393,10 @@ function mergeFirebaseData(firebaseData) {
             local.meterChecks   = fb.meterChecks;
         }
 
-        // replacement_list / added_meters — Firebase = source of truth
-        // (fb는 converted라 항상 있음. fallback 불필요)
-        local.replacement_list = fb.replacement_list || {};
-        local.added_meters     = fb.added_meters     || {};
+        // 계기 단위 데이터 — Firebase = source of truth
+        local.replacement_list    = fb.replacement_list    || {};
+        local.added_meters        = fb.added_meters        || {};
+        local.comm_completed_list = fb.comm_completed_list || {};
 
         // failedMeters — 로컬 전용 필드 유지
         local.failedMeters = local.failedMeters || fb.failedMeters || {};
@@ -428,31 +429,49 @@ async function initFirebase() {
 
     const firebaseOk = initFirebaseApp();
 
-    // 1순위: localStorage
-    const local = loadStatusLocal();
-    if (local && Object.keys(local).length > 0) {
-        workStatus = local;
-        console.log('[Local] localStorage에서 로드 완료, 주소수:', Object.keys(workStatus).length);
-    } else {
-        // 2순위: data/jongno-work-status.json
+    // === 새 정책 (코덱스 권고): Firebase = source of truth, localStorage = 폴백 ===
+
+    // 1순위: Firebase
+    let firebaseLoaded = false;
+    if (firebaseOk) {
+        await flushEventQueue();
         try {
-            const res = await fetch('./data/jongno-work-status.json');
-            if (!res.ok) throw new Error('fetch 실패: ' + res.status);
-            const data = await res.json();
-            workStatus = data;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            console.log('[Local] data/work-status.json 로드 완료, 주소수:', Object.keys(workStatus).length);
+            const snapshot = await statusRef.get();
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                workStatus = buildWorkStatusFromFirebase(data);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+                firebaseLoaded = true;
+                console.log('[Firebase] 초기 로드 완료, 주소수:', Object.keys(workStatus).length);
+            }
         } catch (e) {
-            console.warn('[Local] work-status.json 로드 실패:', e.message);
-            workStatus = {};
+            console.warn('[Firebase] 초기 로드 실패, 폴백:', e.message);
+        }
+    }
+
+    // 2순위 (폴백): localStorage
+    if (!firebaseLoaded) {
+        const local = loadStatusLocal();
+        if (local && Object.keys(local).length > 0) {
+            workStatus = local;
+            console.log('[Local-Fallback] localStorage에서 로드, 주소수:', Object.keys(workStatus).length);
+        } else {
+            // 3순위 (폴백): 정적 JSON
+            try {
+                const res = await fetch('./data/jongno-work-status.json');
+                if (!res.ok) throw new Error('fetch 실패: ' + res.status);
+                const data = await res.json();
+                workStatus = data;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                console.log('[Local-Fallback] data/jongno-work-status.json 로드');
+            } catch (e) {
+                console.warn('[Local-Fallback] 정적 JSON 로드 실패:', e.message);
+                workStatus = {};
+            }
         }
     }
 
     if (firebaseOk) {
-        // 미전송 이벤트 큐 먼저 전송
-        await flushEventQueue();
-
-        await syncFromFirebase();
         applyLocalChecked();
 
         // 실시간 리스너 — Firebase 변경 즉시 반영 (30초 polling 대신)
