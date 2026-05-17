@@ -160,11 +160,12 @@ const RplModal = (() => {
       const start = todayStartMs();
       const ws = (typeof workStatus !== 'undefined') ? workStatus : {};
       for (const addr in ws) {
-        const rpl = ws[addr] && ws[addr].replacement;
-        if (!rpl) continue;
-        if (rpl.worker !== me) continue;
-        if (typeof rpl.replaced_at !== 'number') continue;
-        if (rpl.replaced_at >= start) cnt++;
+        const rl = ws[addr] && ws[addr].replacement_list;
+        if (!rl) continue;
+        for (const k in rl) {
+          const r = rl[k];
+          if (r && r.worker === me && typeof r.replaced_at === 'number' && r.replaced_at >= start) cnt++;
+        }
       }
     } catch (e) {}
     document.getElementById('rpl-seq').innerHTML = `오늘 <span class="num">${cnt + 1}</span> 번째`;

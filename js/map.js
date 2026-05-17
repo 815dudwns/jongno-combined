@@ -348,27 +348,36 @@ function decideMarkerStyle(meters, status, session) {
 
     // 1. 통신팀 시각
     if (role === 'comm') {
+        // 계기팀 작업 자동 계산 (replacement_list 기반)
+        const addedCount = Object.keys(status.added_meters || {}).length;
+        const totalAll = total + addedCount;
+        const replacedCount = Object.keys(status.replacement_list || {}).length;
+        const isMeterAllDone = (totalAll > 0 && replacedCount === totalAll);
+        const isMeterPartial = (replacedCount > 0 && !isMeterAllDone);
+
         const partial = (comm_state === 'pending') &&
                         (checkedCount + failedCount > 0) &&
                         (checkedCount + failedCount < total);
         if (comm_state === 'complete') {
-            // 통신팀 완료 — 모두 회색 (마지막 표시 없음)
             colorClass = 'comm-done';
             labelMain = '✓';
         } else if (comm_state === 'hold') {
             colorClass = 'blue';
         } else if (comm_state === 'fail') {
             colorClass = 'red';
-        } else if (meter_state === 'complete') {
-            // 계기팀이 막 끝낸 곳(가장 최근) = 찐초록, 그 외 계기팀 완료 = 초록
+        } else if (meter_state === 'complete' || isMeterAllDone) {
+            // 계기팀 전체 완료 → 통신팀에게 활성 신호 (초록)
             colorClass = (status.address === meterLatestAddress) ? 'comm-last' : 'comm-target';
-            labelMain = total.toString();
+            labelMain = String(totalAll);
+        } else if (isMeterPartial) {
+            // 계기팀 부분 완료 → 그만큼만 통신팀에게 활성 + 분수 표시
+            colorClass = 'comm-target';
+            labelMain = `${replacedCount}/${totalAll}`;
         } else if (partial) {
-            // 계기팀이 부분 진행 중 — 통신팀에게도 동선 예측 위해 N/M 표시
             colorClass = 'blue';
             labelMain = `${checkedCount + failedCount}/${total}`;
         } else {
-            // 계기팀 미완료 — 검침일 색 + 옅게
+            // 계기팀 미작업 — 검침일 색 + 옅게 (비활성)
             colorClass = checkDayClass(meters);
             extraClass = 'comm-bg';
         }

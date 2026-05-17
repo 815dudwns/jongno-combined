@@ -257,7 +257,7 @@ async function loadData() {
   const { start, end } = dayRange(dateVal);
 
   const [wsSnap, sdMap] = await Promise.all([
-    db.ref('workStatus').once('value'),
+    db.ref('workStatus/jongno').once('value'),
     loadSiteData(),
   ]);
   const ws = wsSnap.val() || {};
