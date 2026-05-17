@@ -194,10 +194,11 @@ const RplModal = (() => {
       return toast('QR 스캐너 미로드');
     }
     QrScanner.show((text, photoBlob) => {
-      // QR 디코딩 성공 — 새 계기번호 input에 자동 채움
-      // 11자리 숫자만 추출 (혹시 prefix·suffix 있을 수 있음)
-      const digits = String(text || '').replace(/\D/g, '');
-      const meterId = digits.length >= 11 ? digits.slice(-11) : digits;
+      // 영숫자만 추출 (특수문자 *, -, 공백 등 제거), 영문자는 대문자 통일
+      // AMIGO 계기 = A/B/G/L 영문 prefix 보존
+      const cleaned = String(text || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      // 11자리 추출 — 영숫자가 11자리 이상이면 첫 11자리 (보통 QR 앞쪽이 계기번호)
+      const meterId = cleaned.length >= 11 ? cleaned.slice(0, 11) : cleaned;
       document.getElementById('rpl-new-meter-id').value = meterId;
       // 캡처된 사진을 "새 계기 사진" 슬롯에 자동 첨부
       if (photoBlob) setPhoto('rpl-new-photo', photoBlob);
