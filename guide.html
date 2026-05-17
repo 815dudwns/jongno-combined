@@ -300,8 +300,36 @@
   .hl-blue { color: var(--primary); font-weight: 700; }
   .hl-green { color: var(--green); font-weight: 700; }
 
+  /* 상단 닫기 바 */
+  .top-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(249, 250, 251, 0.92);
+    backdrop-filter: saturate(180%) blur(10px);
+    -webkit-backdrop-filter: saturate(180%) blur(10px);
+    border-bottom: 1px solid var(--gray-200);
+    padding: 10px 14px;
+    margin: -24px -18px 16px;
+  }
+  .close-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: white;
+    border: 1px solid var(--gray-200);
+  }
+  .close-link:active { background: var(--gray-100); }
+
   @media (max-width: 480px) {
     .container { padding: 16px 12px 60px; }
+    .top-bar { margin: -16px -12px 14px; }
     section { padding: 20px 16px; border-radius: 12px; }
     .hero { padding: 24px 18px; border-radius: 12px; }
     .hero h1 { font-size: 20px; }
@@ -311,6 +339,10 @@
 </head>
 <body>
 <div class="container">
+
+  <div class="top-bar">
+    <a href="login.html" class="close-link">← 닫기</a>
+  </div>
 
   <div class="hero">
     <div class="icon">📡</div>
