@@ -340,9 +340,12 @@ function buildWorkStatusFromFirebase(data) {
             comm_updatedBy:      val.comm_updatedBy      || '',
             comm_updatedByName:  val.comm_updatedByName  || '',
             checkedMeters,
-            meterChecks,        // 원본 보관 (ts 비교용)
+            meterChecks,
             failedMeters:       val.failedMeters || {},
             meter_forced_by_comm: val.meter_forced_by_comm === true,
+            // 계기 단위 작업 데이터 — 코덱스 #5 fix: 변환 결과에 포함되어야 sync됨
+            replacement_list:   val.replacement_list || {},
+            added_meters:       val.added_meters     || {},
         };
     });
     return result;
@@ -389,12 +392,10 @@ function mergeFirebaseData(firebaseData) {
             local.meterChecks   = fb.meterChecks;
         }
 
-        // replacement_list / added_meters — Firebase가 정답 (서버 데이터 우선)
-        // (계기 교체 등록 데이터는 메모리 캐시 X, 항상 Firebase 동기화)
-        if (fb.replacement_list !== undefined) local.replacement_list = fb.replacement_list;
-        else if (firebaseData[addr]?.replacement_list !== undefined) local.replacement_list = firebaseData[addr].replacement_list;
-        if (fb.added_meters !== undefined) local.added_meters = fb.added_meters;
-        else if (firebaseData[addr]?.added_meters !== undefined) local.added_meters = firebaseData[addr].added_meters;
+        // replacement_list / added_meters — Firebase = source of truth
+        // (fb는 converted라 항상 있음. fallback 불필요)
+        local.replacement_list = fb.replacement_list || {};
+        local.added_meters     = fb.added_meters     || {};
 
         // failedMeters — 로컬 전용 필드 유지
         local.failedMeters = local.failedMeters || fb.failedMeters || {};
