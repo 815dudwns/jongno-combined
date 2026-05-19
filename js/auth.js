@@ -2,7 +2,7 @@
 
 // 계정 목록 (종로 합동시공 전용: 관리자 1 + 계기팀 + 통신팀)
 const ACCOUNTS = [
-    { id: 'admin',  pw: '8414', name: '우영준', role: 'admin' },
+    { id: 'admin',  pw: '1201', name: '우영준', role: 'admin' },
     { id: 'meter1', pw: '1111', name: '계기팀', role: 'meter' },
     { id: 'comm1',  pw: '1111', name: '통신팀', role: 'comm'  },
 ];
