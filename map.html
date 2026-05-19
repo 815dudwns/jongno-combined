@@ -9,7 +9,7 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260519e';
+        const APP_VERSION = '20260519f';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
           ['jongno_auth', 'jongno_event_queue'].forEach(k => {
@@ -47,10 +47,10 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <!-- QR/바코드 라이브 스캔 -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <link rel="stylesheet" href="css/common.css?v=20260519e">
-    <link rel="stylesheet" href="css/marker.css?v=20260519e">
-    <link rel="stylesheet" href="css/panel.css?v=20260519e">
-    <link rel="stylesheet" href="css/replacement-modal.css?v=20260519e">
+    <link rel="stylesheet" href="css/common.css?v=20260519f">
+    <link rel="stylesheet" href="css/marker.css?v=20260519f">
+    <link rel="stylesheet" href="css/panel.css?v=20260519f">
+    <link rel="stylesheet" href="css/replacement-modal.css?v=20260519f">
 </head>
 <body>
     <div id="map"></div>
@@ -87,15 +87,33 @@
         <button data-mode="both">둘다</button>
     </div>
 
-    <!-- 사용자 정보 + 로그아웃 버튼 -->
+    <!-- 사용자 정보 + 검색 + 로그아웃 버튼 -->
     <div class="user-bar" id="user-bar">
         <span class="user-name" id="user-name-display"></span>
+        <span class="user-divider">|</span>
+        <button class="search-btn" onclick="openSearch()">검색</button>
         <span class="user-divider">|</span>
         <a id="admin-btn" href="admin.html" style="display:none;color:rgba(255,255,255,0.85);font-size:12px;text-decoration:none;font-weight:600;">관리자</a>
         <span id="admin-divider" style="display:none;opacity:0.45;font-size:12px;">|</span>
         <a id="stats-btn" href="stats.html" style="display:none;color:rgba(255,255,255,0.85);font-size:12px;text-decoration:none;font-weight:600;">📊 통계</a>
         <span id="stats-divider" style="display:none;opacity:0.45;font-size:12px;">|</span>
         <button class="logout-btn" onclick="authLogout()">로그아웃</button>
+    </div>
+
+    <!-- 검색 모달 -->
+    <div id="search-overlay" class="search-overlay" onclick="if(event.target===this)closeSearch()">
+        <div class="search-modal">
+            <div class="search-header">
+                <h3>검색</h3>
+                <button class="close-btn" onclick="closeSearch()">×</button>
+            </div>
+            <div class="search-input-row">
+                <input type="text" id="search-input" placeholder="주소 또는 계기번호 검색" autocomplete="off" onkeydown="if(event.key==='Enter')runSearch()">
+                <button class="search-go-btn" onclick="runSearch()">검색</button>
+            </div>
+            <div class="search-hint" id="search-hint">4자 이상 입력하세요</div>
+            <div class="search-results" id="search-results"></div>
+        </div>
     </div>
 
     <div id="fullpage-overlay" class="fullpage-overlay">
@@ -244,14 +262,14 @@
             }
         })();
     </script>
-    <script src="js/config.js?v=20260519e"></script>
-    <script src="js/utils.js?v=20260519e"></script>
-    <script src="js/firebase.js?v=20260519e"></script>
-    <script src="js/detail.js?v=20260519e"></script>
-    <script src="js/map.js?v=20260519e"></script>
-    <script src="js/qr-scanner.js?v=20260519e"></script>
-    <script src="js/photo-uploader.js?v=20260519e"></script>
-    <script src="js/replacement-modal.js?v=20260519e"></script>
-    <script src="js/simulate-helper.js?v=20260519e"></script>
+    <script src="js/config.js?v=20260519f"></script>
+    <script src="js/utils.js?v=20260519f"></script>
+    <script src="js/firebase.js?v=20260519f"></script>
+    <script src="js/detail.js?v=20260519f"></script>
+    <script src="js/map.js?v=20260519f"></script>
+    <script src="js/qr-scanner.js?v=20260519f"></script>
+    <script src="js/photo-uploader.js?v=20260519f"></script>
+    <script src="js/replacement-modal.js?v=20260519f"></script>
+    <script src="js/simulate-helper.js?v=20260519f"></script>
 </body>
 </html>

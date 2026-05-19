@@ -586,6 +586,144 @@ function toggleLocation() {
     }
 }
 
+// ── 검색 기능 ─────────────────────────────────────────
+function openSearch() {
+    const overlay = document.getElementById('search-overlay');
+    if (!overlay) return;
+    overlay.classList.add('active');
+    const input = document.getElementById('search-input');
+    if (input) { input.value = ''; setTimeout(() => input.focus(), 50); }
+    document.getElementById('search-results').innerHTML = '';
+    document.getElementById('search-hint').textContent = '4자 이상 입력하세요';
+}
+
+function closeSearch() {
+    const overlay = document.getElementById('search-overlay');
+    if (overlay) overlay.classList.remove('active');
+}
+
+function runSearch() {
+    const q = (document.getElementById('search-input').value || '').trim();
+    const hintEl = document.getElementById('search-hint');
+    const resultsEl = document.getElementById('search-results');
+    if (q.length < 4) {
+        hintEl.textContent = '4자 이상 입력하세요';
+        resultsEl.innerHTML = '';
+        return;
+    }
+
+    const results = [];
+    const addrSeen = new Set();
+    for (const item of sampleData) {
+        const meterNo = String(item.계기번호 || '');
+        const road = String(item.도로명주소 || '');
+        const addr = String(item.주소 || '');
+        const apt = String(item.공동주택명 || '');
+        if (meterNo.includes(q)) {
+            results.push({
+                type: 'meter',
+                primary: meterNo,
+                secondary: addr,
+                tertiary: road && road !== addr ? road : '',
+                item,
+            });
+        } else if (addr.includes(q) || road.includes(q) || apt.includes(q)) {
+            const key = addr;
+            if (addrSeen.has(key)) continue;
+            addrSeen.add(key);
+            let primary, secondary;
+            if (addr.includes(q)) {
+                primary = addr;
+                secondary = apt ? `${apt} · ${road}` : road;
+            } else if (apt.includes(q)) {
+                primary = apt;
+                secondary = `${addr} · ${road}`;
+            } else {
+                primary = road;
+                secondary = apt ? `${apt} · ${addr}` : addr;
+            }
+            results.push({ type: 'address', primary, secondary, item });
+        }
+    }
+
+    hintEl.textContent = `${results.length}건 검색됨`;
+    if (results.length === 0) {
+        resultsEl.innerHTML = '<div class="search-empty">결과 없음</div>';
+        return;
+    }
+
+    const MAX = 200;
+    const shown = results.slice(0, MAX);
+    const rows = shown.map((r, i) => {
+        const it = r.item;
+        const grp = it.동그룹 || '';
+        const ckGrp = it.검침일그룹 || '';
+        const wk = ckGrp === 'G1' ? '1주차' : ckGrp === 'G2' ? '2주차' : ckGrp === 'G3' ? '3주차' : ckGrp === 'G4' ? '4주차' : '';
+        const sec = r.secondary ? `<div class="sr-secondary">${escapeSearchHtml(r.secondary)}</div>` : '';
+        return `<div class="search-result-row" data-idx="${i}">
+            <div class="sr-main">
+                <div class="sr-primary">${escapeSearchHtml(r.primary)}</div>
+                ${sec}
+            </div>
+            <div class="sr-meta">
+                ${grp ? `<span class="sr-cond">${escapeSearchHtml(grp)}</span>` : ''}
+                ${wk ? `<span class="sr-cond wk">${wk}</span>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+
+    resultsEl.innerHTML = rows + (results.length > MAX ? `<div class="search-empty">+ ${results.length - MAX}건 더 — 검색어를 좁혀주세요</div>` : '');
+    resultsEl.querySelectorAll('.search-result-row').forEach((el, i) => {
+        el.addEventListener('click', () => gotoSearchResult(shown[i]));
+    });
+}
+
+function gotoSearchResult(r) {
+    const it = r.item;
+    if (it.lat == null || it.lng == null) {
+        alert('좌표가 없는 항목입니다');
+        return;
+    }
+    closeSearch();
+    const latlng = new kakao.maps.LatLng(it.lat, it.lng);
+    map.setLevel(1);
+    map.setCenter(latlng);
+
+    showSearchPulse(latlng);
+
+    if (r.type === 'meter') {
+        setTimeout(() => {
+            const groupMeters = sampleData.filter(s => s.주소 === it.주소);
+            if (typeof showDetail === 'function') showDetail(it.주소, groupMeters);
+        }, 200);
+    }
+}
+
+let _searchPulseOverlay = null;
+let _searchPulseTimer = null;
+function showSearchPulse(latlng) {
+    if (_searchPulseTimer) { clearTimeout(_searchPulseTimer); _searchPulseTimer = null; }
+    if (_searchPulseOverlay) { _searchPulseOverlay.setMap(null); _searchPulseOverlay = null; }
+    const el = document.createElement('div');
+    el.className = 'search-pulse';
+    _searchPulseOverlay = new kakao.maps.CustomOverlay({
+        position: latlng,
+        content: el,
+        yAnchor: 0.5,
+        xAnchor: 0.5,
+        zIndex: 999,
+    });
+    _searchPulseOverlay.setMap(map);
+    _searchPulseTimer = setTimeout(() => {
+        if (_searchPulseOverlay) { _searchPulseOverlay.setMap(null); _searchPulseOverlay = null; }
+        _searchPulseTimer = null;
+    }, 10000);
+}
+
+function escapeSearchHtml(s) {
+    return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 // 카카오맵 SDK 로드 완료 후 지도 초기화 실행
 kakao.maps.load(() => {
     initMap();
