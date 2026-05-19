@@ -7,7 +7,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260520a';
+      const APP_VERSION = '20260520b';
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
         ['jongno_auth', 'jongno_event_queue'].forEach(k => {
@@ -28,7 +28,7 @@
       if (!raw) { window.location.replace('login.html'); return; }
       try {
         const s = JSON.parse(raw);
-        if (s.role !== 'admin') { window.location.replace('map.html'); }
+        if (s.role !== 'admin' && s.role !== 'meter') { window.location.replace('map.html'); }
       } catch { window.location.replace('login.html'); }
     })();
   </script>
@@ -39,8 +39,8 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/config.js"></script>
-  <script src="js/utils.js?v=20260520a"></script>
-  <link rel="stylesheet" href="css/replacement-modal.css?v=20260520a">
+  <script src="js/utils.js?v=20260520b"></script>
+  <link rel="stylesheet" href="css/replacement-modal.css?v=20260520b">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: -apple-system, 'Noto Sans KR', sans-serif; background: #f3f4f6; min-height: 100vh; color: #1f2937; }
@@ -189,11 +189,11 @@
 <script>
 authRequire();
 
-// admin 권한 체크
+// 통계 열람 권한 — admin + 계기팀(meter)
 (function () {
   const session = authGetSession();
-  if (!session || session.role !== 'admin') {
-    alert('관리자 권한 필요');
+  if (!session || (session.role !== 'admin' && session.role !== 'meter')) {
+    alert('통계 열람 권한 필요');
     location.href = 'map.html';
   }
 })();
@@ -459,8 +459,8 @@ loadData();
 </script>
 
 <!-- 모달 의존 스크립트 (inline script 이후 로드 — RplModal 사용 가능) -->
-<script src="js/photo-uploader.js?v=20260520a"></script>
-<script src="js/qr-scanner.js?v=20260520a"></script>
-<script src="js/replacement-modal.js?v=20260520a"></script>
+<script src="js/photo-uploader.js?v=20260520b"></script>
+<script src="js/qr-scanner.js?v=20260520b"></script>
+<script src="js/replacement-modal.js?v=20260520b"></script>
 </body>
 </html>
