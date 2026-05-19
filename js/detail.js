@@ -63,8 +63,16 @@ function showDetail(address, meters) {
     const copyIconHtml = (id, title) =>
         `<button class="copy-btn" id="${id}" title="${title}" style="margin-left:6px;vertical-align:middle;">${COPY_ICON_SVG}</button>`;
 
-    // 사용 가능한 값인지 (string "undefined"/"null" 같은 더러운 데이터도 거름)
-    const isUsable = (s) => s != null && s !== '' && s !== 'undefined' && s !== 'null';
+    // 사용 가능한 값인지 — 더러운 패턴 차단:
+    //   undefined / null / "undefined" / "null" / "undefined undefined" / "null undefined" 등
+    const DIRTY_RE = /^\s*(undefined|null)(\s+(undefined|null))*\s*$/i;
+    const isUsable = (s) => {
+        if (s == null) return false;
+        const t = String(s).trim();
+        if (!t) return false;
+        if (DIRTY_RE.test(t)) return false;
+        return true;
+    };
     const pick = (...vals) => vals.find(isUsable) || '';
     const jibunAddr = pick(meters[0] && meters[0].주소, address);
     const roadAddr  = pick(meters[0] && meters[0].도로명주소);
@@ -109,14 +117,13 @@ function showDetail(address, meters) {
         window.location.href = `kakaomap://search?q=${encodeURIComponent(roadAddr)}`;
     };
 
-    // 주소 복사 핸들러 — undefined/null/공백/문자열 "undefined" 모두 차단
+    // 주소 복사 핸들러 — 위 isUsable과 동일한 가드
     const doCopy = (text) => {
-        let s = (text == null) ? '' : String(text);
-        s = s.trim();
-        if (!s || s === 'undefined' || s === 'null') {
+        if (!isUsable(text)) {
             console.warn('[copy] 잘못된 값 — 복사 안 함:', text);
             return;
         }
+        const s = String(text).trim();
         if (typeof copyMeterNo === 'function') { copyMeterNo(s); return; }
         navigator.clipboard?.writeText(s);
     };
