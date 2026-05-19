@@ -7,7 +7,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260517u';
+      const APP_VERSION = '20260519a';
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
         ['jongno_auth', 'jongno_event_queue'].forEach(k => {
@@ -29,8 +29,12 @@
   <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=2eae4b699110525f0dc62295ed8ed43d&autoload=false"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/utils.js?v=20260519a"></script>
+  <link rel="stylesheet" href="css/replacement-modal.css?v=20260519a">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: -apple-system, 'Noto Sans KR', sans-serif; background: #f3f4f6; min-height: 100vh; color: #1f2937; }
@@ -116,6 +120,66 @@
     <img id="lightbox-img" alt="">
   </div>
 
+  <!-- 계기 교체 입력 모달 (map.html과 동일) -->
+  <div id="rpl-modal" class="rpl-modal">
+    <div class="rpl-card">
+      <div class="rpl-header">
+        <div style="flex:1;min-width:0;">
+          <h3>계기 교체 등록</h3>
+          <p id="rpl-title-addr" style="font-size:12px;color:#6b7280;margin:2px 0 0;line-height:1.3;word-break:break-all;"></p>
+        </div>
+        <span class="rpl-seq" id="rpl-seq">오늘 <button type="button" id="rpl-seq-dec" class="rpl-seq-btn">‹</button> <span class="num" id="rpl-seq-num">?</span> <button type="button" id="rpl-seq-inc" class="rpl-seq-btn">›</button> 번째</span>
+        <button class="rpl-close" id="rpl-close">×</button>
+      </div>
+
+      <div class="rpl-field rpl-add-only" style="display:none;">
+        <label>계기 11자리</label>
+        <input type="text" id="rpl-old-meter-id" inputmode="numeric" maxlength="11">
+      </div>
+
+      <div class="rpl-photo rpl-replace-only" id="rpl-old-photo">
+        <span class="rpl-photo-label">📷 기존 계기 사진 (탭하여 선택)</span>
+        <img class="rpl-photo-preview" alt="기존 계기">
+      </div>
+      <input type="file" id="rpl-old-photo-input" accept="image/*" style="display:none;">
+
+      <div class="rpl-photo rpl-replace-only" id="rpl-new-photo">
+        <span class="rpl-photo-label">📷 새 계기 사진 (탭하여 선택)</span>
+        <img class="rpl-photo-preview" alt="새 계기">
+      </div>
+      <input type="file" id="rpl-new-photo-input" accept="image/*" style="display:none;">
+
+      <div class="rpl-field rpl-replace-only">
+        <label>철거 제번 (kWh)</label>
+        <input type="text" id="rpl-removal-value" inputmode="numeric">
+      </div>
+
+      <div class="rpl-field rpl-replace-only">
+        <label>새 계기번호</label>
+        <div class="rpl-input-with-qr">
+          <input type="text" id="rpl-new-meter-id" inputmode="numeric" maxlength="11">
+          <button class="rpl-qr-btn" id="rpl-qr-btn">📷 QR</button>
+        </div>
+      </div>
+
+      <div class="rpl-field rpl-replace-only">
+        <label>제조년월</label>
+        <div class="rpl-mfg-row">
+          <select id="rpl-mfg-y"></select>
+          <select id="rpl-mfg-m"></select>
+        </div>
+      </div>
+
+      <div class="rpl-footer">
+        <button class="rpl-btn" id="rpl-delete" style="display:none;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;">🗑 삭제</button>
+        <button class="rpl-btn cancel" id="rpl-cancel">취소</button>
+        <button class="rpl-btn save" id="rpl-save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rpl-toast" class="rpl-toast"></div>
+
 <script>
 authRequire();
 
@@ -128,9 +192,21 @@ authRequire();
   }
 })();
 
-// Firebase init
+// Firebase init (RplModal이 글로벌 db/statusRef 사용하므로 window에 노출)
 const fbApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
-const db = fbApp.database();
+window.db = fbApp.database();
+const db = window.db;
+window.statusRef = db.ref('workStatus/jongno');
+
+// RplModal 의존성 stub (firebase.js 안 로드해도 동작하게)
+window.encodeKey = function (str) {
+  return String(str)
+    .replace(/\./g, '_dot_').replace(/#/g, '_hash_').replace(/\$/g, '_dollar_')
+    .replace(/\[/g, '_lb_').replace(/\]/g, '_rb_').replace(/\//g, '_sl_');
+};
+window.workStatus = {};
+window.makeEmptyEntry = function () { return { replacement_list: {}, added_meters: {} }; };
+window.statsAfterModalChange = function () { loadData(); };
 
 let map = null;
 let markers = [];
@@ -224,12 +300,13 @@ function renderList() {
       ? `<span style="color:#7c3aed;">(수정됨)</span>`
       : '';
     return `
-      <div class="list-item">
+      <div class="list-item" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}">
         <div class="seq-badge">${item.daily_seq || '?'}</div>
         <div class="li-body">
           <div class="addr">${item.address} ${editedTag}</div>
           <div><b>${item.old_meter_id}</b> <span class="arrow">→</span> <b>${item.new_meter_id}</b></div>
           <div class="meta">철거값 ${removalVal} kWh · 제조 ${mfgYm} · 작업자 ${item.worker} · ${time}</div>
+          <button class="li-edit-btn" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}" style="margin-top:6px;padding:6px 10px;background:#1d4ed8;color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">수정/삭제</button>
         </div>
         <div class="li-photos">
           ${item.old_meter_photo ? `<img src="${item.old_meter_photo}" alt="기존" data-full="${item.old_meter_photo}">` : ''}
@@ -240,7 +317,18 @@ function renderList() {
   }).join('');
 
   container.querySelectorAll('.li-photos img').forEach(img => {
-    img.onclick = () => openLightbox(img.dataset.full);
+    img.onclick = (e) => { e.stopPropagation(); openLightbox(img.dataset.full); };
+  });
+  container.querySelectorAll('.li-edit-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const addr = btn.dataset.addr;
+      const oldId = btn.dataset.old;
+      const existing = (window.workStatus[addr] && window.workStatus[addr].replacement_list || {})[oldId];
+      if (!existing) { alert('데이터 없음 (새로고침 후 재시도)'); return; }
+      const fakeMeter = { 계기번호: oldId, 계기타입: '', 상호: '', 변대주: '' };
+      if (typeof RplModal !== 'undefined') RplModal.open(addr, fakeMeter, null, existing);
+    };
   });
 }
 
@@ -307,6 +395,14 @@ async function loadData() {
   });
 
   cachedData = items;
+
+  // RplModal이 쓰는 글로벌 workStatus 채우기 (decoded 주소 = 키)
+  window.workStatus = {};
+  Object.entries(ws).forEach(([addrKey, val]) => {
+    if (!val || typeof val !== 'object') return;
+    window.workStatus[decodeKey(addrKey)] = val;
+  });
+
   renderSummary();
   renderList();
   if (map) drawMarkers();
@@ -355,5 +451,10 @@ document.getElementById('btn-refresh').onclick = loadData;
 
 loadData();
 </script>
+
+<!-- 모달 의존 스크립트 (inline script 이후 로드 — RplModal 사용 가능) -->
+<script src="js/photo-uploader.js?v=20260519a"></script>
+<script src="js/qr-scanner.js?v=20260519a"></script>
+<script src="js/replacement-modal.js?v=20260519a"></script>
 </body>
 </html>

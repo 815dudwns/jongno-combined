@@ -429,8 +429,13 @@ function renderMetersList() {
     metersList.innerHTML = filtered.map(meter => {
         const checked = (status.checkedMeters || []).includes(meter.계기번호) ? 'checked' : '';
         const parsedType = parseType(meter.계기번호) || meter.계기타입;
-        // 상호만 (변대주는 meta로 이동)
-        const details = (meter.상호 && meter.상호 !== '0') ? `상호 ${meter.상호}` : '';
+        // 상호 + 공동주택명 (둘 다 있으면 같이, 같은 값이면 중복 제거)
+        const sangho = (meter.상호 && meter.상호 !== '0') ? meter.상호 : '';
+        const apt    = (meter.공동주택명 && meter.공동주택명 !== '0') ? meter.공동주택명 : '';
+        const detailParts = [];
+        if (sangho) detailParts.push(`상호 ${sangho}`);
+        if (apt && apt !== sangho) detailParts.push(`공동주택 ${apt}`);
+        const details = detailParts.join(' / ');
 
         // 계기번호 4구간 색상 분리
         const no = meter.계기번호;
@@ -672,8 +677,16 @@ async function bulkCommComplete(address) {
 
     // commTempChecked 중 활성 계기만 (코덱스 #3)
     const targets = [...commTempChecked].filter(m => replList[m]);
+
+    // 활성 계기 없으면 → 주소 단위 강제 완료
+    // (계기팀이 데이터 안 넣는 경우 대비 — 통신팀이 지도상으로만 완료 처리)
     if (targets.length === 0) {
-        alert('체크된 활성 계기 없음 (활성 계기에 체크 필요)');
+        const ok = confirm('체크된 활성 계기가 없습니다.\n\n주소 단위로 통신팀 완료 처리할까요?\n(지도에서 완료로 표시되지만 계기별 기록은 남지 않습니다)');
+        if (!ok) return;
+        saveStateEvent(address, 'complete', '', session?.id || '', session?.name || '', 'comm');
+        renderMetersList();
+        if (typeof updateMarkerColor === 'function') updateMarkerColor(address);
+        closeDetail();
         return;
     }
 

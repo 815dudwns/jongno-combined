@@ -43,6 +43,10 @@ const RplModal = (() => {
 
     document.getElementById('rpl-seq').style.display = isAddMode ? 'none' : '';
 
+    // 삭제 버튼 — 수정모드일 때만 노출
+    const delBtn = document.getElementById('rpl-delete');
+    if (delBtn) delBtn.style.display = isEditMode ? '' : 'none';
+
     const oldIdInput = document.getElementById('rpl-old-meter-id');
     if (isAddMode) {
       oldIdInput.value = String(prefillOldId || '');
@@ -84,9 +88,8 @@ const RplModal = (() => {
         loadLastMfgYm();
       }
       if (isEditMode && editData.daily_seq) {
-        // 수정 모드 = 원본 daily_seq 그대로 표시 (새로 카운트 X)
-        document.getElementById('rpl-seq').innerHTML =
-          `<span class="num">${editData.daily_seq}</span> 번째`;
+        // 수정 모드 = 원본 daily_seq 표시 (조절 가능)
+        setDailySeq(editData.daily_seq);
       } else {
         loadDailySeq();
       }
@@ -157,11 +160,13 @@ const RplModal = (() => {
     return d.getTime();
   }
 
-  // Firebase workStatus 순회 → 그날 그 작업자 replacement 개수 + 1
-  function loadDailySeq() {
+  // 같은 작업자 그날 이미 쓰인 daily_seq Set (자기 원본은 제외 — 수정모드면 자기 자리 유지)
+  function usedSeqsToday() {
     const session = (typeof authGetSession === 'function') ? authGetSession() : null;
-    const me = session ? (session.id || session.username || session.name) : '';
-    let cnt = 0;
+    const me = (editingData && editingData.worker)
+      || (session ? (session.id || session.username || session.name) : '');
+    const selfId = editingData && editingData.old_meter_id;
+    const used = new Set();
     try {
       const start = todayStartMs();
       const ws = (typeof workStatus !== 'undefined') ? workStatus : {};
@@ -170,11 +175,65 @@ const RplModal = (() => {
         if (!rl) continue;
         for (const k in rl) {
           const r = rl[k];
-          if (r && r.worker === me && typeof r.replaced_at === 'number' && r.replaced_at >= start) cnt++;
+          if (!r) continue;
+          if (r.worker !== me) continue;
+          if (typeof r.replaced_at !== 'number' || r.replaced_at < start) continue;
+          // 자기 자신은 used에서 제외 (수정모드)
+          if (selfId && String(r.old_meter_id) === String(selfId)) continue;
+          if (typeof r.daily_seq === 'number') used.add(r.daily_seq);
         }
       }
     } catch (e) {}
-    document.getElementById('rpl-seq').innerHTML = `오늘 <span class="num">${cnt + 1}</span> 번째`;
+    return used;
+  }
+
+  // 현재 표시 중인 daily_seq (사용자 조절 가능)
+  function getDailySeq() {
+    const el = document.getElementById('rpl-seq-num');
+    return Math.max(1, parseInt(el && el.textContent, 10) || 1);
+  }
+  function setDailySeq(n) {
+    const el  = document.getElementById('rpl-seq-num');
+    const dec = document.getElementById('rpl-seq-dec');
+    const inc = document.getElementById('rpl-seq-inc');
+    const val = Math.max(1, n | 0);
+    if (el) el.textContent = String(val);
+    // 버튼 활성/비활성 — 다음 미할당 자리가 있는지 미리 보고 결정
+    const used = usedSeqsToday();
+    let canDec = false;
+    for (let i = val - 1; i >= 1; i--) {
+      if (!used.has(i)) { canDec = true; break; }
+    }
+    if (dec) dec.disabled = !canDec;
+    if (inc) inc.disabled = false; // 위로는 항상 가능 (상한 없음)
+  }
+
+  // 이전/다음 빈 자리(미할당)를 찾아 이동 — used 자리는 스킵
+  function stepDailySeq(dir) {
+    const used = usedSeqsToday();
+    let cur = getDailySeq();
+    if (dir < 0) {
+      for (let i = cur - 1; i >= 1; i--) {
+        if (!used.has(i)) { setDailySeq(i); return; }
+      }
+    } else {
+      for (let i = cur + 1; i <= cur + 10000; i++) {
+        if (!used.has(i)) { setDailySeq(i); return; }
+      }
+    }
+  }
+
+  // Firebase workStatus 순회 → 빈 자리 중 가장 낮은 번호 (없으면 max+1)
+  function loadDailySeq() {
+    const used = usedSeqsToday();
+    let maxUsed = 0;
+    used.forEach(n => { if (n > maxUsed) maxUsed = n; });
+    // 1..maxUsed 사이에 빈자리 있으면 거기, 없으면 maxUsed+1
+    let pick = maxUsed + 1;
+    for (let i = 1; i <= maxUsed; i++) {
+      if (!used.has(i)) { pick = i; break; }
+    }
+    setDailySeq(pick);
   }
 
   function toast(msg) {
@@ -200,15 +259,47 @@ const RplModal = (() => {
       return toast('QR 스캐너 미로드');
     }
     QrScanner.show((text, photoBlob) => {
-      // 영숫자만 추출 (특수문자 *, -, 공백 등 제거), 영문자는 대문자 통일
-      // AMIGO 계기 = A/B/G/L 영문 prefix 보존
-      const cleaned = String(text || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-      // 11자리 추출 — 영숫자가 11자리 이상이면 첫 11자리 (보통 QR 앞쪽이 계기번호)
-      const meterId = cleaned.length >= 11 ? cleaned.slice(0, 11) : cleaned;
+      const raw = String(text || '');
+
+      // 신형 QR 포맷: "PID : 127825 YYMM : 24.11 MID : 07530057365"
+      //   - MID = 새 계기번호
+      //   - YYMM = 제조년월 (24.11 → 2024년 11월)
+      const midMatch  = raw.match(/MID\s*[:：]?\s*([A-Za-z0-9]+)/i);
+      const ymMatch   = raw.match(/YYMM\s*[:：]?\s*(\d{2})\.(\d{2})/i);
+
+      let meterId = '';
+      if (midMatch) {
+        meterId = String(midMatch[1]).toUpperCase();
+        if (meterId.length > 11) meterId = meterId.slice(0, 11);
+      } else {
+        // 구형 폴백: 영숫자만 추출 + 첫 11자리
+        const cleaned = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        meterId = cleaned.length >= 11 ? cleaned.slice(0, 11) : cleaned;
+      }
       document.getElementById('rpl-new-meter-id').value = meterId;
+
+      // 제조년월 자동 입력
+      let ymToast = '';
+      if (ymMatch) {
+        const yy = ymMatch[1];
+        const mm = ymMatch[2];
+        const fullY = '20' + yy;
+        const ySel = document.getElementById('rpl-mfg-y');
+        const mSel = document.getElementById('rpl-mfg-m');
+        // 옵션 없으면 추가 (보통 5년 전까지만 채워져 있으니 오래된 QR 대비)
+        if (ySel && ![...ySel.options].some(o => o.value === fullY)) {
+          const opt = document.createElement('option');
+          opt.value = fullY; opt.textContent = `${fullY}년`;
+          ySel.appendChild(opt);
+        }
+        if (ySel) ySel.value = fullY;
+        if (mSel) mSel.value = mm;
+        ymToast = ` / 제조 ${fullY}-${mm}`;
+      }
+
       // 캡처된 사진을 "새 계기 사진" 슬롯에 자동 첨부
       if (photoBlob) setPhoto('rpl-new-photo', photoBlob);
-      toast(`QR 인식: ${meterId}`);
+      toast(`QR 인식: ${meterId}${ymToast}`);
     });
   }
 
@@ -292,29 +383,12 @@ const RplModal = (() => {
               : Promise.resolve({ url: keepNewPhotoUrl })),
       ]);
 
-      // daily_seq · 시각 · 작업자 — 수정 모드면 원본 유지, 신규면 새로
-      let dailySeq, replacedAt, worker;
-      if (editingData) {
-        dailySeq = editingData.daily_seq;
-        replacedAt = editingData.replaced_at;
-        worker = editingData.worker;
-      } else {
-        dailySeq = 1;
-        try {
-          const start = todayStartMs();
-          const ws = (typeof workStatus !== 'undefined') ? workStatus : {};
-          for (const addr in ws) {
-            const rl = ws[addr] && ws[addr].replacement_list;
-            if (!rl) continue;
-            for (const k in rl) {
-              const r = rl[k];
-              if (r && r.worker === me && typeof r.replaced_at === 'number' && r.replaced_at >= start) dailySeq++;
-            }
-          }
-        } catch {}
-        replacedAt = ts;
-        worker = me;
-      }
+      // daily_seq · 시각 · 작업자
+      // - 시각/작업자: 수정 모드면 원본 유지, 신규면 새로
+      // - daily_seq: 항상 현재 UI 표시값 (사용자가 조절 가능)
+      const dailySeq = getDailySeq();
+      const replacedAt = editingData ? editingData.replaced_at : ts;
+      const worker     = editingData ? editingData.worker     : me;
 
       const replacement = {
         old_meter_id: String(oldMeterId),
@@ -354,6 +428,7 @@ const RplModal = (() => {
 
       if (typeof updateMarkerColor === 'function') updateMarkerColor(currentAddress);
       if (typeof renderMetersList === 'function') renderMetersList();
+      if (typeof window.statsAfterModalChange === 'function') window.statsAfterModalChange();
     } catch (e) {
       console.error(e);
       toast(`저장 실패: ${e.message || e}`);
@@ -363,10 +438,59 @@ const RplModal = (() => {
     }
   }
 
+  async function onDelete() {
+    if (!editingData) return;
+    const oldId = editingData.old_meter_id || (currentMeter && (currentMeter.계기번호 || currentMeter.meter_id));
+    if (!oldId) return toast('대상 계기번호 없음');
+
+    const ok = confirm(`이 교체 기록을 삭제할까요?\n\n계기 ${oldId}\n주소 ${currentAddress}\n\n삭제 후 되돌릴 수 없습니다.`);
+    if (!ok) return;
+
+    const delBtn = document.getElementById('rpl-delete');
+    delBtn.disabled = true;
+    delBtn.textContent = '삭제 중...';
+
+    try {
+      const dryRun = isDryRun();
+      if (!dryRun && (!db || !statusRef)) throw new Error('Firebase 미초기화');
+      const addrKey = (typeof encodeKey === 'function') ? encodeKey(currentAddress) : currentAddress;
+
+      if (dryRun) {
+        console.log('[DRY RUN] delete replacement', addrKey, oldId);
+      } else {
+        await statusRef.child(addrKey).child('replacement_list').child(String(oldId)).remove();
+        const am = workStatus[currentAddress] && workStatus[currentAddress].added_meters;
+        if (am && am[oldId]) {
+          await statusRef.child(addrKey).child('added_meters').child(String(oldId)).remove();
+          delete workStatus[currentAddress].added_meters[oldId];
+        }
+      }
+
+      const rl = workStatus[currentAddress] && workStatus[currentAddress].replacement_list;
+      if (rl) delete rl[oldId];
+
+      toast('🗑 삭제 완료');
+      setTimeout(close, 600);
+
+      if (typeof updateMarkerColor === 'function') updateMarkerColor(currentAddress);
+      if (typeof renderMetersList === 'function') renderMetersList();
+      // 통계 페이지에서 호출됐을 때 갱신 훅
+      if (typeof window.statsAfterModalChange === 'function') window.statsAfterModalChange();
+    } catch (e) {
+      console.error(e);
+      toast(`삭제 실패: ${e.message || e}`);
+    } finally {
+      delBtn.disabled = false;
+      delBtn.textContent = '🗑 삭제';
+    }
+  }
+
   function init() {
     document.getElementById('rpl-close').onclick = close;
     document.getElementById('rpl-cancel').onclick = close;
     document.getElementById('rpl-save').onclick = onSave;
+    const delBtn = document.getElementById('rpl-delete');
+    if (delBtn) delBtn.onclick = onDelete;
     document.getElementById('rpl-old-photo').onclick = () =>
       document.getElementById('rpl-old-photo-input').click();
     document.getElementById('rpl-new-photo').onclick = () =>
@@ -376,6 +500,12 @@ const RplModal = (() => {
     document.getElementById('rpl-new-photo-input').onchange = (e) =>
       onPhotoSelect('rpl-new-photo', e.target.files[0]);
     document.getElementById('rpl-qr-btn').onclick = onQrScanClick;
+
+    // daily_seq ± 조절 (이미 쓰인 번호는 건너뜀, 빈 자리만 이동)
+    const decBtn = document.getElementById('rpl-seq-dec');
+    const incBtn = document.getElementById('rpl-seq-inc');
+    if (decBtn) decBtn.onclick = () => stepDailySeq(-1);
+    if (incBtn) incBtn.onclick = () => stepDailySeq(+1);
 
     // 알파벳 입력 보조 버튼 (AMIGO 영문 prefix용) — 기존 계기번호 input에 append
     document.querySelectorAll('.rpl-alpha-btn').forEach(btn => {
