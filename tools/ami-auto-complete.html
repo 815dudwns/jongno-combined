@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMI 매칭 → 자동 완료 (관리자 전용)</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/config.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, 'Noto Sans KR', sans-serif; background: #f3f4f6; padding: 16px; color: #1f2937; }
+        .container { max-width: 960px; margin: 0 auto; }
+        h1 { font-size: 18px; margin-bottom: 6px; }
+        .sub { font-size: 13px; color: #6b7280; margin-bottom: 14px; line-height: 1.5; }
+        .card { background: white; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+        .stat { padding: 10px; background: #f9fafb; border-radius: 8px; text-align: center; }
+        .stat b { display: block; font-size: 22px; color: #1d4ed8; font-variant-numeric: tabular-nums; }
+        .stat span { font-size: 12px; color: #6b7280; }
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+        button { padding: 12px 18px; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .btn-primary { background: #1d4ed8; color: white; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-secondary { background: #e5e7eb; color: #374151; }
+        button:disabled { background: #9ca3af !important; color: white !important; cursor: not-allowed; }
+        .table-wrap { max-height: 50vh; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid #f3f4f6; }
+        th { background: #f9fafb; position: sticky; top: 0; font-weight: 700; font-size: 11px; }
+        td.partial { color: #b45309; font-weight: 600; }
+        td.full { color: #047857; font-weight: 600; }
+        .log { background: #111827; color: #d1d5db; padding: 12px; border-radius: 8px; font-family: ui-monospace, monospace; font-size: 12px; max-height: 320px; overflow-y: auto; white-space: pre-wrap; }
+        .log .ok { color: #34d399; }
+        .log .err { color: #f87171; }
+        .log .warn { color: #fbbf24; }
+        a.back { color: #6b7280; font-size: 13px; text-decoration: none; }
+        a.back:hover { color: #1d4ed8; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a class="back" href="../map.html">← 지도로 돌아가기</a>
+    <h1>AMI 매칭 → 종로 자동 완료 (관리자 전용)</h1>
+    <p class="sub">
+        ami-work site-data.json에 등재된 종로구 데이터(이미 교체 완료된 것)와 고객번호(앞 0 제거)가 일치하는<br>
+        종로앱 주소를 일괄 <b>meter_state=complete + comm_state=complete</b>로 마킹합니다.<br>
+        백업은 처리 직전 자동으로 다운로드됩니다. (workStatus/jongno 전체 JSON)
+    </p>
+
+    <div class="card">
+        <div class="summary" id="summary">
+            <div class="stat"><b id="stat-total">-</b><span>매칭 주소</span></div>
+            <div class="stat"><b id="stat-full">-</b><span>전체 일치 (안전)</span></div>
+            <div class="stat"><b id="stat-partial">-</b><span>부분 일치 (강제 완료)</span></div>
+            <div class="stat"><b id="stat-fb">-</b><span>현재 Firebase 등록</span></div>
+        </div>
+        <div class="btn-row">
+            <button class="btn-secondary" id="btn-backup">백업만 다운로드</button>
+            <button class="btn-primary" id="btn-preview">미리보기 갱신</button>
+            <button class="btn-danger" id="btn-run" disabled>일괄 처리 실행 (백업 후 업로드)</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="font-weight:700;margin-bottom:8px;">처리 대상 (342건)</div>
+        <div class="table-wrap">
+            <table id="tbl">
+                <thead>
+                    <tr><th>#</th><th>주소</th><th>동그룹</th><th>주차</th><th>매칭/전체</th><th>현재 상태</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="font-weight:700;margin-bottom:8px;">실행 로그</div>
+        <div class="log" id="log">대기 중...</div>
+    </div>
+</div>
+
+<script>
+// 관리자 게이트
+(function () {
+    const s = (typeof authGetSession === 'function') ? authGetSession() : null;
+    if (!s || s.role !== 'admin') {
+        document.body.innerHTML = '<p style="padding:40px;text-align:center;color:#dc2626;font-size:16px;font-weight:700;">관리자 전용</p>';
+        throw new Error('forbidden');
+    }
+})();
+
+let dbApp = null, db = null;
+let payload = null;     // ami-auto-complete.json
+let currentWS = null;   // 현재 Firebase workStatus/jongno
+
+const logEl = document.getElementById('log');
+function log(msg, cls = '') {
+    const t = new Date().toLocaleTimeString('ko-KR');
+    logEl.innerHTML += `<div class="${cls}">[${t}] ${msg}</div>`;
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+function initFB() {
+    if (db) return;
+    dbApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+    db = firebase.database(dbApp);
+}
+
+async function loadPayload() {
+    const r = await fetch('../data/ami-auto-complete.json');
+    payload = await r.json();
+    document.getElementById('stat-total').textContent = payload.count;
+    const fulls = payload.addresses.filter(a => a.matched === a.total).length;
+    const partials = payload.addresses.length - fulls;
+    document.getElementById('stat-full').textContent = fulls;
+    document.getElementById('stat-partial').textContent = partials;
+    log(`매칭 JSON 로드: ${payload.count}건 (전체일치 ${fulls} / 부분일치 ${partials})`, 'ok');
+}
+
+async function loadCurrentWS() {
+    initFB();
+    log('Firebase에서 현재 workStatus/jongno 조회 중...');
+    const snap = await db.ref('workStatus/jongno').once('value');
+    currentWS = snap.val() || {};
+    document.getElementById('stat-fb').textContent = Object.keys(currentWS).length;
+    log(`현재 workStatus 주소 수: ${Object.keys(currentWS).length}`, 'ok');
+    renderTable();
+}
+
+function renderTable() {
+    const tbody = document.querySelector('#tbl tbody');
+    tbody.innerHTML = payload.addresses.map((a, i) => {
+        const cur = currentWS[a.address];
+        const curStatus = cur ? `${cur.meter_state || '-'}/${cur.comm_state || '-'}` : '(없음)';
+        const matchClass = a.matched === a.total ? 'full' : 'partial';
+        return `<tr>
+            <td>${i + 1}</td>
+            <td>${a.address}</td>
+            <td>${a.dong_group}</td>
+            <td>${a.checkday_group}</td>
+            <td class="${matchClass}">${a.matched}/${a.total}</td>
+            <td>${curStatus}</td>
+        </tr>`;
+    }).join('');
+    document.getElementById('btn-run').disabled = false;
+}
+
+async function downloadBackup() {
+    initFB();
+    log('백업 다운로드 시작...');
+    const snap = await db.ref('workStatus/jongno').once('value');
+    const data = snap.val() || {};
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `jongno-workStatus-backup-${ts}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    log(`백업 완료: jongno-workStatus-backup-${ts}.json (${Object.keys(data).length}개 주소)`, 'ok');
+    return data;
+}
+
+async function runProcess() {
+    if (!confirm(`정말 ${payload.addresses.length}개 주소를 모두 complete로 처리할까요? (백업 자동 다운로드)`)) return;
+
+    document.getElementById('btn-run').disabled = true;
+    document.getElementById('btn-backup').disabled = true;
+    document.getElementById('btn-preview').disabled = true;
+
+    try {
+        // 1) 백업
+        await downloadBackup();
+
+        // 2) 일괄 업데이트
+        const now = new Date().toISOString();
+        const updates = {};
+        for (const a of payload.addresses) {
+            const base = currentWS[a.address] || {
+                checkedMeters: [], meterChecks: {}, failedMeters: {},
+            };
+            updates[a.address] = {
+                ...base,
+                meter_state: 'complete',
+                meter_reason: '',
+                meter_updatedAt: now,
+                meter_updatedBy: 'AUTO_IMPORT_AMI',
+                meter_updatedByName: 'AMI 자동 매칭',
+                comm_state: 'complete',
+                comm_reason: '',
+                comm_updatedAt: now,
+                comm_updatedBy: 'AUTO_IMPORT_AMI',
+                comm_updatedByName: 'AMI 자동 매칭',
+                checkedMeters: base.checkedMeters || [],
+                meterChecks: base.meterChecks || {},
+                failedMeters: base.failedMeters || {},
+            };
+        }
+
+        log(`Firebase에 ${Object.keys(updates).length}개 주소 업로드 중...`);
+        await db.ref('workStatus/jongno').update(updates);
+        log(`완료! ${Object.keys(updates).length}개 주소가 complete로 마킹되었습니다.`, 'ok');
+        log('지도 페이지로 돌아가서 새로고침하시면 회색 마커로 보입니다.', 'warn');
+
+        document.getElementById('btn-backup').disabled = false;
+        document.getElementById('btn-preview').disabled = false;
+        // 처리 후 미리보기 갱신
+        await loadCurrentWS();
+    } catch (e) {
+        log('실패: ' + e.message, 'err');
+        console.error(e);
+        document.getElementById('btn-run').disabled = false;
+        document.getElementById('btn-backup').disabled = false;
+        document.getElementById('btn-preview').disabled = false;
+    }
+}
+
+document.getElementById('btn-backup').addEventListener('click', () => downloadBackup().catch(e => log('실패: ' + e.message, 'err')));
+document.getElementById('btn-preview').addEventListener('click', () => loadCurrentWS().catch(e => log('실패: ' + e.message, 'err')));
+document.getElementById('btn-run').addEventListener('click', runProcess);
+
+(async () => {
+    try {
+        await loadPayload();
+        await loadCurrentWS();
+    } catch (e) {
+        log('초기화 실패: ' + e.message, 'err');
+    }
+})();
+</script>
+</body>
+</html>
