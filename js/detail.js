@@ -63,8 +63,11 @@ function showDetail(address, meters) {
     const copyIconHtml = (id, title) =>
         `<button class="copy-btn" id="${id}" title="${title}" style="margin-left:6px;vertical-align:middle;">${COPY_ICON_SVG}</button>`;
 
-    const jibunAddr = (meters[0] && meters[0].주소) || address || '';
-    const roadAddr  = (meters[0] && meters[0].도로명주소) || '';
+    // 사용 가능한 값인지 (string "undefined"/"null" 같은 더러운 데이터도 거름)
+    const isUsable = (s) => s != null && s !== '' && s !== 'undefined' && s !== 'null';
+    const pick = (...vals) => vals.find(isUsable) || '';
+    const jibunAddr = pick(meters[0] && meters[0].주소, address);
+    const roadAddr  = pick(meters[0] && meters[0].도로명주소);
 
     // 헤더 = 도로명(있으면) 우선, 없으면 지번. 복사 버튼은 표시된 주소를 복사.
     const headerAddr = roadAddr || jibunAddr;
@@ -77,13 +80,16 @@ function showDetail(address, meters) {
         ? ' <span style="color:#ef4444;font-size:12px;">(주소 오류)</span>'
         : '';
 
-    // 도로명/지번 라인 — 각각 별도 복사 버튼 (헤더와 중복돼도 항상 노출)
+    // 도로명/지번 라인 — 헤더와 다를 때만 노출 (중복 표시 방지)
     let roadLine = '';
-    if (roadAddr) {
+    if (roadAddr && roadAddr !== headerAddr) {
         roadLine = '📍 ' + roadAddr + copyIconHtml('copy-road-btn', '도로명 복사') + errorTag;
+    } else if (!roadLine && hasApproximate && roadAddr === headerAddr) {
+        // 헤더가 도로명이면 errorTag만 헤더 옆에 부착 (아래 라인이 비니까)
+        roadLine = errorTag;
     }
     let jibunLine = '';
-    if (jibunAddr) {
+    if (jibunAddr && jibunAddr !== headerAddr) {
         const br = roadLine ? '<br>' : '';
         jibunLine = `${br}<span style="color:#9ca3af;">🏠 ${jibunAddr}</span>` + copyIconHtml('copy-jibun-btn', '지번 복사');
     }
@@ -103,10 +109,14 @@ function showDetail(address, meters) {
         window.location.href = `kakaomap://search?q=${encodeURIComponent(roadAddr)}`;
     };
 
-    // 주소 복사 핸들러 — falsy면 무시 ('undefined' 문자열이 클립보드로 새는 것 방지)
+    // 주소 복사 핸들러 — undefined/null/공백/문자열 "undefined" 모두 차단
     const doCopy = (text) => {
-        const s = (text == null) ? '' : String(text);
-        if (!s) return;
+        let s = (text == null) ? '' : String(text);
+        s = s.trim();
+        if (!s || s === 'undefined' || s === 'null') {
+            console.warn('[copy] 잘못된 값 — 복사 안 함:', text);
+            return;
+        }
         if (typeof copyMeterNo === 'function') { copyMeterNo(s); return; }
         navigator.clipboard?.writeText(s);
     };

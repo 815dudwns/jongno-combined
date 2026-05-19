@@ -6,9 +6,11 @@ const QrScanner = (() => {
   let _cameras = [];
   let _camIndex = 0;
   let _onSuccess = null; // (text, photoDataUrl) => void
+  let _detected = false; // 한 번 인식되면 후속 콜백 차단
 
   function show(onSuccess) {
     _onSuccess = onSuccess;
+    _detected = false;
     document.getElementById('qr-scan-overlay').style.display = 'flex';
     document.getElementById('qr-error-msg').style.display = 'none';
     start();
@@ -32,7 +34,11 @@ const QrScanner = (() => {
     if (!_cameras || _cameras.length === 0) {
       return showError('카메라를 찾을 수 없습니다 (권한 거부 또는 미지원)');
     }
-    _camIndex = 0;
+    // 후면 카메라 자동 선택 — label에 back/rear/environment/후면 포함된 첫 카메라
+    const rearIdx = _cameras.findIndex(c =>
+      /back|rear|environment|후면/i.test(c.label || '')
+    );
+    _camIndex = rearIdx >= 0 ? rearIdx : (_cameras.length > 1 ? _cameras.length - 1 : 0);
     document.getElementById('qr-switch-btn').style.display = _cameras.length > 1 ? '' : 'none';
     await startCamera(_cameras[_camIndex].id);
   }
@@ -116,23 +122,51 @@ const QrScanner = (() => {
   }
 
   function onDetected(text) {
-    // 영상 프레임 → Blob 캡처 (사진 슬롯에 자동 채움용)
+    // 매 프레임 detect 콜백이 여러 번 올 수 있어 첫 번째만 처리
+    if (_detected) return;
+    _detected = true;
+
+    const finish = (blob) => {
+      stop();
+      _onSuccess && _onSuccess(text, blob);
+    };
+
     const v = document.querySelector('#qr-reader video');
-    let blob = null;
-    if (v && v.videoWidth && v.videoHeight) {
-      try {
-        const c = document.createElement('canvas');
-        c.width = v.videoWidth; c.height = v.videoHeight;
-        c.getContext('2d').drawImage(v, 0, 0);
-        c.toBlob((b) => {
-          stop();
-          _onSuccess && _onSuccess(text, b);
-        }, 'image/jpeg', 0.9);
-        return;
-      } catch (e) { console.warn('프레임 캡처 실패', e); }
+    if (!v || !v.videoWidth || !v.videoHeight) {
+      console.warn('[QR] 비디오 준비 안 됨 — 사진 캡처 스킵');
+      return finish(null);
     }
-    stop();
-    _onSuccess && _onSuccess(text, null);
+
+    try {
+      const c = document.createElement('canvas');
+      c.width = v.videoWidth; c.height = v.videoHeight;
+      c.getContext('2d').drawImage(v, 0, 0);
+
+      // 1차: toBlob
+      if (c.toBlob) {
+        c.toBlob((b) => {
+          if (b && b.size > 0) return finish(b);
+          // 폴백: toDataURL → fetch → blob
+          captureViaDataUrl(c, finish);
+        }, 'image/jpeg', 0.9);
+      } else {
+        captureViaDataUrl(c, finish);
+      }
+    } catch (e) {
+      console.warn('[QR] 프레임 캡처 실패', e);
+      finish(null);
+    }
+  }
+
+  function captureViaDataUrl(c, done) {
+    try {
+      const url = c.toDataURL('image/jpeg', 0.9);
+      fetch(url).then(r => r.blob()).then(b => done(b || null))
+        .catch((e) => { console.warn('[QR] dataURL→blob 실패', e); done(null); });
+    } catch (e) {
+      console.warn('[QR] toDataURL 실패', e);
+      done(null);
+    }
   }
 
   async function stop() {
