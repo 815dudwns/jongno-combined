@@ -7,7 +7,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260518a';
+      const APP_VERSION = '20260517u';
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
         ['jongno_auth', 'jongno_event_queue'].forEach(k => {
@@ -190,9 +190,9 @@ function drawMarkers() {
     const pos = new kakao.maps.LatLng(lat, lng);
     bounds.extend(pos);
 
-    // 마커 라벨 = 그 주소에서 그날 완료된 건수 (다중이면 "N건")
-    const isMulti = items.length > 1;
-    const label = isMulti ? `${items.length}건` : '✓';
+    const seqs = items.map(i => i.daily_seq).sort((a, b) => a - b);
+    const label = seqs.length === 1 ? String(seqs[0]) : seqs.join(',');
+    const isMulti = seqs.length > 1;
 
     const content = `<div class="stat-marker ${isMulti ? 'multi' : ''}">${label}</div>`;
     const overlay = new kakao.maps.CustomOverlay({
@@ -215,7 +215,7 @@ function renderList() {
     container.innerHTML = '<div class="empty">그날 작업 기록 없음</div>';
     return;
   }
-  const sorted = [...cachedData].sort((a, b) => (a.replaced_at || 0) - (b.replaced_at || 0));
+  const sorted = [...cachedData].sort((a, b) => (a.daily_seq || 0) - (b.daily_seq || 0));
   container.innerHTML = sorted.map(item => {
     const time = new Date(item.replaced_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
     const mfgYm = item.new_meter_mfg_ym || '';
@@ -225,11 +225,11 @@ function renderList() {
       : '';
     return `
       <div class="list-item">
-        <div class="seq-badge" style="background:#6b7280;font-size:11px;">${time}</div>
+        <div class="seq-badge">${item.daily_seq || '?'}</div>
         <div class="li-body">
           <div class="addr">${item.address} ${editedTag}</div>
           <div><b>${item.old_meter_id}</b> <span class="arrow">→</span> <b>${item.new_meter_id}</b></div>
-          <div class="meta">철거값 ${removalVal} kWh · 제조 ${mfgYm} · 작업자 ${item.worker}</div>
+          <div class="meta">철거값 ${removalVal} kWh · 제조 ${mfgYm} · 작업자 ${item.worker} · ${time}</div>
         </div>
         <div class="li-photos">
           ${item.old_meter_photo ? `<img src="${item.old_meter_photo}" alt="기존" data-full="${item.old_meter_photo}">` : ''}
