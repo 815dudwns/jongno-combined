@@ -9,7 +9,7 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260519d';
+        const APP_VERSION = '20260519e';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
           ['jongno_auth', 'jongno_event_queue'].forEach(k => {
@@ -47,10 +47,10 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <!-- QR/바코드 라이브 스캔 -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <link rel="stylesheet" href="css/common.css?v=20260519d">
-    <link rel="stylesheet" href="css/marker.css?v=20260519d">
-    <link rel="stylesheet" href="css/panel.css?v=20260519d">
-    <link rel="stylesheet" href="css/replacement-modal.css?v=20260519d">
+    <link rel="stylesheet" href="css/common.css?v=20260519e">
+    <link rel="stylesheet" href="css/marker.css?v=20260519e">
+    <link rel="stylesheet" href="css/panel.css?v=20260519e">
+    <link rel="stylesheet" href="css/replacement-modal.css?v=20260519e">
 </head>
 <body>
     <div id="map"></div>
@@ -244,14 +244,14 @@
             }
         })();
     </script>
-    <script src="js/config.js?v=20260519d"></script>
-    <script src="js/utils.js?v=20260519d"></script>
-    <script src="js/firebase.js?v=20260519d"></script>
-    <script src="js/detail.js?v=20260519d"></script>
-    <script src="js/map.js?v=20260519d"></script>
-    <script src="js/qr-scanner.js?v=20260519d"></script>
-    <script src="js/photo-uploader.js?v=20260519d"></script>
-    <script src="js/replacement-modal.js?v=20260519d"></script>
-    <script src="js/simulate-helper.js?v=20260519d"></script>
+    <script src="js/config.js?v=20260519e"></script>
+    <script src="js/utils.js?v=20260519e"></script>
+    <script src="js/firebase.js?v=20260519e"></script>
+    <script src="js/detail.js?v=20260519e"></script>
+    <script src="js/map.js?v=20260519e"></script>
+    <script src="js/qr-scanner.js?v=20260519e"></script>
+    <script src="js/photo-uploader.js?v=20260519e"></script>
+    <script src="js/replacement-modal.js?v=20260519e"></script>
+    <script src="js/simulate-helper.js?v=20260519e"></script>
 </body>
 </html>

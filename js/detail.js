@@ -77,10 +77,13 @@ function showDetail(address, meters) {
     const jibunAddr = pick(meters[0] && meters[0].주소, address);
     const roadAddr  = pick(meters[0] && meters[0].도로명주소);
 
-    // 헤더 = 도로명(있으면) 우선, 없으면 지번. 복사 버튼은 표시된 주소를 복사.
+    // 헤더 = 도로명(있으면) 우선, 없으면 지번.
+    // 화면에 보이는 텍스트를 data-copy에 그대로 넣어 — 계기번호 복사와 동일한 패턴
     const headerAddr = roadAddr || jibunAddr;
+    const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     document.getElementById('detail-address').innerHTML =
-        headerAddr + copyIconHtml('copy-addr-btn', '주소 복사');
+        `<span>${esc(headerAddr)}</span>` +
+        `<button class="copy-btn" data-copy="${esc(headerAddr)}" title="주소 복사" style="margin-left:6px;vertical-align:middle;">${COPY_ICON_SVG}</button>`;
 
     // 좌표정확도가 approximate인 계기가 하나라도 있으면 "주소 오류" 표시
     const hasApproximate = meters.some(m => m.좌표정확도 === 'approximate');
@@ -91,15 +94,17 @@ function showDetail(address, meters) {
     // 도로명/지번 라인 — 헤더와 다를 때만 노출 (중복 표시 방지)
     let roadLine = '';
     if (roadAddr && roadAddr !== headerAddr) {
-        roadLine = '📍 ' + roadAddr + copyIconHtml('copy-road-btn', '도로명 복사') + errorTag;
-    } else if (!roadLine && hasApproximate && roadAddr === headerAddr) {
-        // 헤더가 도로명이면 errorTag만 헤더 옆에 부착 (아래 라인이 비니까)
+        roadLine = `📍 <span>${esc(roadAddr)}</span>` +
+            `<button class="copy-btn" data-copy="${esc(roadAddr)}" title="도로명 복사" style="margin-left:6px;vertical-align:middle;">${COPY_ICON_SVG}</button>` +
+            errorTag;
+    } else if (hasApproximate && roadAddr === headerAddr) {
         roadLine = errorTag;
     }
     let jibunLine = '';
     if (jibunAddr && jibunAddr !== headerAddr) {
         const br = roadLine ? '<br>' : '';
-        jibunLine = `${br}<span style="color:#9ca3af;">🏠 ${jibunAddr}</span>` + copyIconHtml('copy-jibun-btn', '지번 복사');
+        jibunLine = `${br}<span style="color:#9ca3af;">🏠 ${esc(jibunAddr)}</span>` +
+            `<button class="copy-btn" data-copy="${esc(jibunAddr)}" title="지번 복사" style="margin-left:6px;vertical-align:middle;">${COPY_ICON_SVG}</button>`;
     }
     document.getElementById('detail-road-address').innerHTML = roadLine + jibunLine;
 
@@ -117,22 +122,14 @@ function showDetail(address, meters) {
         window.location.href = `kakaomap://search?q=${encodeURIComponent(roadAddr)}`;
     };
 
-    // 주소 복사 핸들러 — 위 isUsable과 동일한 가드
-    const doCopy = (text) => {
-        if (!isUsable(text)) {
-            console.warn('[copy] 잘못된 값 — 복사 안 함:', text);
-            return;
-        }
-        const s = String(text).trim();
-        if (typeof copyMeterNo === 'function') { copyMeterNo(s); return; }
-        navigator.clipboard?.writeText(s);
-    };
-    const addrBtn = document.getElementById('copy-addr-btn');
-    if (addrBtn) addrBtn.onclick = (e) => { e.stopPropagation(); doCopy(headerAddr); };
-    const roadBtn2 = document.getElementById('copy-road-btn');
-    if (roadBtn2) roadBtn2.onclick = (e) => { e.stopPropagation(); doCopy(roadAddr); };
-    const jibunBtn2 = document.getElementById('copy-jibun-btn');
-    if (jibunBtn2) jibunBtn2.onclick = (e) => { e.stopPropagation(); doCopy(jibunAddr); };
+    // 주소 복사 핸들러 — copy-btn 클래스 + data-copy 속성으로 통일 (계기번호와 동일 패턴)
+    document.querySelectorAll('#detail-address .copy-btn, #detail-road-address .copy-btn').forEach(btn => {
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            const v = btn.dataset.copy;
+            if (v) copyMeterNo(v);
+        };
+    });
 
     const btnComplete = document.getElementById('btn-complete');
     const btnHold = document.getElementById('btn-hold');
