@@ -57,6 +57,15 @@ const RplModal = (() => {
     // 저장 버튼 라벨
     const saveBtn = document.getElementById('rpl-save');
     saveBtn.textContent = isEditMode ? '수정 저장' : '저장';
+    saveBtn.disabled = false;
+
+    // 임시 저장 버튼 — 추가 모드에서는 숨김(추가는 11자리만 필요), 교체 모드에서만 노출
+    const draftBtn = document.getElementById('rpl-draft');
+    if (draftBtn) {
+      draftBtn.style.display = isAddMode ? 'none' : '';
+      draftBtn.disabled = false;
+      draftBtn.textContent = '임시 저장';
+    }
 
     // 기본 채움 / 수정 모드면 기존 데이터로 prefill
     resetPhoto('rpl-old-photo');
@@ -303,7 +312,7 @@ const RplModal = (() => {
     });
   }
 
-  async function onSave() {
+  async function onSave(isDraft) {
     const isAddMode = !currentMeter;
     const oldMeterId = isAddMode
       ? document.getElementById('rpl-old-meter-id').value.trim().toUpperCase()
@@ -311,9 +320,9 @@ const RplModal = (() => {
 
     if (!oldMeterId || String(oldMeterId).length !== 11) return toast('기존 계기번호 11자리 확인');
 
-    const saveBtn = document.getElementById('rpl-save');
+    const saveBtn = isDraft ? document.getElementById('rpl-draft') : document.getElementById('rpl-save');
     saveBtn.disabled = true;
-    saveBtn.textContent = '저장 중...';
+    saveBtn.textContent = isDraft ? '임시 저장 중...' : '저장 중...';
 
     try {
       const session = (typeof authGetSession === 'function') ? authGetSession() : null;
@@ -359,28 +368,32 @@ const RplModal = (() => {
       // 사진 검증 — 수정 모드면 기존 URL 있으면 OK
       const hasOldPhoto = oldPhotoBlob || keepOldPhotoUrl;
       const hasNewPhoto = newPhotoBlob || keepNewPhotoUrl;
-      if (!hasOldPhoto) return toast('기존 계기 사진 필요');
-      if (!hasNewPhoto) return toast('새 계기 사진 필요');
-      if (!removalValue) return toast('철거 제번 필요');
-      if (!newMeterId || newMeterId.length !== 11) return toast('새 계기번호 11자리 필요');
-      if (!y || !m) return toast('제조년월 필요');
 
-      saveBtn.textContent = dryRun ? '확인 중...' : '업로드 중...';
+      // 임시 저장 모드는 검증 스킵 — 부분 데이터만으로도 저장
+      if (!isDraft) {
+        if (!hasOldPhoto) return toast('기존 계기 사진 필요');
+        if (!hasNewPhoto) return toast('새 계기 사진 필요');
+        if (!removalValue) return toast('철거 제번 필요');
+        if (!newMeterId || newMeterId.length !== 11) return toast('새 계기번호 11자리 필요');
+        if (!y || !m) return toast('제조년월 필요');
+      }
+
+      saveBtn.textContent = isDraft ? '임시 저장 중...' : (dryRun ? '확인 중...' : '업로드 중...');
 
       // 사진 업로드 — 새로 선택한 것만, 안 한 것은 기존 URL 유지
-      // dry-run이면 Storage 업로드 skip, placeholder URL 사용
+      // 임시 저장이면 사진 없을 수 있음 — 있는 것만 업로드
       const baseDir = `replacements/${addrKey}/${oldMeterId}_${ts}`;
       const [oldRes, newRes] = await Promise.all([
         dryRun
           ? Promise.resolve({ url: keepOldPhotoUrl || `[DRY_RUN_OLD_${ts}]` })
           : (oldPhotoBlob
               ? PhotoUploader.compressAndUpload(oldPhotoBlob, `${baseDir}/old.jpg`)
-              : Promise.resolve({ url: keepOldPhotoUrl })),
+              : Promise.resolve({ url: keepOldPhotoUrl || '' })),
         dryRun
           ? Promise.resolve({ url: keepNewPhotoUrl || `[DRY_RUN_NEW_${ts}]` })
           : (newPhotoBlob
               ? PhotoUploader.compressAndUpload(newPhotoBlob, `${baseDir}/new.jpg`)
-              : Promise.resolve({ url: keepNewPhotoUrl })),
+              : Promise.resolve({ url: keepNewPhotoUrl || '' })),
       ]);
 
       // daily_seq · 시각 · 작업자
@@ -392,14 +405,15 @@ const RplModal = (() => {
 
       const replacement = {
         old_meter_id: String(oldMeterId),
-        new_meter_id: String(newMeterId),
-        removal_value: Number(removalValue),
-        new_meter_mfg_ym: `${y}-${m}`,
-        old_meter_photo: oldRes.url,
-        new_meter_photo: newRes.url,
+        new_meter_id: String(newMeterId || ''),
+        removal_value: removalValue === '' ? null : Number(removalValue),
+        new_meter_mfg_ym: (y && m) ? `${y}-${m}` : '',
+        old_meter_photo: oldRes.url || '',
+        new_meter_photo: newRes.url || '',
         worker,
         replaced_at: replacedAt,
         daily_seq: dailySeq,
+        draft: !!isDraft,
       };
       if (editingData) {
         replacement.last_edited_at = ts;
@@ -422,8 +436,12 @@ const RplModal = (() => {
       if (!workStatus[currentAddress].replacement_list) workStatus[currentAddress].replacement_list = {};
       workStatus[currentAddress].replacement_list[oldMeterId] = replacement;
 
-      saveLastMfgYm(y, m);
-      toast(editingData ? '✏️ 수정 완료' : `✅ 저장 완료 (오늘 ${dailySeq}번째)`);
+      if (y && m) saveLastMfgYm(y, m);
+      if (isDraft) {
+        toast('📝 임시 저장됨 — 나중에 이어서 작업하세요');
+      } else {
+        toast(editingData ? '✏️ 수정 완료' : `✅ 저장 완료 (오늘 ${dailySeq}번째)`);
+      }
       setTimeout(close, 800);
 
       if (typeof updateMarkerColor === 'function') updateMarkerColor(currentAddress);
@@ -434,7 +452,7 @@ const RplModal = (() => {
       toast(`저장 실패: ${e.message || e}`);
     } finally {
       saveBtn.disabled = false;
-      saveBtn.textContent = '저장';
+      saveBtn.textContent = isDraft ? '임시 저장' : (editingData ? '수정 저장' : '저장');
     }
   }
 
@@ -488,7 +506,9 @@ const RplModal = (() => {
   function init() {
     document.getElementById('rpl-close').onclick = close;
     document.getElementById('rpl-cancel').onclick = close;
-    document.getElementById('rpl-save').onclick = onSave;
+    document.getElementById('rpl-save').onclick = () => onSave(false);
+    const draftBtn = document.getElementById('rpl-draft');
+    if (draftBtn) draftBtn.onclick = () => onSave(true);
     const delBtn = document.getElementById('rpl-delete');
     if (delBtn) delBtn.onclick = onDelete;
     document.getElementById('rpl-old-photo').onclick = () =>

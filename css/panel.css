@@ -84,7 +84,12 @@
 .meter-fail-btn.active { background: #ef4444; color: white; border-color: #ef4444; }
 .meter-fail-btn.active:hover { background: #dc2626; border-color: #dc2626; }
 
-/* 불가 처리된 계기 아이템 */
+/* 교체 완료된 계기 — 하늘색 배경 */
+.meter-item-replaced { background: #e0f2fe !important; border-color: #7dd3fc !important; }
+/* 임시 저장(미완료)된 계기 — 옅은 노랑 + 점선 보더 */
+.meter-item-draft { background: #fffbeb !important; border-color: #fbbf24 !important; border-style: dashed !important; }
+
+/* 불가 처리된 계기 아이템 (우선순위 — 교체/임시보다 위) */
 .meter-item-failed { background: #fff5f5 !important; border-color: #fca5a5 !important; opacity: 0.85; }
 .meter-item-failed .meter-no-seg { text-decoration: line-through; color: #9ca3af; }
 .meter-item-failed .seg-maker,

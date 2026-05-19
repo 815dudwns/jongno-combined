@@ -508,20 +508,26 @@ function renderMetersList() {
             ? `<div class="meter-meta">${extraParts.join(' · ')}</div>`
             : '';
 
-        // 불가 처리된 계기는 취소선 클래스 추가
-        const itemClass = isFailed
-            ? `meter-item ${rowClass(s2)} meter-item-failed`
-            : `meter-item ${rowClass(s2)}`;
-
         // 계기팀/admin에게만 "교체/수정" 버튼 노출
         const _role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : ((authGetSession() || {}).role || 'meter');
         const showRpl = (_role === 'meter') || (_role === 'admin');
         const replInfo = (status.replacement_list || {})[meter.계기번호];
         const isReplaced = !!replInfo;
+        const isDraft = isReplaced && replInfo.draft === true;
+        const isReplacedDone = isReplaced && !isDraft;  // 완전 저장된 상태
+
+        // 불가 처리된 계기는 취소선, 교체 완료는 하늘색 배경
+        let itemClass = `meter-item ${rowClass(s2)}`;
+        if (isFailed) itemClass += ' meter-item-failed';
+        if (isReplacedDone) itemClass += ' meter-item-replaced';
+        if (isDraft) itemClass += ' meter-item-draft';
+
         const rplBtnHtml = showRpl
-            ? (isReplaced
-                ? `<button class="meter-rpl-btn" data-meter="${meter.계기번호}" data-mode="edit" style="margin-left:6px;padding:3px 8px;background:#10b981;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">✏️ 수정</button>`
-                : `<button class="meter-rpl-btn" data-meter="${meter.계기번호}" style="margin-left:6px;padding:3px 8px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">📝 교체</button>`)
+            ? (isDraft
+                ? `<button class="meter-rpl-btn" data-meter="${meter.계기번호}" data-mode="edit" style="margin-left:6px;padding:3px 8px;background:#f59e0b;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">📝 이어서</button>`
+                : (isReplaced
+                    ? `<button class="meter-rpl-btn" data-meter="${meter.계기번호}" data-mode="edit" style="margin-left:6px;padding:3px 8px;background:#10b981;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">✏️ 수정</button>`
+                    : `<button class="meter-rpl-btn" data-meter="${meter.계기번호}" style="margin-left:6px;padding:3px 8px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">📝 교체</button>`))
             : '';
 
         // 통신팀 시각: 계기팀 완료한 계기만 활성. 활성 계기 = "기존 → 신" 표시
