@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AMI 매칭 → 자동 완료 (관리자 전용)</title>
+    <title>외부 작업분 제외 마킹 (관리자 전용)</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -43,11 +43,11 @@
 <body>
 <div class="container">
     <a class="back" href="../map.html">← 지도로 돌아가기</a>
-    <h1>AMI 매칭 → 종로 자동 완료 (관리자 전용)</h1>
+    <h1>외부 작업분 제외 마킹 (관리자 전용)</h1>
     <p class="sub">
-        ami-work site-data.json에 등재된 종로구 데이터(이미 교체 완료된 것)와 고객번호(앞 0 제거)가 일치하는<br>
-        종로앱 주소를 일괄 <b>meter_state=complete + comm_state=complete</b>로 마킹합니다.<br>
-        백업은 처리 직전 자동으로 다운로드됩니다. (workStatus/jongno 전체 JSON)
+        ami-work(우리 다른 시스템)에서 이미 처리된 종로 주소 = 종로 작업 대상에서 제외 처리합니다.<br>
+        고객번호(앞 0 제거) 매칭으로 자동 식별 → <b>meter_state=complete + comm_state=complete</b>로 마킹.<br>
+        한전 공식 완료 아님. 이중 작업 방지용 내부 표기입니다. 백업은 처리 직전 자동 다운로드.
     </p>
 
     <div class="card">
@@ -188,13 +188,13 @@ async function runProcess() {
                 meter_state: 'complete',
                 meter_reason: '',
                 meter_updatedAt: now,
-                meter_updatedBy: 'AUTO_IMPORT_AMI',
-                meter_updatedByName: 'AMI 자동 매칭',
+                meter_updatedBy: 'EXTERNAL_IMPORT',
+                meter_updatedByName: '외부 작업분 (ami-work)',
                 comm_state: 'complete',
                 comm_reason: '',
                 comm_updatedAt: now,
-                comm_updatedBy: 'AUTO_IMPORT_AMI',
-                comm_updatedByName: 'AMI 자동 매칭',
+                comm_updatedBy: 'EXTERNAL_IMPORT',
+                comm_updatedByName: '외부 작업분 (ami-work)',
                 checkedMeters: base.checkedMeters || [],
                 meterChecks: base.meterChecks || {},
                 failedMeters: base.failedMeters || {},
