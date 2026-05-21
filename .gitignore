@@ -6,3 +6,11 @@ __pycache__/
 *.pyc
 storage_state.json
 backups/
+
+# 원본 엑셀 DB (로컬 전용, 민감)
+*.xlsx
+data/original/
+
+# Firebase service account
+*-firebase-adminsdk-*.json
+*-service-account*.json
