@@ -8,6 +8,25 @@ const QrScanner = (() => {
   let _onSuccess = null; // (text, photoDataUrl) => void
   let _detected = false; // 한 번 인식되면 후속 콜백 차단
 
+  const LS_CAM = 'qr_camera_id';
+  const LS_ZOOM = 'qr_zoom';
+
+  function saveCameraId(id) { try { if (id) localStorage.setItem(LS_CAM, id); } catch {} }
+  function loadCameraId() { try { return localStorage.getItem(LS_CAM) || ''; } catch { return ''; } }
+  function clearCameraId() { try { localStorage.removeItem(LS_CAM); } catch {} }
+  function saveZoom(z) { try { if (z > 0) localStorage.setItem(LS_ZOOM, String(z)); } catch {} }
+  function loadZoom() {
+    try { const v = parseFloat(localStorage.getItem(LS_ZOOM)); return isNaN(v) ? null : v; }
+    catch { return null; }
+  }
+  function currentDeviceId() {
+    try {
+      const v = document.querySelector('#qr-reader video');
+      const t = v?.srcObject?.getVideoTracks?.()[0];
+      return t?.getSettings?.()?.deviceId || '';
+    } catch { return ''; }
+  }
+
   function show(onSuccess) {
     _onSuccess = onSuccess;
     _detected = false;
@@ -16,41 +35,11 @@ const QrScanner = (() => {
     start();
   }
 
-  async function start() {
-    console.log('[QR] start, Html5Qrcode:', typeof Html5Qrcode);
-    if (typeof Html5Qrcode === 'undefined') {
-      return showError('html5-qrcode 라이브러리 로드 실패 — CDN 차단 의심');
-    }
-    if (!navigator.mediaDevices?.getUserMedia) {
-      return showError('이 브라우저는 카메라 미지원 (HTTPS 필요)');
-    }
-    try {
-      _cameras = await Html5Qrcode.getCameras();
-      console.log('[QR] cameras:', _cameras);
-    } catch (e) {
-      console.error('[QR] getCameras 실패:', e);
-      return showError(camErrorMsg(e));
-    }
-    if (!_cameras || _cameras.length === 0) {
-      return showError('카메라를 찾을 수 없습니다 (권한 거부 또는 미지원)');
-    }
-    // 후면 카메라 자동 선택 — label에 back/rear/environment/후면 포함된 첫 카메라
-    const rearIdx = _cameras.findIndex(c =>
-      /back|rear|environment|후면/i.test(c.label || '')
-    );
-    _camIndex = rearIdx >= 0 ? rearIdx : (_cameras.length > 1 ? _cameras.length - 1 : 0);
-    document.getElementById('qr-switch-btn').style.display = _cameras.length > 1 ? '' : 'none';
-    await startCamera(_cameras[_camIndex].id);
-  }
-
-  async function startCamera(cameraId) {
-    if (_scanner) { try { await _scanner.stop(); } catch {} _scanner = null; }
-    _scanner = new Html5Qrcode('qr-reader');
-
-    const config = {
+  function buildConfig() {
+    return {
       fps: 20,
+      aspectRatio: 1.0,
       qrbox: (w, h) => {
-        // QR은 정사각형 — 화면 좁은 쪽의 70%
         const size = Math.floor(Math.min(w, h) * 0.7);
         return { width: size, height: size };
       },
@@ -70,16 +59,119 @@ const QrScanner = (() => {
         Html5QrcodeSupportedFormats.DATA_MATRIX,
       ]
     };
+  }
+
+  async function start() {
+    console.log('[QR] start, Html5Qrcode:', typeof Html5Qrcode);
+    if (typeof Html5Qrcode === 'undefined') {
+      return showError('html5-qrcode 라이브러리 로드 실패 — CDN 차단 의심');
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      return showError('이 브라우저는 카메라 미지원 (HTTPS 필요)');
+    }
+
+    // 0차: 저장된 카메라 ID 우선 (사용자가 마지막에 쓴 것)
+    // 1차: facingMode exact environment (후면 강제)
+    // 2차: facingMode ideal environment (후면 선호)
+    // 3차: getCameras() + 라벨 매칭 폴백
+    const savedId = loadCameraId();
+    if (savedId && await startWithSavedId(savedId)) return;
+    if (await startWithFacing({ exact: 'environment' }, '후면(강제)')) return;
+    if (await startWithFacing('environment', '후면(선호)'))         return;
+    await startWithCameraList();
+  }
+
+  async function startWithSavedId(id) {
+    if (_scanner) { try { await _scanner.stop(); } catch {} _scanner = null; }
+    _scanner = new Html5Qrcode('qr-reader');
+    try {
+      await _scanner.start(id, buildConfig(),
+        (text) => onDetected(text),
+        () => {});
+      // 라벨·전환버튼은 카메라 목록 비동기 로드
+      Html5Qrcode.getCameras().then(cs => {
+        _cameras = cs || [];
+        const idx = _cameras.findIndex(c => c.id === id);
+        _camIndex = idx >= 0 ? idx : 0;
+        const cam = _cameras[_camIndex];
+        const lbl = document.getElementById('qr-cam-label');
+        if (lbl && cam) lbl.textContent = `${cam.label || '카메라'} (${_camIndex + 1}/${_cameras.length})`;
+        document.getElementById('qr-switch-btn').style.display = _cameras.length > 1 ? '' : 'none';
+      }).catch(() => {});
+      await applyZoom(loadZoom() ?? 2.0);
+      return true;
+    } catch (e) {
+      console.warn('[QR] 저장된 cameraId 실패 — 폴백 진행:', e?.message || e);
+      clearCameraId(); // 사라진 디바이스일 수 있으니 정리
+      try { await _scanner.stop(); } catch {}
+      _scanner = null;
+      return false;
+    }
+  }
+
+  async function startWithFacing(facingMode, labelHint) {
+    if (_scanner) { try { await _scanner.stop(); } catch {} _scanner = null; }
+    _scanner = new Html5Qrcode('qr-reader');
+    try {
+      await _scanner.start({ facingMode }, buildConfig(),
+        (text) => onDetected(text),
+        () => {});
+      _cameras = []; _camIndex = 0;
+      const lbl = document.getElementById('qr-cam-label');
+      if (lbl) lbl.textContent = labelHint;
+      document.getElementById('qr-switch-btn').style.display = 'none';
+      // 권한 부여된 뒤 카메라 목록 로드 (전환 버튼용 — 비동기, 실패 무시)
+      Html5Qrcode.getCameras().then(cs => {
+        _cameras = cs || [];
+        const did = currentDeviceId();
+        const idx = _cameras.findIndex(c => c.id === did);
+        if (idx >= 0) _camIndex = idx;
+        document.getElementById('qr-switch-btn').style.display = _cameras.length > 1 ? '' : 'none';
+      }).catch(() => {});
+      saveCameraId(currentDeviceId());
+      await applyZoom(loadZoom() ?? 2.0);
+      return true;
+    } catch (e) {
+      console.warn(`[QR] facingMode ${JSON.stringify(facingMode)} 실패:`, e?.message || e);
+      try { await _scanner.stop(); } catch {}
+      _scanner = null;
+      return false;
+    }
+  }
+
+  async function startWithCameraList() {
+    try {
+      _cameras = await Html5Qrcode.getCameras();
+      console.log('[QR] cameras:', _cameras);
+    } catch (e) {
+      console.error('[QR] getCameras 실패:', e);
+      return showError(camErrorMsg(e));
+    }
+    if (!_cameras || _cameras.length === 0) {
+      return showError('카메라를 찾을 수 없습니다 (권한 거부 또는 미지원)');
+    }
+    const rearIdx = _cameras.findIndex(c =>
+      /back|rear|environment|후면/i.test(c.label || '')
+    );
+    _camIndex = rearIdx >= 0 ? rearIdx : (_cameras.length > 1 ? _cameras.length - 1 : 0);
+    document.getElementById('qr-switch-btn').style.display = _cameras.length > 1 ? '' : 'none';
+    await startCamera(_cameras[_camIndex].id);
+  }
+
+  async function startCamera(cameraId) {
+    if (_scanner) { try { await _scanner.stop(); } catch {} _scanner = null; }
+    _scanner = new Html5Qrcode('qr-reader');
 
     const cam = _cameras[_camIndex];
     document.getElementById('qr-cam-label').textContent =
       `${cam.label || '카메라'} (${_camIndex + 1}/${_cameras.length})`;
 
     try {
-      await _scanner.start(cameraId, config,
+      await _scanner.start(cameraId, buildConfig(),
         (text) => onDetected(text),
-        () => {}); // 매 프레임 디코딩 실패 무시
-      await applyZoom(2.0);  // 광각 회피 + QR 인식률 향상
+        () => {});
+      saveCameraId(cameraId);
+      await applyZoom(loadZoom() ?? 2.0);
     } catch (e) {
       showError(camErrorMsg(e));
     }
@@ -92,8 +184,9 @@ const QrScanner = (() => {
       const t = v.srcObject.getVideoTracks()[0];
       const cap = t?.getCapabilities?.() || {};
       if (cap.zoom) {
-        const zoom = Math.min(z, cap.zoom.max);
+        const zoom = Math.min(Math.max(z, cap.zoom.min), cap.zoom.max);
         await t.applyConstraints({ advanced: [{ zoom }] });
+        saveZoom(zoom);
         const lbl = document.getElementById('qr-cam-label');
         if (lbl) lbl.textContent += ` · ${zoom}x`;
       }
@@ -110,13 +203,16 @@ const QrScanner = (() => {
       const cur = t.getSettings().zoom || 1;
       const next = Math.max(cap.zoom.min, Math.min(cap.zoom.max, cur + delta));
       await t.applyConstraints({ advanced: [{ zoom: next }] });
+      saveZoom(next);
       const cam = _cameras[_camIndex];
       const lbl = document.getElementById('qr-cam-label');
-      if (lbl) lbl.textContent = `${cam.label || '카메라'} (${_camIndex + 1}/${_cameras.length}) · ${next.toFixed(1)}x`;
+      const camName = cam ? `${cam.label || '카메라'} (${_camIndex + 1}/${_cameras.length})` : '카메라';
+      if (lbl) lbl.textContent = `${camName} · ${next.toFixed(1)}x`;
     } catch {}
   }
 
   async function switchCamera() {
+    if (!_cameras.length) return;
     _camIndex = (_camIndex + 1) % _cameras.length;
     await startCamera(_cameras[_camIndex].id);
   }

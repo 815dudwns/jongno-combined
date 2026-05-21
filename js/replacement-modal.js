@@ -306,8 +306,7 @@ const RplModal = (() => {
         ymToast = ` / 제조 ${fullY}-${mm}`;
       }
 
-      // 캡처된 사진을 "새 계기 사진" 슬롯에 자동 첨부
-      if (photoBlob) setPhoto('rpl-new-photo', photoBlob);
+      // 사진은 자동 첨부 X — 사용자가 직접 후사진 촬영 (영준님 지시 2026-05-21)
       toast(`QR 인식: ${meterId}${ymToast}`);
     });
   }
