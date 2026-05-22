@@ -180,9 +180,11 @@ async function runProcess() {
 
         // 2) 일괄 업데이트
         // 분기: ami_completed=true → 양쪽 complete, false → 계기팀만 complete
+        // 안전장치: 통신팀이 사람(또는 외부 import 아닌 출처)이 표시한 건은 그대로 보존
+        const EXTERNAL_IDS = new Set(['EXTERNAL_IMPORT', 'AUTO_IMPORT_AMI', 'AUTO_IMPORT', '']);
         const now = new Date().toISOString();
         const updates = {};
-        let bothCnt = 0, meterOnlyCnt = 0;
+        let bothCnt = 0, meterOnlyRevertCnt = 0, meterOnlyKeepCnt = 0;
         for (const a of payload.addresses) {
             const base = currentWS[a.address] || {
                 checkedMeters: [], meterChecks: {}, failedMeters: {},
@@ -207,17 +209,29 @@ async function runProcess() {
                 entry.comm_updatedByName = '외부 작업분 (ami-work)';
                 bothCnt++;
             } else {
-                // 통신팀은 미완료 그대로 (모뎀 설치 필요)
-                entry.comm_state = base.comm_state || 'pending';
-                entry.comm_reason = base.comm_reason || '';
-                entry.comm_updatedAt = base.comm_updatedAt || '';
-                entry.comm_updatedBy = base.comm_updatedBy || '';
-                entry.comm_updatedByName = base.comm_updatedByName || '';
-                meterOnlyCnt++;
+                // 계기팀만 complete. 통신팀은 조건부:
+                //   · 기존 통신팀이 외부 일괄 처리(EXTERNAL_IMPORT/AUTO_IMPORT_AMI)거나 비어있음 → pending으로 되돌림
+                //   · 사람(meter1/comm1/admin 등)이 표시한 거 → 그대로 유지 (실제 작업 보존)
+                const isExternal = EXTERNAL_IDS.has(base.comm_updatedBy || '');
+                if (isExternal) {
+                    entry.comm_state = 'pending';
+                    entry.comm_reason = '';
+                    entry.comm_updatedAt = now;
+                    entry.comm_updatedBy = '';
+                    entry.comm_updatedByName = '';
+                    meterOnlyRevertCnt++;
+                } else {
+                    entry.comm_state = base.comm_state || 'pending';
+                    entry.comm_reason = base.comm_reason || '';
+                    entry.comm_updatedAt = base.comm_updatedAt || '';
+                    entry.comm_updatedBy = base.comm_updatedBy || '';
+                    entry.comm_updatedByName = base.comm_updatedByName || '';
+                    meterOnlyKeepCnt++;
+                }
             }
             updates[a.address] = entry;
         }
-        log(`양쪽 complete: ${bothCnt}건  /  계기팀만 complete (통신팀 미완료): ${meterOnlyCnt}건`, 'warn');
+        log(`양쪽 complete: ${bothCnt}건  /  계기팀만 (외부분 → 통신 pending 되돌림): ${meterOnlyRevertCnt}건  /  계기팀만 (사람 작업 보존): ${meterOnlyKeepCnt}건`, 'warn');
 
         log(`Firebase에 ${Object.keys(updates).length}개 주소 업로드 중...`);
         await db.ref('workStatus/jongno').update(updates);
