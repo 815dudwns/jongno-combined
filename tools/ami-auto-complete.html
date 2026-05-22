@@ -46,8 +46,10 @@
     <h1>외부 작업분 제외 마킹 (관리자 전용)</h1>
     <p class="sub">
         ami-work(우리 다른 시스템)에서 이미 처리된 종로 주소 = 종로 작업 대상에서 제외 처리합니다.<br>
-        고객번호(앞 0 제거) 매칭으로 자동 식별 → <b>meter_state=complete + comm_state=complete</b>로 마킹.<br>
-        한전 공식 완료 아님. 이중 작업 방지용 내부 표기입니다. 백업은 처리 직전 자동 다운로드.
+        고객번호(앞 0 제거) 매칭으로 자동 식별. 분기:<br>
+        · ami-work에서 모뎀까지 완료(<b>workStatus=complete</b>) → <b>계기팀 + 통신팀 둘 다 complete</b><br>
+        · ami-work site-data만 매칭(모뎀 미설치) → <b>계기팀만 complete, 통신팀은 미완료 유지</b> (통신팀이 가서 모뎀 깔아야 함)<br>
+        한전 공식 완료 아님. 이중 작업 방지용 내부 표기. 백업은 처리 직전 자동 다운로드.
     </p>
 
     <div class="card">
@@ -177,29 +179,45 @@ async function runProcess() {
         await downloadBackup();
 
         // 2) 일괄 업데이트
+        // 분기: ami_completed=true → 양쪽 complete, false → 계기팀만 complete
         const now = new Date().toISOString();
         const updates = {};
+        let bothCnt = 0, meterOnlyCnt = 0;
         for (const a of payload.addresses) {
             const base = currentWS[a.address] || {
                 checkedMeters: [], meterChecks: {}, failedMeters: {},
             };
-            updates[a.address] = {
+            const amiDone = a.ami_completed === true;
+            const entry = {
                 ...base,
                 meter_state: 'complete',
                 meter_reason: '',
                 meter_updatedAt: now,
                 meter_updatedBy: 'EXTERNAL_IMPORT',
                 meter_updatedByName: '외부 작업분 (ami-work)',
-                comm_state: 'complete',
-                comm_reason: '',
-                comm_updatedAt: now,
-                comm_updatedBy: 'EXTERNAL_IMPORT',
-                comm_updatedByName: '외부 작업분 (ami-work)',
                 checkedMeters: base.checkedMeters || [],
                 meterChecks: base.meterChecks || {},
                 failedMeters: base.failedMeters || {},
             };
+            if (amiDone) {
+                entry.comm_state = 'complete';
+                entry.comm_reason = '';
+                entry.comm_updatedAt = now;
+                entry.comm_updatedBy = 'EXTERNAL_IMPORT';
+                entry.comm_updatedByName = '외부 작업분 (ami-work)';
+                bothCnt++;
+            } else {
+                // 통신팀은 미완료 그대로 (모뎀 설치 필요)
+                entry.comm_state = base.comm_state || 'pending';
+                entry.comm_reason = base.comm_reason || '';
+                entry.comm_updatedAt = base.comm_updatedAt || '';
+                entry.comm_updatedBy = base.comm_updatedBy || '';
+                entry.comm_updatedByName = base.comm_updatedByName || '';
+                meterOnlyCnt++;
+            }
+            updates[a.address] = entry;
         }
+        log(`양쪽 complete: ${bothCnt}건  /  계기팀만 complete (통신팀 미완료): ${meterOnlyCnt}건`, 'warn');
 
         log(`Firebase에 ${Object.keys(updates).length}개 주소 업로드 중...`);
         await db.ref('workStatus/jongno').update(updates);
