@@ -773,18 +773,17 @@ function updateStatus(state) {
     const role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : (session ? session.role : '');
     const reason = (document.getElementById('fail-reason')?.value || '').trim();
 
-    // 통신팀이 완료를 누르는데 계기팀 미완료인 경우 → 확인 다이얼로그
+    // 통신팀이 완료 누르면 계기팀 상태 무관하게 자동 양쪽 complete
+    // (계기팀이 아직 앱 사용 안 함 → 통신팀 완료 = 사실상 진짜 완료)
+    // 추후 계기팀이 앱 사용·새 계기 등록 프로세스 시작하면 별도 흐름 추가
     if (role === 'comm' && state === 'complete') {
         const cur = workStatus[currentAddress];
         if (!cur || cur.meter_state !== 'complete') {
-            const ok = confirm('계기팀 작업이 완료된 것 확인되었나요?\n확인하면 계기팀·통신팀 둘 다 완료 처리됩니다.');
-            if (!ok) return;
             saveBothCompleteEvent(
                 currentAddress,
                 session ? session.id   : '',
                 session ? session.name : ''
             );
-            // commLastAddress 갱신을 포함한 전체 마커 갱신
             if (typeof refreshAllMarkers === 'function') refreshAllMarkers();
             else updateMarkerColor(currentAddress);
             return;
