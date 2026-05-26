@@ -228,18 +228,21 @@
 
     <div id="rpl-toast" class="rpl-toast"></div>
 
-    <!-- QR 라이브 스캔 오버레이 (전체 화면) -->
+    <!-- QR 라이브 스캔 오버레이 (전체 화면) — ami-work와 동일 패턴 -->
     <div id="qr-scan-overlay" style="display:none;position:fixed;inset:0;background:black;z-index:3000;flex-direction:column;">
-      <div style="display:flex;align-items:center;padding:10px 14px;background:#111;color:white;">
-        <span id="qr-cam-label" style="flex:1;font-size:13px;font-weight:600;">📷 QR / 바코드 스캔</span>
-        <button id="qr-switch-btn" style="display:none;margin-right:8px;padding:6px 10px;background:#374151;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;">🔄 카메라</button>
-        <button id="qr-close-btn" style="padding:6px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">✕</button>
+      <div style="display:flex;align-items:center;padding:10px 14px;background:#111;color:white;gap:8px;">
+        <span id="qr-cam-label" style="font-size:12px;font-weight:600;white-space:nowrap;">카메라</span>
+        <select id="qr-cam-select" style="flex:1;min-width:140px;padding:8px 10px;background:#374151;color:white;border:1.5px solid #6b7280;border-radius:6px;font-size:13px;font-weight:600;appearance:auto;-webkit-appearance:auto;"><option>카메라 로드 중...</option></select>
+        <button id="qr-close-btn" style="padding:6px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">×</button>
       </div>
-      <div id="qr-reader" style="width:100%;flex:1;background:black;"></div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;background:black;overflow:hidden;">
+        <div id="qr-reader" style="width:min(100vw, 100%); aspect-ratio:1/1; max-height:100%; background:black; position:relative; overflow:hidden;"></div>
+      </div>
       <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
       <div style="display:flex;gap:6px;padding:8px;background:#111;">
-        <button id="qr-zoom-out" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">➖ 줌</button>
-        <button id="qr-zoom-in" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">➕ 줌</button>
+        <button id="qr-switch-btn" style="display:none;flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">카메라 전환</button>
+        <button id="qr-zoom-out" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">- 줌</button>
+        <button id="qr-zoom-in" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">+ 줌</button>
       </div>
     </div>
 
@@ -271,7 +274,7 @@
     <script src="js/firebase.js?v=20260521b"></script>
     <script src="js/detail.js?v=20260523a"></script>
     <script src="js/map.js?v=20260521b"></script>
-    <script src="js/qr-scanner.js?v=20260521b"></script>
+    <script src="js/qr-scanner.js?v=20260526j"></script>
     <script src="js/photo-uploader.js?v=20260521b"></script>
     <script src="js/replacement-modal.js?v=20260521b"></script>
     <script src="js/simulate-helper.js?v=20260521b"></script>
