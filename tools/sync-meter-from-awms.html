@@ -272,16 +272,31 @@
         try {
             await downloadBackup();
 
+            // daily_seq를 시간순으로 매기기 위해 plan 전체를 STATUS_MOD_DATE 오름차순 정렬
+            // (JSON 등장 순서로 매기면 awms가 최신부터 내려주는 경우 거꾸로 매겨짐)
+            const sortedPlan = [...plan].sort((x, y) => {
+                const tx = x.awms.STATUS_MOD_DATE || x.awms.MOD_DATE || 0;
+                const ty = y.awms.STATUS_MOD_DATE || y.awms.MOD_DATE || 0;
+                return tx - ty;
+            });
+            const dailyMaxByDate = {};       // {YYYY-MM-DD: 현재까지 매긴 최대 seq}
+            const seqByPlan = new Map();     // plan 항목 → daily_seq
+            for (const p of sortedPlan) {
+                const tsMs = p.awms.STATUS_MOD_DATE || p.awms.MOD_DATE || Date.now();
+                const dateKey = kstYmd(new Date(tsMs));
+                dailyMaxByDate[dateKey] = (dailyMaxByDate[dateKey] || 0) + 1;
+                seqByPlan.set(p, dailyMaxByDate[dateKey]);
+            }
+
             // 주소별로 묶기 (같은 주소에 여러 계기가 awms 완료일 수 있음)
             const byAddr = {};
-            for (const p of plan) {
+            for (const p of sortedPlan) {
                 if (!byAddr[p.addr]) byAddr[p.addr] = [];
                 byAddr[p.addr].push(p);
             }
 
             const nowIso = isoKst();
             const updates = {};
-            let dailyMaxByDate = {};   // {YYYY-MM-DD: maxSeq}
 
             for (const addr in byAddr) {
                 const ps = byAddr[addr];
@@ -298,16 +313,13 @@
                     const meter = String(a.WHM_NO);
                     const tsMs = a.STATUS_MOD_DATE || a.MOD_DATE || Date.now();
                     if (tsMs > latestTs) latestTs = tsMs;
-                    // daily_seq = 날짜별 순번
-                    const dateKey = kstYmd(new Date(tsMs));
-                    dailyMaxByDate[dateKey] = (dailyMaxByDate[dateKey] || 0) + 1;
                     newReplList[meter] = {
                         old_meter_id: meter,
                         new_meter_id: String(a.CREMO_WHM_NO),
                         replaced_at: tsMs,
                         worker: 'AWMS_IMPORT',
                         worker_name: 'AWMS 자동 동기화',
-                        daily_seq: dailyMaxByDate[dateKey],
+                        daily_seq: seqByPlan.get(p),
                         source: 'awms',
                         awms_cons_no: a.CONS_NO,
                         awms_cons_tgt_seqno: a.CONS_TGT_SEQNO,
