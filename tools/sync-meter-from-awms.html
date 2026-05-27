@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWMS 완료 → 종로앱 동기화 (관리자 전용)</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/config.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, 'Noto Sans KR', sans-serif; background: #f3f4f6; padding: 16px; color: #1f2937; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        h1 { font-size: 18px; margin-bottom: 6px; }
+        .sub { font-size: 13px; color: #6b7280; margin-bottom: 14px; line-height: 1.6; }
+        .sub b { color: #dc2626; }
+        .card { background: white; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+        .stat { padding: 10px; background: #f9fafb; border-radius: 8px; text-align: center; }
+        .stat b { display: block; font-size: 22px; color: #1d4ed8; font-variant-numeric: tabular-nums; }
+        .stat span { font-size: 12px; color: #6b7280; }
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+        button { padding: 12px 18px; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .btn-primary { background: #1d4ed8; color: white; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-secondary { background: #e5e7eb; color: #374151; }
+        button:disabled { background: #9ca3af !important; color: white !important; cursor: not-allowed; }
+        .file-drop { display: block; padding: 18px; border: 2px dashed #93c5fd; border-radius: 10px; text-align: center; background: #eff6ff; color: #1d4ed8; font-weight: 700; cursor: pointer; }
+        .file-drop input { display: none; }
+        .file-name { color: #16a34a; font-weight: 700; margin-top: 6px; font-size: 12px; }
+        .table-wrap { max-height: 50vh; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { padding: 7px 10px; text-align: left; border-bottom: 1px solid #f3f4f6; }
+        th { background: #f9fafb; position: sticky; top: 0; font-weight: 700; font-size: 11px; }
+        .badge-override { background: #fef3c7; color: #92400e; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+        .log { background: #111827; color: #d1d5db; padding: 12px; border-radius: 8px; font-family: ui-monospace, monospace; font-size: 12px; max-height: 320px; overflow-y: auto; white-space: pre-wrap; }
+        .log .ok { color: #34d399; }
+        .log .err { color: #f87171; }
+        .log .warn { color: #fbbf24; }
+        a.back { color: #6b7280; font-size: 13px; text-decoration: none; }
+        a.back:hover { color: #1d4ed8; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a class="back" href="../map.html">← 지도로 돌아가기</a>
+    <h1>AWMS 완료 → 종로앱 동기화 (관리자 전용)</h1>
+    <p class="sub">
+        AWMS에서 받은 <b>awms-all.json</b>을 업로드하면 <b>WORK_STEP=28 (완료)</b>인 건을 우리 site 계기번호와 매칭해<br>
+        해당 주소에 <b>replacement_list</b>를 채우고 <b>meter_state + comm_state 모두 complete</b>로 마킹합니다.<br>
+        <b>정책 1: AWMS 완료가 우선. 기존 임의 완료와 겹치면 AWMS 데이터로 덮어씁니다.</b><br>
+        <b>정책 2: 통신팀도 함께 complete (계기팀 작업분의 통신팀 미작업 여부는 ami-work 리스트에서 별도 추적).</b><br>
+        백업은 처리 직전 자동 다운로드.
+    </p>
+
+    <div class="card">
+        <label class="file-drop" for="file-awms">
+            awms-all.json 파일 선택
+            <div class="file-name" id="file-name"></div>
+            <input type="file" id="file-awms" accept="application/json">
+        </label>
+    </div>
+
+    <div class="card">
+        <div class="summary">
+            <div class="stat"><b id="stat-awms">-</b><span>AWMS 전체</span></div>
+            <div class="stat"><b id="stat-completed">-</b><span>AWMS 완료 (28)</span></div>
+            <div class="stat"><b id="stat-matched">-</b><span>우리 site 매칭</span></div>
+            <div class="stat"><b id="stat-override">-</b><span>기존 완료 덮어쓰기</span></div>
+            <div class="stat"><b id="stat-newcomplete">-</b><span>새로 완료 표시</span></div>
+            <div class="stat"><b id="stat-skipped">-</b><span>계기 미매칭(스킵)</span></div>
+        </div>
+        <div class="btn-row">
+            <button class="btn-secondary" id="btn-backup">백업만 다운로드</button>
+            <button class="btn-primary" id="btn-preview" disabled>미리보기 갱신</button>
+            <button class="btn-danger" id="btn-run" disabled>일괄 동기화 실행 (백업 후 업로드)</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 style="font-size:14px;margin-bottom:8px;">대상 주소 미리보기 (상위 200개)</h3>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>주소</th>
+                    <th>구계기</th>
+                    <th>신계기</th>
+                    <th>완료시각</th>
+                    <th>현 상태</th>
+                </tr>
+                </thead>
+                <tbody id="table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 style="font-size:14px;margin-bottom:8px;">실행 로그</h3>
+        <div class="log" id="log"></div>
+    </div>
+</div>
+
+<script>
+    // admin only
+    (function () {
+        const raw = localStorage.getItem('jongno_auth');
+        if (!raw) { window.location.replace('../login.html'); return; }
+        try {
+            const s = JSON.parse(raw);
+            if (s.role !== 'admin') { alert('관리자만 접근 가능'); window.location.replace('../map.html'); }
+        } catch { window.location.replace('../login.html'); }
+    })();
+
+    let db = null;
+    let siteData = null;       // 우리 site (계기번호로 인덱스)
+    let awmsAll = null;        // awms 전체
+    let awmsCompleted = [];    // WORK_STEP=28
+    let currentWS = null;      // 현재 Firebase workStatus/jongno
+    let plan = [];             // {addr, awms, existing, action: 'override'|'new'}
+
+    function log(msg, cls) {
+        const el = document.getElementById('log');
+        const d = document.createElement('div');
+        if (cls) d.className = cls;
+        d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        el.appendChild(d); el.scrollTop = el.scrollHeight;
+    }
+
+    function initFirebase() {
+        try {
+            const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+            db = firebase.database(app);
+            log('Firebase 초기화 완료', 'ok');
+            return true;
+        } catch (e) { log('Firebase 초기화 실패: ' + e.message, 'err'); return false; }
+    }
+
+    async function loadSiteData() {
+        log('우리 site 로드 중...');
+        const r = await fetch('../data/jongno-site-data.json', { cache: 'no-store' });
+        const arr = await r.json();
+        const list = Array.isArray(arr) ? arr : Object.values(arr);
+        const byMeter = {};
+        for (const s of list) {
+            const m = String(s.계기번호 || '').trim();
+            if (m) byMeter[m] = s;
+        }
+        siteData = byMeter;
+        log(`우리 site: ${list.length}건 (계기번호 unique ${Object.keys(byMeter).length})`, 'ok');
+    }
+
+    async function loadCurrentWS() {
+        log('Firebase workStatus/jongno 조회 중...');
+        const snap = await db.ref('workStatus/jongno').once('value');
+        currentWS = snap.val() || {};
+        log(`현재 등록 주소: ${Object.keys(currentWS).length}건`, 'ok');
+    }
+
+    function parseAwmsFile(file) {
+        return new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = e => {
+                try { res(JSON.parse(e.target.result)); }
+                catch (err) { rej(new Error('JSON 파싱 실패: ' + err.message)); }
+            };
+            r.onerror = () => rej(new Error('파일 읽기 실패'));
+            r.readAsText(file);
+        });
+    }
+
+    function buildPlan() {
+        // 1) WORK_STEP=28 + CREMO_WHM_NO 채워진 것
+        awmsCompleted = awmsAll.filter(a =>
+            a.WORK_STEP === '28' && String(a.CREMO_WHM_NO || '').trim()
+        );
+        document.getElementById('stat-completed').textContent = awmsCompleted.length;
+
+        // 2) 같은 계기번호가 awms에 중복일 수 있음 → 가장 최신 STATUS_MOD_DATE 보존
+        const byMeter = {};
+        for (const a of awmsCompleted) {
+            const m = String(a.WHM_NO || '').trim();
+            if (!m) continue;
+            const cur = byMeter[m];
+            if (!cur || (a.STATUS_MOD_DATE || 0) > (cur.STATUS_MOD_DATE || 0)) {
+                byMeter[m] = a;
+            }
+        }
+
+        // 3) 우리 site 매칭 + 주소 추출
+        plan = [];
+        let matched = 0, skipped = 0, override = 0, fresh = 0;
+        for (const meter in byMeter) {
+            const a = byMeter[meter];
+            const site = siteData[meter];
+            if (!site) { skipped++; continue; }
+            matched++;
+            const addr = site.주소;
+            const existing = currentWS[addr] || null;
+            const existingRep = existing && existing.replacement_list && existing.replacement_list[meter];
+            const action = existingRep ? 'override' : 'new';
+            if (action === 'override') override++; else fresh++;
+            plan.push({ addr, awms: a, existing, action, site });
+        }
+
+        document.getElementById('stat-matched').textContent = matched;
+        document.getElementById('stat-skipped').textContent = skipped;
+        document.getElementById('stat-override').textContent = override;
+        document.getElementById('stat-newcomplete').textContent = fresh;
+
+        log(`매칭 ${matched} / 스킵 ${skipped} / 덮어쓰기 ${override} / 신규 ${fresh}`, 'warn');
+
+        renderTable();
+        document.getElementById('btn-run').disabled = plan.length === 0;
+        document.getElementById('btn-preview').disabled = false;
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('table-body');
+        if (!plan.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#9ca3af;">대상 없음</td></tr>';
+            return;
+        }
+        tbody.innerHTML = plan.slice(0, 200).map(p => {
+            const ts = p.awms.STATUS_MOD_DATE ? new Date(p.awms.STATUS_MOD_DATE).toLocaleString('ko-KR', {hour12:false}) : '-';
+            const cur = p.existing ? (p.existing.meter_state || 'pending') : '(없음)';
+            const overrideBadge = p.action === 'override' ? '<span class="badge-override">덮어쓰기</span>' : '';
+            return `<tr>
+                <td>${escapeHtml(p.addr)} ${overrideBadge}</td>
+                <td>${escapeHtml(p.awms.WHM_NO)}</td>
+                <td>${escapeHtml(p.awms.CREMO_WHM_NO)}</td>
+                <td>${escapeHtml(ts)}</td>
+                <td>${escapeHtml(cur)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    async function downloadBackup() {
+        log('현재 workStatus/jongno 백업 중...');
+        const snap = await db.ref('workStatus/jongno').once('value');
+        const data = snap.val() || {};
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+        const a = document.createElement('a');
+        a.href = url; a.download = `jongno-workStatus-awms-sync-backup-${ts}.json`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+        log(`백업 완료: jongno-workStatus-awms-sync-backup-${ts}.json (${Object.keys(data).length}개 주소)`, 'ok');
+        return data;
+    }
+
+    async function runProcess() {
+        if (!plan.length) { log('대상 없음', 'warn'); return; }
+        const msg = `정말 ${plan.length}건을 동기화할까요?\n` +
+                    `- 덮어쓰기: ${plan.filter(p=>p.action==='override').length}\n` +
+                    `- 신규 완료: ${plan.filter(p=>p.action==='new').length}\n` +
+                    `백업이 자동 다운로드됩니다.`;
+        if (!confirm(msg)) return;
+
+        document.getElementById('btn-run').disabled = true;
+        document.getElementById('btn-backup').disabled = true;
+        document.getElementById('btn-preview').disabled = true;
+
+        try {
+            await downloadBackup();
+
+            // 주소별로 묶기 (같은 주소에 여러 계기가 awms 완료일 수 있음)
+            const byAddr = {};
+            for (const p of plan) {
+                if (!byAddr[p.addr]) byAddr[p.addr] = [];
+                byAddr[p.addr].push(p);
+            }
+
+            const nowIso = new Date().toISOString();
+            const updates = {};
+            let dailyMaxByDate = {};   // {YYYY-MM-DD: maxSeq}
+
+            for (const addr in byAddr) {
+                const ps = byAddr[addr];
+                const base = currentWS[addr] || {
+                    meter_state: 'pending', meter_reason: '', meter_updatedAt: '', meter_updatedBy: '', meter_updatedByName: '',
+                    comm_state: 'pending', comm_reason: '', comm_updatedAt: '', comm_updatedBy: '', comm_updatedByName: '',
+                    checkedMeters: [], meterChecks: {}, failedMeters: {}, replacement_list: {}
+                };
+                const newReplList = { ...(base.replacement_list || {}) };
+                // 가장 최신 STATUS_MOD_DATE = 이 주소의 마지막 작업 시각
+                let latestTs = 0;
+                for (const p of ps) {
+                    const a = p.awms;
+                    const meter = String(a.WHM_NO);
+                    const tsMs = a.STATUS_MOD_DATE || a.MOD_DATE || Date.now();
+                    if (tsMs > latestTs) latestTs = tsMs;
+                    // daily_seq = 날짜별 순번
+                    const dateKey = new Date(tsMs).toISOString().slice(0,10);
+                    dailyMaxByDate[dateKey] = (dailyMaxByDate[dateKey] || 0) + 1;
+                    newReplList[meter] = {
+                        old_meter_id: meter,
+                        new_meter_id: String(a.CREMO_WHM_NO),
+                        replaced_at: tsMs,
+                        worker: 'AWMS_IMPORT',
+                        worker_name: 'AWMS 자동 동기화',
+                        daily_seq: dailyMaxByDate[dateKey],
+                        source: 'awms',
+                        awms_cons_no: a.CONS_NO,
+                        awms_cons_tgt_seqno: a.CONS_TGT_SEQNO,
+                        awms_reg_id: a.REG_ID || '',
+                        // 사용량/제조년월/사진은 getDetail 필요. 일단 미설정.
+                    };
+                }
+                const latestIso = new Date(latestTs).toISOString();
+                updates[addr] = {
+                    ...base,
+                    replacement_list: newReplList,
+                    meter_state: 'complete',
+                    meter_reason: '',
+                    meter_updatedAt: latestIso,
+                    meter_updatedBy: 'AWMS_IMPORT',
+                    meter_updatedByName: 'AWMS 자동 동기화',
+                    // 통신팀도 함께 complete (영준님 정책: ami-work에서 별도 추적되니 상관없음)
+                    comm_state: 'complete',
+                    comm_reason: '',
+                    comm_updatedAt: latestIso,
+                    comm_updatedBy: 'AWMS_IMPORT',
+                    comm_updatedByName: 'AWMS 자동 동기화',
+                };
+            }
+
+            log(`Firebase 업데이트 중... (주소 ${Object.keys(updates).length}개)`);
+            // multi-path update
+            const flat = {};
+            for (const addr in updates) flat[addr] = updates[addr];
+            await db.ref('workStatus/jongno').update(flat);
+            log(`완료! ${Object.keys(updates).length}개 주소 동기화 (replacement_list ${plan.length}개 적용)`, 'ok');
+            log('지도 페이지로 돌아가 새로고침하면 완료 마커로 표시됩니다.', 'warn');
+
+            await loadCurrentWS();
+            buildPlan();
+            document.getElementById('btn-backup').disabled = false;
+            document.getElementById('btn-preview').disabled = false;
+        } catch (e) {
+            log('실패: ' + e.message, 'err');
+            console.error(e);
+            document.getElementById('btn-run').disabled = false;
+            document.getElementById('btn-backup').disabled = false;
+            document.getElementById('btn-preview').disabled = false;
+        }
+    }
+
+    // 파일 업로드 핸들러
+    document.getElementById('file-awms').onchange = async (e) => {
+        const f = e.target.files[0];
+        if (!f) return;
+        document.getElementById('file-name').textContent = `${f.name} (${(f.size/1024/1024).toFixed(2)} MB)`;
+        try {
+            log(`파일 로딩 중: ${f.name}...`);
+            awmsAll = await parseAwmsFile(f);
+            log(`awms 로드: ${awmsAll.length}건`, 'ok');
+            document.getElementById('stat-awms').textContent = awmsAll.length;
+            buildPlan();
+        } catch (err) {
+            log(err.message, 'err');
+        }
+    };
+
+    document.getElementById('btn-backup').onclick = downloadBackup;
+    document.getElementById('btn-preview').onclick = () => { if (awmsAll) buildPlan(); };
+    document.getElementById('btn-run').onclick = runProcess;
+
+    (async () => {
+        if (!initFirebase()) return;
+        await loadSiteData();
+        await loadCurrentWS();
+        log('awms-all.json 파일을 선택하세요.', 'warn');
+    })();
+</script>
+</body>
+</html>
