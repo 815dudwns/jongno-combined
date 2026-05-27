@@ -86,6 +86,16 @@ function type5Label(t) {
     })[t] || '기타';
 }
 
+// 계기번호 코드로 단상/삼상 판정
+// 단상: E(17), EA(19), G 25/26/27, Amigo 53
+// 삼상: G 45/46/47, Amigo 55
+function phaseOf(meterNo) {
+    const code = String(meterNo || '').substring(2, 4);
+    if (['17','19','25','26','27','53'].includes(code)) return '단상';
+    if (['45','46','47','55'].includes(code)) return '삼상';
+    return null;
+}
+
 // 값을 클립보드에 복사하고 토스트 표시
 let toastTimer = null;
 function copyMeterNo(no) {

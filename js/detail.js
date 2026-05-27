@@ -261,7 +261,18 @@ function showDetail(address, meters) {
         const allSameDay = meters.every(m => m.검침일 === meters[0].검침일);
         const parts = [];
         if (allSamePri && meters[0].순위) parts.push(meters[0].순위);
-        if (allSameDay && meters[0].검침일) parts.push(`검침일 ${meters[0].검침일}`);
+        if (allSameDay && meters[0].검침일) {
+            const phaseCount = { 단상: 0, 삼상: 0 };
+            for (const m of meters) {
+                const ph = phaseOf(m.계기번호);
+                if (ph) phaseCount[ph]++;
+            }
+            const phaseLabel = [];
+            if (phaseCount.단상 > 0) phaseLabel.push(`단상 ${phaseCount.단상}`);
+            if (phaseCount.삼상 > 0) phaseLabel.push(`삼상 ${phaseCount.삼상}`);
+            const phaseSuffix = phaseLabel.length ? ' · ' + phaseLabel.join(' · ') : '';
+            parts.push(`검침일 ${meters[0].검침일}${phaseSuffix}`);
+        }
         if (parts.length) {
             commonPoleEl.textContent = parts.join(' · ');
             commonPoleEl.style.display = 'block';
@@ -575,7 +586,7 @@ function renderMetersList() {
                        data-meter="${meter.계기번호}" ${checkboxChecked} ${checkboxDisabled}>
                 <div class="meter-info"${commDoneStyle}>
                     <span class="meter-type">${parsedType}</span>
-                    ${noHtml}${copyBtn}${addedBadge}${arrowHtml}
+                    ${isDraft && replInfo.daily_seq != null ? `<span class="daily-seq-badge">${replInfo.daily_seq}</span>` : ''}${noHtml}${copyBtn}${addedBadge}${arrowHtml}
                     <button class="${failBtnClass}" data-meter="${meter.계기번호}">${failBtnLabel}</button>
                     ${rplBtnHtml}${removeAddedBtnHtml}
                     ${meterMetaHtml}
