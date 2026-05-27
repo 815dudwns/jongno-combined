@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, 'Noto Sans KR', sans-serif; background: #f3f4f6; padding: 16px; color: #1f2937; }
@@ -104,7 +105,7 @@
         const el = document.getElementById('log');
         const span = document.createElement('div');
         if (cls) span.className = cls;
-        span.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        span.textContent = `[${new Date().toLocaleTimeString('ko-KR', {timeZone: 'Asia/Seoul'})}] ${msg}`;
         el.appendChild(span);
         el.scrollTop = el.scrollHeight;
     }
@@ -175,7 +176,7 @@
         const data = snap.val() || {};
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+        const ts = isoKst().replace(/[:.]/g, '-');
         const a = document.createElement('a');
         a.href = url;
         a.download = `jongno-workStatus-sync-backup-${ts}.json`;
@@ -196,7 +197,7 @@
         try {
             await downloadBackup();
 
-            const now = new Date().toISOString();
+            const now = isoKst();
             const updates = {};
             for (const t of targets) {
                 const base = t.base || {};

@@ -199,7 +199,7 @@ function applyLocalChecked() {
 // admin은 getEffectiveRole()로 이미 결정된 값으로 들어옴
 function saveStateEvent(address, state, reason, updatedBy, updatedByName, role) {
     if (!workStatus[address]) workStatus[address] = makeEmptyEntry();
-    const now = new Date().toISOString();
+    const now = isoKst();
     const prefix = (role === 'comm') ? 'comm' : 'meter';
     workStatus[address][`${prefix}_state`]         = state;
     workStatus[address][`${prefix}_reason`]        = reason || '';
@@ -224,7 +224,7 @@ function saveStateEvent(address, state, reason, updatedBy, updatedByName, role) 
 // meter_forced_by_comm=true 플래그를 박아서, 나중에 통신팀이 초기화할 때 원본 복구 가능하게
 function saveBothCompleteEvent(address, updatedBy, updatedByName) {
     if (!workStatus[address]) workStatus[address] = makeEmptyEntry();
-    const now = new Date().toISOString();
+    const now = isoKst();
     workStatus[address].meter_state         = 'complete';
     workStatus[address].meter_reason        = '';
     workStatus[address].meter_updatedAt     = now;
@@ -253,7 +253,7 @@ function saveBothCompleteEvent(address, updatedBy, updatedByName) {
 // 통신팀이 강제 완료(saveBothCompleteEvent로 박힌 것)를 초기화 — 양쪽 다 pending + 플래그 제거
 function saveResetBothEvent(address, updatedBy, updatedByName) {
     if (!workStatus[address]) workStatus[address] = makeEmptyEntry();
-    const now = new Date().toISOString();
+    const now = isoKst();
     workStatus[address].meter_state         = 'pending';
     workStatus[address].meter_reason        = '';
     workStatus[address].meter_updatedAt     = now;

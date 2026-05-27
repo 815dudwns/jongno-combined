@@ -319,7 +319,7 @@ const AdminData = (() => {
       }
       workStatus[addr] = {
         meter_state: 'complete',
-        meter_updatedAt: new Date().toISOString(),
+        meter_updatedAt: isoKst(),
         meter_updatedBy: 'meter1',
         meter_updatedByName: '계기팀',
         comm_state: 'complete',

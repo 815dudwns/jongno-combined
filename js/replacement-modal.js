@@ -162,11 +162,9 @@ const RplModal = (() => {
     localStorage.setItem('rpl_last_mfg_ym', `${y}-${m}`);
   }
 
-  // 오늘 자정 (KST 로컬)
+  // 오늘 자정 (KST 강제)
   function todayStartMs() {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
+    return kstTodayStartMs();
   }
 
   // 같은 작업자 그날 이미 쓰인 daily_seq Set (자기 원본은 제외 — 수정모드면 자기 자리 유지)

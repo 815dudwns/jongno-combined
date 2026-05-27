@@ -15,7 +15,7 @@
     return session?.id || session?.username || session?.name || 'sim_user';
   }
   function todayStartMs() {
-    const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime();
+    return kstTodayStartMs();
   }
   function randMeterId() {
     return '9' + String(Math.floor(Math.random() * 1e10)).padStart(10, '0');

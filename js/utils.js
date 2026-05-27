@@ -1,5 +1,55 @@
 // utils.js — 유틸리티 함수
 
+// ── KST 시간 헬퍼 ─────────────────────────────────────────────
+// Asia/Seoul 기준 ISO 문자열 반환 (예: "2026-05-27T14:30:00+09:00")
+function isoKst(d) {
+    if (!d) d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const p = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+    }).formatToParts(d);
+    const g = t => p.find(x => x.type === t).value;
+    return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}:${g('second')}+09:00`;
+}
+
+// Asia/Seoul 기준 YYYY-MM-DD 반환
+function kstYmd(d) {
+    if (!d) d = new Date();
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(d);
+}
+
+// Asia/Seoul 기준 HH:MM 반환 (표시용)
+function kstHm(d) {
+    if (!d) d = new Date();
+    return new Intl.DateTimeFormat('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    }).format(d);
+}
+
+// KST 자정~23:59:59.999 범위 반환 (일자 범위 필터용)
+// yyyymmdd: "YYYY-MM-DD" 형식
+function kstDayRange(yyyymmdd) {
+    const [y, m, d] = yyyymmdd.split('-').map(Number);
+    const start = Date.UTC(y, m - 1, d, -9, 0, 0, 0);      // KST 00:00 = UTC -9h
+    const end   = Date.UTC(y, m - 1, d, 14, 59, 59, 999);  // KST 23:59:59.999 = UTC 14:59:59
+    return { start, end };
+}
+
+// KST 오늘 자정 ms (todayStartMs 공통 구현)
+function kstTodayStartMs() {
+    const ymd = kstYmd(new Date());
+    const [y, m, d] = ymd.split('-').map(Number);
+    return Date.UTC(y, m - 1, d, -9, 0, 0, 0);
+}
+
+
 // 계기번호 앞 2~4자리 코드로 타입 판별
 function parseType(meterNo) {
     const code = meterNo.substring(2, 4);

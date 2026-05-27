@@ -316,13 +316,16 @@ function updateWorkerInfo(status) {
         return;
     }
 
-    // updatedAt을 "M월 D일" 형식으로 변환
+    // updatedAt을 "M월 D일" 형식으로 변환 (KST 기준)
     let dateStr = '';
     try {
         const d = new Date(status.updatedAt);
-        const month = d.getMonth() + 1;
-        const day = d.getDate();
-        dateStr = `${month}월 ${day}일`;
+        const parts = new Intl.DateTimeFormat('ko-KR', {
+            timeZone: 'Asia/Seoul',
+            month: 'numeric', day: 'numeric'
+        }).formatToParts(d);
+        const g = t => (parts.find(x => x.type === t) || {}).value || '';
+        dateStr = `${g('month')}월 ${g('day')}일`;
     } catch (e) {
         dateStr = status.updatedAt;
     }

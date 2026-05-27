@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, 'Noto Sans KR', sans-serif; background: #f3f4f6; padding: 16px; color: #1f2937; }
@@ -125,7 +126,7 @@
         const el = document.getElementById('log');
         const d = document.createElement('div');
         if (cls) d.className = cls;
-        d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        d.textContent = `[${new Date().toLocaleTimeString('ko-KR', {timeZone: 'Asia/Seoul'})}] ${msg}`;
         el.appendChild(d); el.scrollTop = el.scrollHeight;
     }
 
@@ -224,7 +225,7 @@
             return;
         }
         tbody.innerHTML = plan.slice(0, 200).map(p => {
-            const ts = p.awms.STATUS_MOD_DATE ? new Date(p.awms.STATUS_MOD_DATE).toLocaleString('ko-KR', {hour12:false}) : '-';
+            const ts = p.awms.STATUS_MOD_DATE ? new Date(p.awms.STATUS_MOD_DATE).toLocaleString('ko-KR', {timeZone: 'Asia/Seoul', hour12:false}) : '-';
             const cur = p.existing ? (p.existing.meter_state || 'pending') : '(없음)';
             const overrideBadge = p.action === 'override' ? '<span class="badge-override">덮어쓰기</span>' : '';
             return `<tr>
@@ -278,7 +279,7 @@
                 byAddr[p.addr].push(p);
             }
 
-            const nowIso = new Date().toISOString();
+            const nowIso = isoKst();
             const updates = {};
             let dailyMaxByDate = {};   // {YYYY-MM-DD: maxSeq}
 
@@ -298,7 +299,7 @@
                     const tsMs = a.STATUS_MOD_DATE || a.MOD_DATE || Date.now();
                     if (tsMs > latestTs) latestTs = tsMs;
                     // daily_seq = 날짜별 순번
-                    const dateKey = new Date(tsMs).toISOString().slice(0,10);
+                    const dateKey = kstYmd(new Date(tsMs));
                     dailyMaxByDate[dateKey] = (dailyMaxByDate[dateKey] || 0) + 1;
                     newReplList[meter] = {
                         old_meter_id: meter,
@@ -314,7 +315,7 @@
                         // 사용량/제조년월/사진은 getDetail 필요. 일단 미설정.
                     };
                 }
-                const latestIso = new Date(latestTs).toISOString();
+                const latestIso = isoKst(new Date(latestTs));
                 updates[addr] = {
                     ...base,
                     replacement_list: newReplList,

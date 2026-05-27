@@ -218,17 +218,13 @@ let map = null;
 let markers = [];
 let cachedData = null;  // 그날 replacement 목록
 
-// 날짜 → ms 범위
+// 날짜 → ms 범위 (KST 자정 기준)
 function dayRange(yyyymmdd) {
-  const [y, m, d] = yyyymmdd.split('-').map(Number);
-  const start = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
-  const end = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
-  return { start, end };
+  return kstDayRange(yyyymmdd);
 }
 
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return kstYmd(new Date());
 }
 
 // 카카오맵 초기화 (지도 탭 활성 시점에 한 번만)
@@ -299,7 +295,7 @@ function renderList() {
   }
   const sorted = [...cachedData].sort((a, b) => (a.daily_seq || 0) - (b.daily_seq || 0));
   container.innerHTML = sorted.map(item => {
-    const time = new Date(item.replaced_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    const time = new Date(item.replaced_at).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' });
     const mfgYm = item.new_meter_mfg_ym || '';
     const removalVal = item.removal_value ?? '';
     const editedTag = item.last_edited_at

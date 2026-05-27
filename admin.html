@@ -752,12 +752,17 @@
   function dateStr(ms, withTime) {
     if (!ms) return '-';
     const d = new Date(ms);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
+    const fmt = new Intl.DateTimeFormat('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: withTime ? '2-digit' : undefined,
+      minute: withTime ? '2-digit' : undefined,
+      hour12: false,
+    }).formatToParts(d);
+    const g = t => (fmt.find(x => x.type === t) || {}).value || '';
+    const mm = g('month'), dd = g('day');
     if (!withTime) return `${mm}/${dd}`;
-    const HH = String(d.getHours()).padStart(2, '0');
-    const MM = String(d.getMinutes()).padStart(2, '0');
+    const yyyy = g('year'), HH = g('hour'), MM = g('minute');
     return `${yyyy}-${mm}-${dd} ${HH}:${MM}`;
   }
   function shortAddr(a) { return (a || '').replace('서울특별시 종로구 ', ''); }

@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, 'Noto Sans KR', sans-serif; background: #f3f4f6; padding: 16px; color: #1f2937; }
@@ -100,7 +101,7 @@ let currentWS = null;   // 현재 Firebase workStatus/jongno
 
 const logEl = document.getElementById('log');
 function log(msg, cls = '') {
-    const t = new Date().toLocaleTimeString('ko-KR');
+    const t = new Date().toLocaleTimeString('ko-KR', {timeZone: 'Asia/Seoul'});
     logEl.innerHTML += `<div class="${cls}">[${t}] ${msg}</div>`;
     logEl.scrollTop = logEl.scrollHeight;
 }
@@ -155,7 +156,7 @@ async function downloadBackup() {
     log('백업 다운로드 시작...');
     const snap = await db.ref('workStatus/jongno').once('value');
     const data = snap.val() || {};
-    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const ts = isoKst().replace(/[:.]/g, '-').slice(0, 19);
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -182,7 +183,7 @@ async function runProcess() {
         // 분기: ami_completed=true → 양쪽 complete, false → 계기팀만 complete
         // 안전장치: 통신팀이 사람(또는 외부 import 아닌 출처)이 표시한 건은 그대로 보존
         const EXTERNAL_IDS = new Set(['EXTERNAL_IMPORT', 'AUTO_IMPORT_AMI', 'AUTO_IMPORT', '']);
-        const now = new Date().toISOString();
+        const now = isoKst();
         const updates = {};
         let bothCnt = 0, meterOnlyRevertCnt = 0, meterOnlyKeepCnt = 0;
         for (const a of payload.addresses) {
