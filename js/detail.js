@@ -495,6 +495,7 @@ function renderMetersList() {
         // 불가 버튼 옆에 작은 글씨로 표시할 보조 정보 (계기 별 메타) — role 무관, 모든 정보 동일
         const extraParts = [];
         if (meter.순위) extraParts.push(meter.순위);
+        if (meter.계약전력) extraParts.push(`${meter.계약전력}kW`);
         const cust = [meter.고객번호, meter.고객명, meter.휴대폰].filter(Boolean);
         if (cust.length) extraParts.push(`고객(${cust.join(', ')})`);
         if (meter.검침일) extraParts.push(`검침일 ${meter.검침일}`);
