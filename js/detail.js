@@ -531,6 +531,21 @@ function renderMetersList() {
         const isDraft = isReplaced && replInfo.draft === true;
         const isReplacedDone = isReplaced && !isDraft;  // 완전 저장된 상태
 
+        // 교체 작성 정보 — Daily No. + 교체계기번호/철거지침 복사 + 사진 2장 다운로드 (awms 앱작성 입력용)
+        let replInfoHtml = '';
+        if (isReplaced) {
+            const cpBtn = (v, t) => `<button class="copy-btn" data-copy="${esc(String(v))}" title="${t}" style="margin-left:3px;vertical-align:middle;">${COPY_ICON_SVG}</button>`;
+            const segs = [];
+            if (replInfo.daily_seq != null) segs.push(`<b style="color:#7c3aed;">No.${replInfo.daily_seq}</b>`);
+            if (replInfo.new_meter_id) segs.push(`교체 <b>${esc(replInfo.new_meter_id)}</b>${cpBtn(replInfo.new_meter_id, '교체계기번호 복사')}`);
+            if (replInfo.removal_value != null && String(replInfo.removal_value) !== '') segs.push(`철거지침 <b>${esc(String(replInfo.removal_value))}</b>${cpBtn(replInfo.removal_value, '철거지침 복사')}`);
+            const dl = [];
+            if (replInfo.old_meter_photo) dl.push(`<a href="${esc(replInfo.old_meter_photo)}" target="_blank" rel="noopener" download style="color:#2563eb;font-weight:700;text-decoration:underline;">철거전 ↓</a>`);
+            if (replInfo.new_meter_photo) dl.push(`<a href="${esc(replInfo.new_meter_photo)}" target="_blank" rel="noopener" download style="color:#2563eb;font-weight:700;text-decoration:underline;">교체후 ↓</a>`);
+            if (dl.length) segs.push(dl.join('&nbsp;&nbsp;'));
+            if (segs.length) replInfoHtml = `<div class="meter-repl-info" style="margin-top:4px;font-size:12px;color:#374151;line-height:1.8;">${segs.join(' · ')}</div>`;
+        }
+
         // 불가 처리된 계기는 취소선, 교체 완료는 하늘색 배경
         let itemClass = `meter-item ${rowClass(s2)}`;
         if (isFailed) itemClass += ' meter-item-failed';
@@ -592,6 +607,7 @@ function renderMetersList() {
                     ${rplBtnHtml}${removeAddedBtnHtml}
                     ${meterMetaHtml}
                     ${details ? `<div class="meter-details">${details}</div>` : ''}
+                    ${replInfoHtml}
                     ${failInputHtml}
                 </div>
             </div>
