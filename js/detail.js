@@ -533,6 +533,7 @@ function renderMetersList() {
 
         // 교체 작성 정보 — Daily No. + 교체계기번호/철거지침 복사 + 사진 2장 다운로드 (awms 앱작성 입력용)
         let replInfoHtml = '';
+        try {
         if (isReplaced) {
             const e = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
@@ -547,6 +548,7 @@ function renderMetersList() {
             if (dl.length) segs.push(dl.join('&nbsp;&nbsp;'));
             if (segs.length) replInfoHtml = `<div class="meter-repl-info" style="margin-top:4px;font-size:12px;color:#374151;line-height:1.8;">${segs.join(' · ')}</div>`;
         }
+        } catch (err) { replInfoHtml = ''; console.error('replInfo 생성 오류:', err); }
 
         // 불가 처리된 계기는 취소선, 교체 완료는 하늘색 배경
         let itemClass = `meter-item ${rowClass(s2)}`;
