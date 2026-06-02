@@ -542,10 +542,9 @@ function renderMetersList() {
             if (replInfo.daily_seq != null) segs.push(`<b style="color:#7c3aed;">No.${e(replInfo.daily_seq)}</b>`);
             if (replInfo.new_meter_id) segs.push(`교체 <b>${e(replInfo.new_meter_id)}</b>${cpBtn(replInfo.new_meter_id, '교체계기번호 복사')}`);
             if (replInfo.removal_value != null && String(replInfo.removal_value) !== '') segs.push(`철거지침 <b>${e(replInfo.removal_value)}</b>${cpBtn(replInfo.removal_value, '철거지침 복사')}`);
-            const dl = [];
-            if (replInfo.old_meter_photo) dl.push(`<a href="${e(replInfo.old_meter_photo)}" target="_blank" rel="noopener" download style="color:#2563eb;font-weight:700;text-decoration:underline;">철거전 ↓</a>`);
-            if (replInfo.new_meter_photo) dl.push(`<a href="${e(replInfo.new_meter_photo)}" target="_blank" rel="noopener" download style="color:#2563eb;font-weight:700;text-decoration:underline;">교체후 ↓</a>`);
-            if (dl.length) segs.push(dl.join('&nbsp;&nbsp;'));
+            if (replInfo.old_meter_photo || replInfo.new_meter_photo) {
+                segs.push(`<a class="repl-dl-all" data-old="${e(replInfo.old_meter_photo || '')}" data-new="${e(replInfo.new_meter_photo || '')}" data-base="${e(meter.계기번호)}" style="color:#2563eb;font-weight:700;text-decoration:underline;cursor:pointer;">사진 받기 ↓</a>`);
+            }
             if (segs.length) replInfoHtml = `<div class="meter-repl-info" style="margin-top:4px;font-size:12px;color:#374151;line-height:1.8;">${segs.join(' · ')}</div>`;
         }
         } catch (err) { replInfoHtml = ''; console.error('replInfo 생성 오류:', err); }
@@ -638,6 +637,28 @@ function renderMetersList() {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 copyMeterNo(btn.dataset.copy);
+            });
+        });
+
+        // 교체 사진 한 번에 다운로드 (철거전 + 교체후) — fetch→blob 강제 저장 (새탭 열림 방지)
+        document.querySelectorAll('.repl-dl-all').forEach(a => {
+            a.addEventListener('click', async (e) => {
+                e.preventDefault(); e.stopPropagation();
+                const base = a.getAttribute('data-base') || 'photo';
+                const items = [[a.getAttribute('data-old'), '철거전'], [a.getAttribute('data-new'), '교체후']];
+                for (const [url, tag] of items) {
+                    if (!url) continue;
+                    try {
+                        const r = await fetch(url);
+                        const b = await r.blob();
+                        const u = URL.createObjectURL(b);
+                        const x = document.createElement('a');
+                        x.href = u; x.download = `${base}_${tag}.jpg`;
+                        document.body.appendChild(x); x.click(); x.remove();
+                        setTimeout(() => URL.revokeObjectURL(u), 2000);
+                        await new Promise(res => setTimeout(res, 500));  // 연속 저장 간격
+                    } catch (err) { window.open(url, '_blank'); }
+                }
             });
         });
 
