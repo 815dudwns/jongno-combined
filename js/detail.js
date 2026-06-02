@@ -534,14 +534,16 @@ function renderMetersList() {
         // 교체 작성 정보 — Daily No. + 교체계기번호/철거지침 복사 + 사진 2장 다운로드 (awms 앱작성 입력용)
         let replInfoHtml = '';
         if (isReplaced) {
-            const cpBtn = (v, t) => `<button class="copy-btn" data-copy="${esc(String(v))}" title="${t}" style="margin-left:3px;vertical-align:middle;">${COPY_ICON_SVG}</button>`;
+            const e = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+            const cpBtn = (v, t) => `<button class="copy-btn" data-copy="${e(v)}" title="${t}" style="margin-left:3px;vertical-align:middle;">${ICON}</button>`;
             const segs = [];
-            if (replInfo.daily_seq != null) segs.push(`<b style="color:#7c3aed;">No.${replInfo.daily_seq}</b>`);
-            if (replInfo.new_meter_id) segs.push(`교체 <b>${esc(replInfo.new_meter_id)}</b>${cpBtn(replInfo.new_meter_id, '교체계기번호 복사')}`);
-            if (replInfo.removal_value != null && String(replInfo.removal_value) !== '') segs.push(`철거지침 <b>${esc(String(replInfo.removal_value))}</b>${cpBtn(replInfo.removal_value, '철거지침 복사')}`);
+            if (replInfo.daily_seq != null) segs.push(`<b style="color:#7c3aed;">No.${e(replInfo.daily_seq)}</b>`);
+            if (replInfo.new_meter_id) segs.push(`교체 <b>${e(replInfo.new_meter_id)}</b>${cpBtn(replInfo.new_meter_id, '교체계기번호 복사')}`);
+            if (replInfo.removal_value != null && String(replInfo.removal_value) !== '') segs.push(`철거지침 <b>${e(replInfo.removal_value)}</b>${cpBtn(replInfo.removal_value, '철거지침 복사')}`);
             const dl = [];
-            if (replInfo.old_meter_photo) dl.push(`<a href="${esc(replInfo.old_meter_photo)}" target="_blank" rel="noopener" download style="color:#2563eb;font-weight:700;text-decoration:underline;">철거전 ↓</a>`);
-            if (replInfo.new_meter_photo) dl.push(`<a href="${esc(replInfo.new_meter_photo)}" target="_blank" rel="noopener" download style="color:#2563eb;font-weight:700;text-decoration:underline;">교체후 ↓</a>`);
+            if (replInfo.old_meter_photo) dl.push(`<a href="${e(replInfo.old_meter_photo)}" target="_blank" rel="noopener" download style="color:#2563eb;font-weight:700;text-decoration:underline;">철거전 ↓</a>`);
+            if (replInfo.new_meter_photo) dl.push(`<a href="${e(replInfo.new_meter_photo)}" target="_blank" rel="noopener" download style="color:#2563eb;font-weight:700;text-decoration:underline;">교체후 ↓</a>`);
             if (dl.length) segs.push(dl.join('&nbsp;&nbsp;'));
             if (segs.length) replInfoHtml = `<div class="meter-repl-info" style="margin-top:4px;font-size:12px;color:#374151;line-height:1.8;">${segs.join(' · ')}</div>`;
         }
