@@ -67,11 +67,62 @@ const RplModal = (() => {
       draftBtn.textContent = '임시 저장';
     }
 
+    // 지침 4칸 활성화 — currentMeter의 계약종별·계약전력으로 판별
+    // 수정(edit) 모드면 기존 removal_values 키도 union — stats 등 meter에 계약종별 없는 경우 데이터 손실 방지
+    if (!isAddMode) {
+      const clas = (meter && meter.계약종별) || (meter && meter.CNTR_CLAS_CD) || '';
+      const pwr = (meter && meter.계약전력) || 0;
+      const baseFields = (typeof readingFieldsFor === 'function')
+          ? readingFieldsFor(clas, pwr)
+          : ['whme_day'];
+      // 기존 저장 데이터에 있는 키도 활성화 (편집 시 손실 방지)
+      const savedKeys = (editData && editData.removal_values && typeof editData.removal_values === 'object')
+          ? Object.keys(editData.removal_values).filter(k => editData.removal_values[k] != null)
+          : [];
+      const allKnownFields = ['whme_day', 'whme_mngt', 'dm_mt_day', 'var_day'];
+      const activeFields = allKnownFields.filter(f => baseFields.includes(f) || savedKeys.includes(f));
+      const fieldElMap = {
+        whme_day:  { wrap: 'rpl-rv-field-whme-day',  input: 'rpl-rv-whme-day'  },
+        whme_mngt: { wrap: 'rpl-rv-field-whme-mngt', input: 'rpl-rv-whme-mngt' },
+        dm_mt_day: { wrap: 'rpl-rv-field-dm-mt',     input: 'rpl-rv-dm-mt'     },
+        var_day:   { wrap: 'rpl-rv-field-var',        input: 'rpl-rv-var'       },
+      };
+      for (const [fid, els] of Object.entries(fieldElMap)) {
+        const wrapEl = document.getElementById(els.wrap);
+        const inpEl  = document.getElementById(els.input);
+        if (!wrapEl || !inpEl) continue;
+        if (activeFields.includes(fid)) {
+          wrapEl.style.display = '';
+          inpEl.value = '';
+        } else {
+          wrapEl.style.display = 'none';
+          inpEl.value = '';
+        }
+      }
+    }
+
     // 기본 채움 / 수정 모드면 기존 데이터로 prefill
     resetPhoto('rpl-old-photo');
     resetPhoto('rpl-new-photo');
     if (isEditMode) {
-      document.getElementById('rpl-removal-value').value = editData.removal_value ?? '';
+      // removal_values(다칸) 있으면 항목별 채움, 없으면 removal_value(단일→whme_day) 하위호환
+      const rvs = editData.removal_values;
+      const inputIds = {
+        whme_day:  'rpl-rv-whme-day',
+        whme_mngt: 'rpl-rv-whme-mngt',
+        dm_mt_day: 'rpl-rv-dm-mt',
+        var_day:   'rpl-rv-var',
+      };
+      if (rvs && typeof rvs === 'object') {
+        for (const [fid, inputId] of Object.entries(inputIds)) {
+          const el = document.getElementById(inputId);
+          if (el) el.value = rvs[fid] != null ? String(rvs[fid]) : '';
+        }
+      } else {
+        // 하위호환: removal_value(단일) → whme_day 칸
+        const el = document.getElementById('rpl-rv-whme-day');
+        if (el) el.value = editData.removal_value != null ? String(editData.removal_value) : '';
+      }
       document.getElementById('rpl-new-meter-id').value = editData.new_meter_id || '';
       // 사진은 URL preview만 (재선택 안 하면 URL 유지)
       if (editData.old_meter_photo) {
@@ -83,7 +134,10 @@ const RplModal = (() => {
         keepNewPhotoUrl = editData.new_meter_photo;
       }
     } else {
-      document.getElementById('rpl-removal-value').value = '';
+      ['rpl-rv-whme-day','rpl-rv-whme-mngt','rpl-rv-dm-mt','rpl-rv-var'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
       document.getElementById('rpl-new-meter-id').value = '';
     }
 
@@ -183,7 +237,7 @@ const RplModal = (() => {
         for (const k in rl) {
           const r = rl[k];
           if (!r) continue;
-          if (r.worker !== me) continue;
+          // [통합 daily_seq] worker 무관 — 계기팀2+통신팀2 한 팀이라 그날 전체 통합 번호 (영준님 2026-06-03)
           if (typeof r.replaced_at !== 'number' || r.replaced_at < start) continue;
           // 자기 자신은 used에서 제외 (수정모드)
           if (selfId && String(r.old_meter_id) === String(selfId)) continue;
@@ -265,35 +319,27 @@ const RplModal = (() => {
     if (typeof QrScanner === 'undefined') {
       return toast('QR 스캐너 미로드');
     }
+    // 향후 모뎀 MAC 스캔도 동일 스캐너+parseValue 재사용 가능 (별도 분기 불필요)
     QrScanner.show((text, photoBlob) => {
-      const raw = String(text || '');
+      const raw = String(text || '').replace(/\*/g, '');
 
-      // 신형 QR 포맷: "PID : 127825 YYMM : 24.11 MID : 07530057365"
-      //   - MID = 새 계기번호
-      //   - YYMM = 제조년월 (24.11 → 2024년 11월)
-      const midMatch  = raw.match(/MID\s*[:：]?\s*([A-Za-z0-9]+)/i);
-      const ymMatch   = raw.match(/YYMM\s*[:：]?\s*(\d{2})\.(\d{2})/i);
+      // awms 검증 parseValue로 다양한 제조사 QR/바코드 포맷 처리
+      // value = 계기번호/모뎀번호, value2 = 제조년월 "YYYYMM" 6자리 (없으면 빈 문자열)
+      const parsed = (typeof parseValue === 'function') ? parseValue(raw) : { value: raw, value2: '' };
 
-      let meterId = '';
-      if (midMatch) {
-        meterId = String(midMatch[1]).toUpperCase();
-        if (meterId.length > 11) meterId = meterId.slice(0, 11);
-      } else {
-        // 구형 폴백: 영숫자만 추출 + 첫 11자리
-        const cleaned = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-        meterId = cleaned.length >= 11 ? cleaned.slice(0, 11) : cleaned;
-      }
+      let meterId = String(parsed.value || raw).toUpperCase();
+      if (meterId.length > 11) meterId = meterId.slice(0, 11);
       document.getElementById('rpl-new-meter-id').value = meterId;
 
-      // 제조년월 자동 입력
+      // 제조년월 자동 입력 — value2 = "YYYYMM" (예: "202411")
       let ymToast = '';
-      if (ymMatch) {
-        const yy = ymMatch[1];
-        const mm = ymMatch[2];
-        const fullY = '20' + yy;
+      const v2 = String(parsed.value2 || '');
+      if (/^\d{6}$/.test(v2)) {
+        const fullY = v2.slice(0, 4);
+        const mm = v2.slice(4, 6);
         const ySel = document.getElementById('rpl-mfg-y');
         const mSel = document.getElementById('rpl-mfg-m');
-        // 옵션 없으면 추가 (보통 5년 전까지만 채워져 있으니 오래된 QR 대비)
+        // 옵션 없으면 추가 (오래된 QR 대비)
         if (ySel && ![...ySel.options].some(o => o.value === fullY)) {
           const opt = document.createElement('option');
           opt.value = fullY; opt.textContent = `${fullY}년`;
@@ -357,10 +403,36 @@ const RplModal = (() => {
       }
 
       // 교체 모드: 풀 데이터 검증 + 업로드
-      const removalValue = document.getElementById('rpl-removal-value').value.trim();
       const newMeterId = document.getElementById('rpl-new-meter-id').value.trim();
       const y = document.getElementById('rpl-mfg-y').value;
       const m = document.getElementById('rpl-mfg-m').value;
+
+      // 활성 지침 칸 값 수집
+      // open()과 동일하게: 계약종별 기반 + 기존 removal_values 키 union (편집 시 손실 방지)
+      const clas = currentMeter ? (currentMeter.계약종별 || currentMeter.CNTR_CLAS_CD || '') : '';
+      const pwr = currentMeter ? (currentMeter.계약전력 || 0) : 0;
+      const baseFields = (typeof readingFieldsFor === 'function')
+          ? readingFieldsFor(clas, pwr)
+          : ['whme_day'];
+      const prevSavedKeys = (editingData && editingData.removal_values && typeof editingData.removal_values === 'object')
+          ? Object.keys(editingData.removal_values).filter(k => editingData.removal_values[k] != null)
+          : [];
+      const allKnownFields = ['whme_day', 'whme_mngt', 'dm_mt_day', 'var_day'];
+      const activeFields = allKnownFields.filter(f => baseFields.includes(f) || prevSavedKeys.includes(f));
+      const fieldInputMap = {
+        whme_day:  'rpl-rv-whme-day',
+        whme_mngt: 'rpl-rv-whme-mngt',
+        dm_mt_day: 'rpl-rv-dm-mt',
+        var_day:   'rpl-rv-var',
+      };
+      const removalValues = {};
+      for (const fid of activeFields) {
+        const el = document.getElementById(fieldInputMap[fid]);
+        const v = el ? el.value.trim() : '';
+        removalValues[fid] = v === '' ? null : Number(v);
+      }
+      // 하위호환: whme_day 값을 removal_value(단일)에도 저장
+      const removalValue = removalValues['whme_day'] != null ? String(removalValues['whme_day']) : '';
 
       // 사진 검증 — 수정 모드면 기존 URL 있으면 OK
       const hasOldPhoto = oldPhotoBlob || keepOldPhotoUrl;
@@ -370,9 +442,14 @@ const RplModal = (() => {
       if (!isDraft) {
         if (!hasOldPhoto) return toast('기존 계기 사진 필요');
         if (!hasNewPhoto) return toast('새 계기 사진 필요');
-        if (!removalValue) return toast('철거 제번 필요');
         if (!newMeterId || newMeterId.length !== 11) return toast('새 계기번호 11자리 필요');
         if (!y || !m) return toast('제조년월 필요');
+        // 빈칸 확인 — 빈칸 있으면 confirm 후 진행
+        const emptyCount = activeFields.filter(fid => removalValues[fid] == null).length;
+        if (emptyCount > 0) {
+          const go = confirm(`빈칸 ${emptyCount}개 있습니다. 그래도 완료할까요?`);
+          if (!go) return;
+        }
       }
 
       saveBtn.textContent = isDraft ? '임시 저장 중...' : (dryRun ? '확인 중...' : '업로드 중...');
@@ -403,6 +480,7 @@ const RplModal = (() => {
       const replacement = {
         old_meter_id: String(oldMeterId),
         new_meter_id: String(newMeterId || ''),
+        removal_values: removalValues,
         removal_value: removalValue === '' ? null : Number(removalValue),
         new_meter_mfg_ym: (y && m) ? `${y}-${m}` : '',
         old_meter_photo: oldRes.url || '',

@@ -492,7 +492,13 @@ function renderMetersList() {
                </div>`
             : '';
 
-        // 불가 버튼 옆에 작은 글씨로 표시할 보조 정보 (계기 별 메타) — role 무관, 모든 정보 동일
+        // 역할 판별 (extraParts 분기에 사용 — 아래 showRpl 계산과 동일 방식)
+        // getEffectiveRole()은 admin을 adminViewRole('meter'|'comm')으로 콜랩스함.
+        // admin 원본 role을 별도 보관해 "전체 표시" 분기에 사용.
+        const _role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : ((authGetSession() || {}).role || 'meter');
+        const _isAdmin = (typeof authGetSession === 'function') && ((authGetSession() || {}).role === 'admin');
+
+        // 불가 버튼 옆에 작은 글씨로 표시할 보조 정보 (계기 별 메타) — role별 분기
         const extraParts = [];
         if (meter.순위) extraParts.push(meter.순위);
         if (meter.계약전력) extraParts.push(`${meter.계약전력}kW`);
@@ -501,30 +507,46 @@ function renderMetersList() {
         if (meter.검침일) extraParts.push(`검침일 ${meter.검침일}`);
         if (meter.계기위치) extraParts.push(meter.계기위치);
         if (meter.검침방법) extraParts.push(meter.검침방법);
-        if (meter.검침원 || meter.검침원연락처) {
-            const nm = (meter.검침원 || '').split(/\s+/)[0];
-            const cp = [nm, meter.검침원연락처].filter(Boolean);
-            if (cp.length) extraParts.push(`검침원(${cp.join(', ')})`);
+        // 검침원연락처 — 계기팀은 숨김, 통신팀·admin은 표시
+        if (_role !== 'meter' || _isAdmin) {
+            if (meter.검침원 || meter.검침원연락처) {
+                const nm = (meter.검침원 || '').split(/\s+/)[0];
+                const cp = [nm, meter.검침원연락처].filter(Boolean);
+                if (cp.length) extraParts.push(`검침원(${cp.join(', ')})`);
+            }
         }
-        const ip = [meter.인입주번호, meter.인입주전산화].filter(Boolean);
-        if (ip.length) extraParts.push(`인입주(${ip.join(', ')})`);
-        if (meter.변대주) {
-            const pv = meter.변대주;
-            const isDcu = !!meter.DCUID;
-            const pvMain = isDcu ? pv.slice(0, -2) : pv;
-            const pvHtml = isDcu
-                ? `${pvMain}<span class="seg-dup">${pv.slice(-2)}</span>`
-                : pv;
-            const labelStr = meter.변대주라벨 ? `${meter.변대주라벨}, ` : '';
-            const cpyBtn = `<button class="copy-btn pole-copy-btn" data-copy="${pvMain}" title="변대주 복사" style="margin-left:3px;vertical-align:middle;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
-            extraParts.push(`변대주(${labelStr}${pvHtml})${cpyBtn}`);
+        // 인입주 — 계기팀은 숨김, 통신팀·admin은 표시
+        if (_role !== 'meter' || _isAdmin) {
+            const ip = [meter.인입주번호, meter.인입주전산화].filter(Boolean);
+            if (ip.length) extraParts.push(`인입주(${ip.join(', ')})`);
+        }
+        // 변대주 — 계기팀은 숨김, 통신팀·admin은 표시
+        if (_role !== 'meter' || _isAdmin) {
+            if (meter.변대주) {
+                const pv = meter.변대주;
+                const isDcu = !!meter.DCUID;
+                const pvMain = isDcu ? pv.slice(0, -2) : pv;
+                const pvHtml = isDcu
+                    ? `${pvMain}<span class="seg-dup">${pv.slice(-2)}</span>`
+                    : pv;
+                const labelStr = meter.변대주라벨 ? `${meter.변대주라벨}, ` : '';
+                const cpyBtn = `<button class="copy-btn pole-copy-btn" data-copy="${pvMain}" title="변대주 복사" style="margin-left:3px;vertical-align:middle;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
+                extraParts.push(`변대주(${labelStr}${pvHtml})${cpyBtn}`);
+            }
+        }
+        // 계약종별 — 계기팀·admin에게 표시 (통신팀 불필요)
+        if (_role !== 'comm' || _isAdmin) {
+            if (meter.계약종별) extraParts.push(`계약(${meter.계약종별})`);
+        }
+        // 인입선상태 — 통신팀·admin에게 표시 (계기팀 불필요)
+        if (_role !== 'meter' || _isAdmin) {
+            if (meter.인입선상태) extraParts.push(`인입선(${meter.인입선상태})`);
         }
         const meterMetaHtml = extraParts.length
             ? `<div class="meter-meta">${extraParts.join(' · ')}</div>`
             : '';
 
-        // 계기팀/admin에게만 "교체/수정" 버튼 노출
-        const _role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : ((authGetSession() || {}).role || 'meter');
+        // 계기팀/admin에게만 "교체/수정" 버튼 노출 (_role 이미 위에서 계산됨)
         const showRpl = (_role === 'meter') || (_role === 'admin');
         const replInfo = (status.replacement_list || {})[meter.계기번호];
         const isReplaced = !!replInfo;
@@ -541,7 +563,22 @@ function renderMetersList() {
             const segs = [];
             if (replInfo.daily_seq != null) segs.push(`<b style="color:#7c3aed;">No.${e(replInfo.daily_seq)}</b>`);
             if (replInfo.new_meter_id) segs.push(`교체 <b>${e(replInfo.new_meter_id)}</b>${cpBtn(replInfo.new_meter_id, '교체계기번호 복사')}`);
-            if (replInfo.removal_value != null && String(replInfo.removal_value) !== '') segs.push(`철거지침 <b>${e(replInfo.removal_value)}</b>${cpBtn(replInfo.removal_value, '철거지침 복사')}`);
+            // 철거지침: removal_values(다칸) 있으면 활성 항목 표시, 없으면 removal_value(단일) 폴백
+            if (replInfo.removal_values && typeof replInfo.removal_values === 'object') {
+                const activeFields = (typeof readingFieldsFor === 'function')
+                    ? readingFieldsFor(meter.계약종별, meter.계약전력)
+                    : ['whme_day'];
+                const fieldLabels = (typeof FIELD_META !== 'undefined') ? FIELD_META : {};
+                for (const fid of activeFields) {
+                    const fval = replInfo.removal_values[fid];
+                    if (fval != null && String(fval) !== '') {
+                        const flabel = (fieldLabels[fid] && fieldLabels[fid].label) ? fieldLabels[fid].label : fid;
+                        segs.push(`${flabel} <b>${e(fval)}</b>${cpBtn(fval, `${flabel} 복사`)}`);
+                    }
+                }
+            } else if (replInfo.removal_value != null && String(replInfo.removal_value) !== '') {
+                segs.push(`철거지침 <b>${e(replInfo.removal_value)}</b>${cpBtn(replInfo.removal_value, '철거지침 복사')}`);
+            }
             if (replInfo.old_meter_photo || replInfo.new_meter_photo) {
                 segs.push(`<a class="repl-dl-all" data-old="${e(replInfo.old_meter_photo || '')}" data-new="${e(replInfo.new_meter_photo || '')}" data-base="${e(meter.계기번호)}" style="color:#2563eb;font-weight:700;text-decoration:underline;cursor:pointer;">사진 받기 ↓</a>`);
             }

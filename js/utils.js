@@ -96,6 +96,40 @@ function phaseOf(meterNo) {
     return null;
 }
 
+// ── 지침 칸 판별 ──────────────────────────────────────────────────────────────
+// 계약종별 코드(앞 숫자)와 계약전력(pwr 정수)으로 활성 지침 항목 목록 반환
+// clas: "211 일반용..." 같은 문자열이거나 숫자 코드. 앞 숫자만 파싱.
+// pwr: 계약전력 kW (정수).
+// 반환: 활성 항목 id 배열 (순서 고정)
+const FIELD_META = {
+    whme_day:  { label: '철거 주간(kWh)' },
+    whme_mngt: { label: '철거 야간(kWh)' },
+    dm_mt_day: { label: '최대전력(kW)' },
+    var_day:   { label: '무효전력(kVar)' },
+};
+
+function readingFieldsFor(clas, pwr) {
+    const code = parseInt(String(clas == null ? '' : clas), 10);
+    const pwrNum = parseInt(pwr, 10) || 0;
+
+    if (!isNaN(code)) {
+        // PWR>=20 AND 코드∈{211,218,311,410,430} → 4개
+        if (pwrNum >= 20 && [211, 218, 311, 410, 430].includes(code)) {
+            return ['whme_day', 'whme_mngt', 'dm_mt_day', 'var_day'];
+        }
+        // PWR>=20 AND 코드∈{213,610} → 2개
+        if (pwrNum >= 20 && [213, 610].includes(code)) {
+            return ['whme_day', 'dm_mt_day'];
+        }
+        // 코드∈{905,910,915} PWR무관 → 야간 1개
+        if ([905, 910, 915].includes(code)) {
+            return ['whme_mngt'];
+        }
+    }
+    // 그 외 / clas 없음·빈값 → 주간 1개
+    return ['whme_day'];
+}
+
 // 값을 클립보드에 복사하고 토스트 표시
 let toastTimer = null;
 function copyMeterNo(no) {

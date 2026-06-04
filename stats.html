@@ -155,9 +155,23 @@
       </div>
       <input type="file" id="rpl-new-photo-input" accept="image/*" style="display:none;">
 
-      <div class="rpl-field rpl-replace-only">
-        <label>철거 제번 (kWh)</label>
-        <input type="text" id="rpl-removal-value" inputmode="numeric">
+      <div class="rpl-replace-only" id="rpl-removal-fields">
+        <div class="rpl-field" id="rpl-rv-field-whme-day" style="display:none;">
+          <label>철거 주간(kWh)</label>
+          <input type="text" id="rpl-rv-whme-day" inputmode="numeric" placeholder="예: 12345">
+        </div>
+        <div class="rpl-field" id="rpl-rv-field-whme-mngt" style="display:none;">
+          <label>철거 야간(kWh)</label>
+          <input type="text" id="rpl-rv-whme-mngt" inputmode="numeric" placeholder="예: 12345">
+        </div>
+        <div class="rpl-field" id="rpl-rv-field-dm-mt" style="display:none;">
+          <label>최대전력(kW)</label>
+          <input type="text" id="rpl-rv-dm-mt" inputmode="numeric" placeholder="예: 5">
+        </div>
+        <div class="rpl-field" id="rpl-rv-field-var" style="display:none;">
+          <label>무효전력(kVar)</label>
+          <input type="text" id="rpl-rv-var" inputmode="numeric" placeholder="예: 0">
+        </div>
       </div>
 
       <div class="rpl-field rpl-replace-only">
@@ -456,7 +470,8 @@ loadData();
 
 <!-- 모달 의존 스크립트 (inline script 이후 로드 — RplModal 사용 가능) -->
 <script src="js/photo-uploader.js?v=20260528a"></script>
-<script src="js/qr-scanner.js?v=20260528a"></script>
-<script src="js/replacement-modal.js?v=20260528a"></script>
+<script src="js/awms-parseValue.js?v=20260602a"></script>
+<script src="js/qr-scanner.js?v=20260602a"></script>
+<script src="js/replacement-modal.js?v=20260602a"></script>
 </body>
 </html>

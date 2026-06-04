@@ -203,8 +203,8 @@ const QrScanner = (() => {
       _stream = await navigator.mediaDevices.getUserMedia({
         video: {
           deviceId: { exact: deviceId },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         }
       });
     } catch (e) {
@@ -220,6 +220,18 @@ const QrScanner = (() => {
 
     _video.srcObject = _stream;
     try { await _video.play(); } catch {}
+
+    // 연속 자동초점 적용 — 미지원 기기는 조용히 무시
+    try {
+      const focusTrack = _stream.getVideoTracks()[0];
+      const cap = focusTrack?.getCapabilities?.() || {};
+      if (cap.focusMode && Array.isArray(cap.focusMode) && cap.focusMode.includes('continuous')) {
+        await focusTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+        debugLog('focusMode:continuous 적용');
+      }
+    } catch (e) {
+      debugLog('focusMode 적용 실패(무시): ' + (e?.message||e));
+    }
 
     // 실제 잡힌 deviceId 저장
     const track = _stream.getVideoTracks()[0];
