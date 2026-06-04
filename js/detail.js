@@ -508,7 +508,7 @@ function renderMetersList() {
         if (meter.계기위치) extraParts.push(meter.계기위치);
         if (meter.검침방법) extraParts.push(meter.검침방법);
         // 검침원연락처 — 계기팀은 숨김, 통신팀·admin은 표시
-        if (_role !== 'meter' || _isAdmin) {
+        if (_role !== 'meter') {
             if (meter.검침원 || meter.검침원연락처) {
                 const nm = (meter.검침원 || '').split(/\s+/)[0];
                 const cp = [nm, meter.검침원연락처].filter(Boolean);
@@ -516,12 +516,12 @@ function renderMetersList() {
             }
         }
         // 인입주 — 계기팀은 숨김, 통신팀·admin은 표시
-        if (_role !== 'meter' || _isAdmin) {
+        if (_role !== 'meter') {
             const ip = [meter.인입주번호, meter.인입주전산화].filter(Boolean);
             if (ip.length) extraParts.push(`인입주(${ip.join(', ')})`);
         }
         // 변대주 — 계기팀은 숨김, 통신팀·admin은 표시
-        if (_role !== 'meter' || _isAdmin) {
+        if (_role !== 'meter') {
             if (meter.변대주) {
                 const pv = meter.변대주;
                 const isDcu = !!meter.DCUID;
@@ -535,11 +535,11 @@ function renderMetersList() {
             }
         }
         // 계약종별 — 계기팀·admin에게 표시 (통신팀 불필요)
-        if (_role !== 'comm' || _isAdmin) {
+        if (_role !== 'comm') {
             if (meter.계약종별) extraParts.push(`계약(${meter.계약종별})`);
         }
         // 인입선상태 — 통신팀·admin에게 표시 (계기팀 불필요)
-        if (_role !== 'meter' || _isAdmin) {
+        if (_role !== 'meter') {
             if (meter.인입선상태) extraParts.push(`인입선(${meter.인입선상태})`);
         }
         const meterMetaHtml = extraParts.length
