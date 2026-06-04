@@ -133,6 +133,8 @@ async function initMap() {
                     markers = [];
                     loadMarkers();
                     refreshAllMarkers();
+                    // 디테일 열려있으면 현재 역할로 재렌더 (토글 즉시 반영)
+                    if (typeof window.rerenderDetailIfOpen === 'function') window.rerenderDetailIfOpen();
                 });
             });
         }

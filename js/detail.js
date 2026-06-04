@@ -10,6 +10,15 @@ const commTempChecked = new Set();
 let currentSortMode = 'none';
 
 // 주소 클릭 시 상세 패널 표시
+// admin viewToggle(계기팀/통신팀 보기) 전환 시 열린 디테일을 현재 역할로 재렌더
+function rerenderDetailIfOpen() {
+    const ov = document.getElementById('fullpage-overlay');
+    if (ov && ov.classList.contains('active') && currentAddress && Array.isArray(currentMeters)) {
+        showDetail(currentAddress, currentMeters);
+    }
+}
+window.rerenderDetailIfOpen = rerenderDetailIfOpen;
+
 function showDetail(address, meters) {
     currentAddress = address;
     currentMeters = meters;
