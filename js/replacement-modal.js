@@ -3,23 +3,58 @@
 const RplModal = (() => {
   let currentAddress = '';
   let currentMeter = null;     // 선택한 계기 객체
-  let oldPhotoBlob = null;
   let newPhotoBlob = null;
   let editingData = null;      // 수정 모드 = 기존 replacement 객체 (prefill용)
-  let keepOldPhotoUrl = null;  // 수정 모드에서 사진 재선택 안 했을 때 기존 URL 유지
   let keepNewPhotoUrl = null;
+
+  // 칸별 사진 blob / 수정모드 유지 URL
+  let removalPhotoBlobs = {};    // { whme_day: Blob|null, ... }
+  let keepRemovalPhotoUrls = {}; // { whme_day: 'https://...', ... }
+
+  // 추가 데이터 행 (DOM 요소 배열 — save 시 collectExtraRows로 수집)
+  let extraRows = [];
 
   // DRY-RUN 제거됨 — 항상 Firebase 직접 저장 (영준님 결정 2026-05-17)
   function isDryRun() { return false; }
+
+  // ── RV_FIELDS: 칸 → {wrap, input, photo, photoInput} id 매핑 (단일 소스) ──
+  // photo/photoInput id의 접미어는 HTML의 data-field, input wrap id와 통일
+  const RV_FIELDS = {
+    whme_day:  {
+      wrap:       'rpl-rv-field-whme-day',
+      input:      'rpl-rv-whme-day',
+      photo:      'rpl-rv-photo-whme-day',
+      photoInput: 'rpl-rv-photo-input-whme-day',
+    },
+    whme_mngt: {
+      wrap:       'rpl-rv-field-whme-mngt',
+      input:      'rpl-rv-whme-mngt',
+      photo:      'rpl-rv-photo-whme-mngt',
+      photoInput: 'rpl-rv-photo-input-whme-mngt',
+    },
+    dm_mt_day: {
+      wrap:       'rpl-rv-field-dm-mt',
+      input:      'rpl-rv-dm-mt',
+      photo:      'rpl-rv-photo-dm-mt',
+      photoInput: 'rpl-rv-photo-input-dm-mt',
+    },
+    var_day:   {
+      wrap:       'rpl-rv-field-var',
+      input:      'rpl-rv-var',
+      photo:      'rpl-rv-photo-var',
+      photoInput: 'rpl-rv-photo-input-var',
+    },
+  };
+  const ALL_KNOWN_FIELDS = ['whme_day', 'whme_mngt', 'dm_mt_day', 'var_day'];
 
   function open(address, meter, prefillOldId, editData) {
     currentAddress = address;
     currentMeter = meter || null;
     editingData = editData || null;
-    oldPhotoBlob = null;
     newPhotoBlob = null;
-    keepOldPhotoUrl = null;
     keepNewPhotoUrl = null;
+    removalPhotoBlobs = {};
+    keepRemovalPhotoUrls = {};
 
     document.getElementById('rpl-modal').classList.add('active');
     document.getElementById('rpl-title-addr').textContent = address;
@@ -69,6 +104,7 @@ const RplModal = (() => {
 
     // 지침 4칸 활성화 — currentMeter의 계약종별·계약전력으로 판별
     // 수정(edit) 모드면 기존 removal_values 키도 union — stats 등 meter에 계약종별 없는 경우 데이터 손실 방지
+    let activeFields = [];
     if (!isAddMode) {
       const clas = (meter && meter.계약종별) || (meter && meter.CNTR_CLAS_CD) || '';
       const pwr = (meter && meter.계약전력) || 0;
@@ -79,66 +115,79 @@ const RplModal = (() => {
       const savedKeys = (editData && editData.removal_values && typeof editData.removal_values === 'object')
           ? Object.keys(editData.removal_values).filter(k => editData.removal_values[k] != null)
           : [];
-      const allKnownFields = ['whme_day', 'whme_mngt', 'dm_mt_day', 'var_day'];
-      const activeFields = allKnownFields.filter(f => baseFields.includes(f) || savedKeys.includes(f));
-      const fieldElMap = {
-        whme_day:  { wrap: 'rpl-rv-field-whme-day',  input: 'rpl-rv-whme-day'  },
-        whme_mngt: { wrap: 'rpl-rv-field-whme-mngt', input: 'rpl-rv-whme-mngt' },
-        dm_mt_day: { wrap: 'rpl-rv-field-dm-mt',     input: 'rpl-rv-dm-mt'     },
-        var_day:   { wrap: 'rpl-rv-field-var',        input: 'rpl-rv-var'       },
-      };
-      for (const [fid, els] of Object.entries(fieldElMap)) {
+      activeFields = ALL_KNOWN_FIELDS.filter(f => baseFields.includes(f) || savedKeys.includes(f));
+
+      for (const fid of ALL_KNOWN_FIELDS) {
+        const els = RV_FIELDS[fid];
         const wrapEl = document.getElementById(els.wrap);
         const inpEl  = document.getElementById(els.input);
         if (!wrapEl || !inpEl) continue;
-        if (activeFields.includes(fid)) {
-          wrapEl.style.display = '';
-          inpEl.value = '';
-        } else {
-          wrapEl.style.display = 'none';
-          inpEl.value = '';
+        const isActive = activeFields.includes(fid);
+        wrapEl.style.display = isActive ? '' : 'none';
+        inpEl.value = '';
+        // 비활성 칸 사진 슬롯 초기화
+        if (!isActive) {
+          resetPhoto(els.photo);
         }
       }
     }
 
-    // 기본 채움 / 수정 모드면 기존 데이터로 prefill
-    resetPhoto('rpl-old-photo');
+    // 신계기 사진 초기화
     resetPhoto('rpl-new-photo');
+
     if (isEditMode) {
       // removal_values(다칸) 있으면 항목별 채움, 없으면 removal_value(단일→whme_day) 하위호환
       const rvs = editData.removal_values;
-      const inputIds = {
-        whme_day:  'rpl-rv-whme-day',
-        whme_mngt: 'rpl-rv-whme-mngt',
-        dm_mt_day: 'rpl-rv-dm-mt',
-        var_day:   'rpl-rv-var',
-      };
       if (rvs && typeof rvs === 'object') {
-        for (const [fid, inputId] of Object.entries(inputIds)) {
-          const el = document.getElementById(inputId);
+        for (const fid of ALL_KNOWN_FIELDS) {
+          const el = document.getElementById(RV_FIELDS[fid].input);
           if (el) el.value = rvs[fid] != null ? String(rvs[fid]) : '';
         }
       } else {
         // 하위호환: removal_value(단일) → whme_day 칸
-        const el = document.getElementById('rpl-rv-whme-day');
+        const el = document.getElementById(RV_FIELDS.whme_day.input);
         if (el) el.value = editData.removal_value != null ? String(editData.removal_value) : '';
       }
       document.getElementById('rpl-new-meter-id').value = editData.new_meter_id || '';
-      // 사진은 URL preview만 (재선택 안 하면 URL 유지)
-      if (editData.old_meter_photo) {
-        showPhotoUrl('rpl-old-photo', editData.old_meter_photo);
-        keepOldPhotoUrl = editData.old_meter_photo;
-      }
+
+      // 신계기 사진 prefill
       if (editData.new_meter_photo) {
         showPhotoUrl('rpl-new-photo', editData.new_meter_photo);
         keepNewPhotoUrl = editData.new_meter_photo;
       }
+
+      // 칸별 사진 prefill — removal_photos 있으면 칸별, 없으면 old_meter_photo → whme_day 하위호환
+      const remPhotos = editData.removal_photos;
+      for (const fid of activeFields) {
+        const els = RV_FIELDS[fid];
+        let photoUrl = (remPhotos && remPhotos[fid]) || '';
+        // 하위호환: removal_photos 없고 old_meter_photo 있으면 whme_day 슬롯에
+        if (!photoUrl && fid === 'whme_day' && editData.old_meter_photo) {
+          photoUrl = editData.old_meter_photo;
+        }
+        if (photoUrl) {
+          showPhotoUrl(els.photo, photoUrl);
+          keepRemovalPhotoUrls[fid] = photoUrl;
+        } else {
+          resetPhoto(els.photo);
+        }
+      }
+
+      // 추가 데이터 복원
+      _clearExtraRows();
+      if (Array.isArray(editData.extra_data)) {
+        for (const row of editData.extra_data) {
+          addExtraRow(row);
+        }
+      }
     } else {
-      ['rpl-rv-whme-day','rpl-rv-whme-mngt','rpl-rv-dm-mt','rpl-rv-var'].forEach(id => {
-        const el = document.getElementById(id);
+      for (const fid of ALL_KNOWN_FIELDS) {
+        const el = document.getElementById(RV_FIELDS[fid].input);
         if (el) el.value = '';
-      });
+        resetPhoto(RV_FIELDS[fid].photo);
+      }
       document.getElementById('rpl-new-meter-id').value = '';
+      _clearExtraRows();
     }
 
     if (!isAddMode) {
@@ -162,6 +211,7 @@ const RplModal = (() => {
   // URL 사진을 슬롯에 미리보기 (수정 모드 prefill용)
   function showPhotoUrl(slotId, url) {
     const slot = document.getElementById(slotId);
+    if (!slot) return;
     slot.classList.add('has-photo');
     slot.querySelector('.rpl-photo-preview').src = url;
   }
@@ -172,17 +222,24 @@ const RplModal = (() => {
 
   function resetPhoto(slotId) {
     const slot = document.getElementById(slotId);
+    if (!slot) return;
     slot.classList.remove('has-photo');
     slot.querySelector('.rpl-photo-preview').src = '';
   }
 
   function setPhoto(slotId, blob) {
     const slot = document.getElementById(slotId);
+    if (!slot) return;
     slot.classList.add('has-photo');
     const url = URL.createObjectURL(blob);
     slot.querySelector('.rpl-photo-preview').src = url;
-    if (slotId === 'rpl-old-photo') oldPhotoBlob = blob;
-    else newPhotoBlob = blob;
+    const field = slot.dataset && slot.dataset.field;
+    if (field && RV_FIELDS[field]) {
+      // 지침칸 사진 — 칸별 blob 저장
+      removalPhotoBlobs[field] = blob;
+    } else if (slotId === 'rpl-new-photo') {
+      newPhotoBlob = blob;
+    }
   }
 
   function populateMfgSelects() {
@@ -355,6 +412,95 @@ const RplModal = (() => {
     });
   }
 
+  // ── 추가 데이터 행 관리 ────────────────────────────────────────
+
+  function _clearExtraRows() {
+    const container = document.getElementById('rpl-extra-rows');
+    if (container) container.innerHTML = '';
+    extraRows = [];
+  }
+
+  function addExtraRow(prefill) {
+    const container = document.getElementById('rpl-extra-rows');
+    if (!container) return;
+
+    const row = document.createElement('div');
+    row.className = 'rpl-extra-row';
+
+    const labelInput = document.createElement('input');
+    labelInput.type = 'text';
+    labelInput.className = 'ex-label';
+    labelInput.placeholder = '항목명';
+    if (prefill && prefill.label) labelInput.value = prefill.label;
+
+    const valueInput = document.createElement('input');
+    valueInput.type = 'text';
+    valueInput.className = 'ex-value';
+    valueInput.placeholder = '값';
+    if (prefill && prefill.value) valueInput.value = prefill.value;
+
+    const photoBtn = document.createElement('button');
+    photoBtn.type = 'button';
+    photoBtn.className = 'ex-photo-btn';
+    photoBtn.textContent = '📷';
+    if (prefill && prefill.photo_url) {
+      photoBtn.classList.add('has');
+      photoBtn.title = prefill.photo_url;
+      // blob은 없으나 기존 URL 보존 — 저장 시 keepUrl로 사용
+      photoBtn.dataset.keepUrl = prefill.photo_url;
+    }
+
+    const photoInput = document.createElement('input');
+    photoInput.type = 'file';
+    photoInput.accept = 'image/*';
+    photoInput.style.display = 'none';
+    photoInput.className = 'ex-photo-input';
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'ex-del';
+    delBtn.textContent = '×';
+
+    row.appendChild(labelInput);
+    row.appendChild(valueInput);
+    row.appendChild(photoBtn);
+    row.appendChild(photoInput);
+    row.appendChild(delBtn);
+
+    container.appendChild(row);
+    extraRows.push(row);
+  }
+
+  // 추가 데이터 수집 (save 시 호출) — label/value/photo_url 중 하나라도 있는 행만
+  async function collectExtraRows(baseDir, dryRun) {
+    const results = [];
+    for (let i = 0; i < extraRows.length; i++) {
+      const row = extraRows[i];
+      if (!row.parentNode) continue; // 삭제된 행
+      const label = (row.querySelector('.ex-label') || {}).value || '';
+      const value = (row.querySelector('.ex-value') || {}).value || '';
+      const photoBtn = row.querySelector('.ex-photo-btn');
+      const photoInput = row.querySelector('.ex-photo-input');
+      const blob = photoInput && photoInput._blob;
+      const keepUrl = (photoBtn && photoBtn.dataset.keepUrl) || '';
+
+      let photo_url = keepUrl;
+      if (blob && !dryRun) {
+        try {
+          const res = await PhotoUploader.compressAndUpload(blob, `${baseDir}/extra_${i}.jpg`);
+          photo_url = res.url || '';
+        } catch (e) {
+          console.warn('추가데이터 사진 업로드 실패', e);
+        }
+      }
+
+      if (label || value || photo_url) {
+        results.push({ label, value, photo_url });
+      }
+    }
+    return results;
+  }
+
   async function onSave(isDraft) {
     const isAddMode = !currentMeter;
     const oldMeterId = isAddMode
@@ -417,58 +563,97 @@ const RplModal = (() => {
       const prevSavedKeys = (editingData && editingData.removal_values && typeof editingData.removal_values === 'object')
           ? Object.keys(editingData.removal_values).filter(k => editingData.removal_values[k] != null)
           : [];
-      const allKnownFields = ['whme_day', 'whme_mngt', 'dm_mt_day', 'var_day'];
-      const activeFields = allKnownFields.filter(f => baseFields.includes(f) || prevSavedKeys.includes(f));
-      const fieldInputMap = {
-        whme_day:  'rpl-rv-whme-day',
-        whme_mngt: 'rpl-rv-whme-mngt',
-        dm_mt_day: 'rpl-rv-dm-mt',
-        var_day:   'rpl-rv-var',
-      };
+      const activeFields = ALL_KNOWN_FIELDS.filter(f => baseFields.includes(f) || prevSavedKeys.includes(f));
+      const firstActive = activeFields[0] || 'whme_day';
+
       const removalValues = {};
       for (const fid of activeFields) {
-        const el = document.getElementById(fieldInputMap[fid]);
+        const el = document.getElementById(RV_FIELDS[fid].input);
         const v = el ? el.value.trim() : '';
         removalValues[fid] = v === '' ? null : Number(v);
       }
       // 하위호환: whme_day 값을 removal_value(단일)에도 저장
       const removalValue = removalValues['whme_day'] != null ? String(removalValues['whme_day']) : '';
 
-      // 사진 검증 — 수정 모드면 기존 URL 있으면 OK
-      const hasOldPhoto = oldPhotoBlob || keepOldPhotoUrl;
+      // 사진 검증
       const hasNewPhoto = newPhotoBlob || keepNewPhotoUrl;
+      const hasFirstActivePhoto = removalPhotoBlobs[firstActive] || keepRemovalPhotoUrls[firstActive];
 
       // 임시 저장 모드는 검증 스킵 — 부분 데이터만으로도 저장
       if (!isDraft) {
-        if (!hasOldPhoto) return toast('기존 계기 사진 필요');
+        if (!hasFirstActivePhoto) return toast('주간(첫 활성칸) 계기판 사진 필요');
         if (!hasNewPhoto) return toast('새 계기 사진 필요');
         if (!newMeterId || newMeterId.length !== 11) return toast('새 계기번호 11자리 필요');
         if (!y || !m) return toast('제조년월 필요');
-        // 빈칸 확인 — 빈칸 있으면 confirm 후 진행
+        // 지침값 빈칸 확인
         const emptyCount = activeFields.filter(fid => removalValues[fid] == null).length;
         if (emptyCount > 0) {
           const go = confirm(`빈칸 ${emptyCount}개 있습니다. 그래도 완료할까요?`);
+          if (!go) return;
+        }
+        // 첫 활성칸 외 나머지 활성칸 사진 없는 칸 확인
+        const missingPhotoCnt = activeFields.slice(1).filter(fid => !removalPhotoBlobs[fid] && !keepRemovalPhotoUrls[fid]).length;
+        if (missingPhotoCnt > 0) {
+          const go = confirm(`사진 없는 칸 ${missingPhotoCnt}개 있습니다. 그래도 완료할까요?`);
           if (!go) return;
         }
       }
 
       saveBtn.textContent = isDraft ? '임시 저장 중...' : (dryRun ? '확인 중...' : '업로드 중...');
 
-      // 사진 업로드 — 새로 선택한 것만, 안 한 것은 기존 URL 유지
-      // 임시 저장이면 사진 없을 수 있음 — 있는 것만 업로드
       const baseDir = `replacements/${addrKey}/${oldMeterId}_${ts}`;
-      const [oldRes, newRes] = await Promise.all([
-        dryRun
-          ? Promise.resolve({ url: keepOldPhotoUrl || `[DRY_RUN_OLD_${ts}]` })
-          : (oldPhotoBlob
-              ? PhotoUploader.compressAndUpload(oldPhotoBlob, `${baseDir}/old.jpg`)
-              : Promise.resolve({ url: keepOldPhotoUrl || '' })),
-        dryRun
-          ? Promise.resolve({ url: keepNewPhotoUrl || `[DRY_RUN_NEW_${ts}]` })
-          : (newPhotoBlob
-              ? PhotoUploader.compressAndUpload(newPhotoBlob, `${baseDir}/new.jpg`)
-              : Promise.resolve({ url: keepNewPhotoUrl || '' })),
-      ]);
+
+      // 사진 업로드 — 태그 기반으로 Promise 배열 구성 (인덱스 의존 없음)
+      const uploadTasks = [];
+
+      // 활성 칸 사진 — 칸별 태그
+      for (const fid of activeFields) {
+        const blob = removalPhotoBlobs[fid];
+        const keepUrl = keepRemovalPhotoUrls[fid] || '';
+        if (dryRun) {
+          uploadTasks.push({ tag: `rv_${fid}`, promise: Promise.resolve({ url: keepUrl || `[DRY_RUN_${fid}_${ts}]` }) });
+        } else {
+          uploadTasks.push({
+            tag: `rv_${fid}`,
+            promise: blob
+              ? PhotoUploader.compressAndUpload(blob, `${baseDir}/${fid}.jpg`)
+              : Promise.resolve({ url: keepUrl }),
+          });
+        }
+      }
+
+      // 신계기 사진
+      if (dryRun) {
+        uploadTasks.push({ tag: 'new', promise: Promise.resolve({ url: keepNewPhotoUrl || `[DRY_RUN_NEW_${ts}]` }) });
+      } else {
+        uploadTasks.push({
+          tag: 'new',
+          promise: newPhotoBlob
+            ? PhotoUploader.compressAndUpload(newPhotoBlob, `${baseDir}/new.jpg`)
+            : Promise.resolve({ url: keepNewPhotoUrl || '' }),
+        });
+      }
+
+      const results = await Promise.all(uploadTasks.map(t => t.promise));
+
+      // 태그 기반 결과 매핑
+      const urlMap = {};
+      for (let i = 0; i < uploadTasks.length; i++) {
+        urlMap[uploadTasks[i].tag] = results[i].url || '';
+      }
+
+      // removal_photos 구성 (활성칸만)
+      const removal_photos = {};
+      for (const fid of activeFields) {
+        const url = urlMap[`rv_${fid}`];
+        if (url) removal_photos[fid] = url;
+      }
+
+      // old_meter_photo = firstActive 칸 사진 (기존 소비자 호환, 절대 비우지 않음)
+      const oldMeterPhoto = removal_photos[firstActive] || keepRemovalPhotoUrls[firstActive] || '';
+
+      // 추가 데이터 수집
+      const extra_data = await collectExtraRows(baseDir, dryRun);
 
       // daily_seq · 시각 · 작업자
       // - 시각/작업자: 수정 모드면 원본 유지, 신규면 새로
@@ -483,8 +668,10 @@ const RplModal = (() => {
         removal_values: removalValues,
         removal_value: removalValue === '' ? null : Number(removalValue),
         new_meter_mfg_ym: (y && m) ? `${y}-${m}` : '',
-        old_meter_photo: oldRes.url || '',
-        new_meter_photo: newRes.url || '',
+        old_meter_photo: oldMeterPhoto,
+        new_meter_photo: urlMap['new'] || '',
+        removal_photos,
+        extra_data,
         worker,
         replaced_at: replacedAt,
         daily_seq: dailySeq,
@@ -586,14 +773,24 @@ const RplModal = (() => {
     if (draftBtn) draftBtn.onclick = () => onSave(true);
     const delBtn = document.getElementById('rpl-delete');
     if (delBtn) delBtn.onclick = onDelete;
-    document.getElementById('rpl-old-photo').onclick = () =>
-      document.getElementById('rpl-old-photo-input').click();
+
+    // 신계기 사진 바인딩
     document.getElementById('rpl-new-photo').onclick = () =>
       document.getElementById('rpl-new-photo-input').click();
-    document.getElementById('rpl-old-photo-input').onchange = (e) =>
-      onPhotoSelect('rpl-old-photo', e.target.files[0]);
     document.getElementById('rpl-new-photo-input').onchange = (e) =>
       onPhotoSelect('rpl-new-photo', e.target.files[0]);
+
+    // 지침칸 사진 바인딩 — RV_FIELDS 기반
+    for (const fid of ALL_KNOWN_FIELDS) {
+      const els = RV_FIELDS[fid];
+      const photoSlot  = document.getElementById(els.photo);
+      const photoInput = document.getElementById(els.photoInput);
+      if (photoSlot && photoInput) {
+        photoSlot.onclick  = () => photoInput.click();
+        photoInput.onchange = (e) => onPhotoSelect(els.photo, e.target.files[0]);
+      }
+    }
+
     document.getElementById('rpl-qr-btn').onclick = onQrScanClick;
 
     // daily_seq ± 조절 (이미 쓰인 번호는 건너뜀, 빈 자리만 이동)
@@ -615,6 +812,44 @@ const RplModal = (() => {
         inp.focus();
       };
     });
+
+    // 추가 데이터 버튼
+    const extraAddBtn = document.getElementById('rpl-extra-add');
+    if (extraAddBtn) extraAddBtn.onclick = () => addExtraRow(null);
+
+    // 추가 데이터 행 이벤트 위임 (삭제 / 사진열기 / 사진 선택)
+    const extraRows_container = document.getElementById('rpl-extra-rows');
+    if (extraRows_container) {
+      extraRows_container.addEventListener('click', (e) => {
+        const row = e.target.closest('.rpl-extra-row');
+        if (!row) return;
+        if (e.target.classList.contains('ex-del')) {
+          row.remove();
+          extraRows = extraRows.filter(r => r !== row);
+        } else if (e.target.classList.contains('ex-photo-btn')) {
+          const inp = row.querySelector('.ex-photo-input');
+          if (inp) inp.click();
+        }
+      });
+      extraRows_container.addEventListener('change', async (e) => {
+        if (!e.target.classList.contains('ex-photo-input')) return;
+        const file = e.target.files[0];
+        if (!file) return;
+        const row = e.target.closest('.rpl-extra-row');
+        if (!row) return;
+        try {
+          const compressed = await PhotoUploader.compress(file);
+          e.target._blob = compressed;
+        } catch (err) {
+          e.target._blob = file;
+        }
+        const btn = row.querySelector('.ex-photo-btn');
+        if (btn) {
+          btn.classList.add('has');
+          btn.dataset.keepUrl = '';  // 새 blob 선택 시 기존 URL 무효화
+        }
+      });
+    }
   }
 
   return { open, close, init };

@@ -58,6 +58,42 @@
 .rpl-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(17,24,39,0.92); color: white; padding: 10px 16px; border-radius: 999px; font-size: 13px; z-index: 3000; display: none; }
 .rpl-toast.active { display: block; }
 
+/* 지침칸 내 계기판 사진 슬롯 */
+.rpl-rv-photo {
+  margin-top: 6px;
+}
+.rpl-rv-photo .rpl-photo-preview {
+  max-height: 120px;
+}
+
+/* 추가 데이터 영역 */
+.rpl-extra-add {
+  width: 100%; padding: 10px; margin-top: 4px;
+  background: white; border: 2px dashed #3b82f6; border-radius: 8px;
+  color: #3b82f6; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.rpl-extra-add:active { background: #eff6ff; }
+
+.rpl-extra-row {
+  display: flex; gap: 6px; align-items: center; margin-bottom: 6px;
+  background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px;
+  flex-wrap: wrap;
+}
+.ex-label, .ex-value {
+  flex: 1; min-width: 80px; padding: 8px 10px;
+  border: 1.5px solid #e5e7eb; border-radius: 6px; font-size: 13px;
+}
+.ex-label:focus, .ex-value:focus { outline: none; border-color: #3b82f6; }
+.ex-photo-btn {
+  padding: 8px 10px; background: #f3f4f6; border: 1.5px solid #d1d5db;
+  border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+.ex-photo-btn.has { background: #d1fae5; border-color: #10b981; color: #065f46; }
+.ex-del {
+  padding: 6px 10px; background: #fee2e2; border: 1.5px solid #fca5a5;
+  border-radius: 6px; color: #dc2626; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+
 /* 임시저장(draft) 계기의 daily_seq 배지 */
 .daily-seq-badge {
   display: inline-flex; align-items: center; justify-content: center;

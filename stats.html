@@ -143,12 +143,6 @@
         <input type="text" id="rpl-old-meter-id" inputmode="numeric" maxlength="11">
       </div>
 
-      <div class="rpl-photo rpl-replace-only" id="rpl-old-photo">
-        <span class="rpl-photo-label">📷 기존 계기 사진 (탭하여 선택)</span>
-        <img class="rpl-photo-preview" alt="기존 계기">
-      </div>
-      <input type="file" id="rpl-old-photo-input" accept="image/*" style="display:none;">
-
       <div class="rpl-photo rpl-replace-only" id="rpl-new-photo">
         <span class="rpl-photo-label">📷 새 계기 사진 (탭하여 선택)</span>
         <img class="rpl-photo-preview" alt="새 계기">
@@ -159,18 +153,38 @@
         <div class="rpl-field" id="rpl-rv-field-whme-day" style="display:none;">
           <label>철거 주간(kWh)</label>
           <input type="text" id="rpl-rv-whme-day" inputmode="numeric" placeholder="예: 12345">
+          <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-whme-day" data-field="whme_day">
+            <span class="rpl-photo-label">📷 주간 계기판 사진 (탭하여 선택)</span>
+            <img class="rpl-photo-preview" alt="주간 계기판">
+          </div>
+          <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-whme-day" data-field="whme_day" accept="image/*" style="display:none;">
         </div>
         <div class="rpl-field" id="rpl-rv-field-whme-mngt" style="display:none;">
           <label>철거 야간(kWh)</label>
           <input type="text" id="rpl-rv-whme-mngt" inputmode="numeric" placeholder="예: 12345">
+          <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-whme-mngt" data-field="whme_mngt">
+            <span class="rpl-photo-label">📷 야간 계기판 사진 (탭하여 선택)</span>
+            <img class="rpl-photo-preview" alt="야간 계기판">
+          </div>
+          <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-whme-mngt" data-field="whme_mngt" accept="image/*" style="display:none;">
         </div>
         <div class="rpl-field" id="rpl-rv-field-dm-mt" style="display:none;">
           <label>최대전력(kW)</label>
           <input type="text" id="rpl-rv-dm-mt" inputmode="numeric" placeholder="예: 5">
+          <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-dm-mt" data-field="dm_mt_day">
+            <span class="rpl-photo-label">📷 최대전력 계기판 사진 (탭하여 선택)</span>
+            <img class="rpl-photo-preview" alt="최대전력 계기판">
+          </div>
+          <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-dm-mt" data-field="dm_mt_day" accept="image/*" style="display:none;">
         </div>
         <div class="rpl-field" id="rpl-rv-field-var" style="display:none;">
           <label>무효전력(kVar)</label>
           <input type="text" id="rpl-rv-var" inputmode="numeric" placeholder="예: 0">
+          <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-var" data-field="var_day">
+            <span class="rpl-photo-label">📷 무효 계기판 사진 (탭하여 선택)</span>
+            <img class="rpl-photo-preview" alt="무효 계기판">
+          </div>
+          <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-var" data-field="var_day" accept="image/*" style="display:none;">
         </div>
       </div>
 
@@ -188,6 +202,11 @@
           <select id="rpl-mfg-y"></select>
           <select id="rpl-mfg-m"></select>
         </div>
+      </div>
+
+      <div class="rpl-replace-only" id="rpl-extra-wrap">
+        <div id="rpl-extra-rows"></div>
+        <button type="button" class="rpl-extra-add" id="rpl-extra-add">+ 추가 데이터</button>
       </div>
 
       <div class="rpl-footer">
