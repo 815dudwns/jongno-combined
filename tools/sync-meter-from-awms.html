@@ -59,6 +59,7 @@
     <div class="card">
         <label class="file-drop" for="file-awms">
             awms-all.json 파일 선택
+            <button class="btn-primary" id="btn-load-fb" style="margin-bottom:8px">파베에서 불러오기 (최신 완료받기)</button>
             <div class="file-name" id="file-name"></div>
             <input type="file" id="file-awms" accept="application/json">
         </label>
@@ -385,6 +386,26 @@
     document.getElementById('btn-backup').onclick = downloadBackup;
     document.getElementById('btn-preview').onclick = () => { if (awmsAll) buildPlan(); };
     document.getElementById('btn-run').onclick = runProcess;
+
+    // 파베(ami-work awmscomplete)에서 최신 완료받기 직접 불러오기 — 파일 다운/업로드 불필요
+    document.getElementById('btn-load-fb').onclick = async () => {
+        try {
+            log('파베에서 최신 완료받기 불러오는 중...');
+            const W = 'https://ami-work-1c49a-default-rtdb.asia-southeast1.firebasedatabase.app';
+            const keys = await fetch(W + '/awmscomplete.json?shallow=true').then(r => r.json());
+            const latest = Object.keys(keys || {}).sort().pop();
+            if (!latest) { log('완료받기 데이터 없음', 'err'); return; }
+            const title = await fetch(W + '/awmscomplete/' + latest + '/title.json').then(r => r.json());
+            const rows = await fetch(W + '/awmscomplete/' + latest + '/rows.json').then(r => r.json());
+            awmsAll = Array.isArray(rows) ? rows : [];
+            document.getElementById('file-name').textContent = `파베: ${title} (${awmsAll.length}건)`;
+            log(`파베 로드: ${title} ${awmsAll.length}건`, 'ok');
+            document.getElementById('stat-awms').textContent = awmsAll.length;
+            buildPlan();
+        } catch (e) {
+            log('파베 로드 실패: ' + e.message, 'err');
+        }
+    };
 
     (async () => {
         if (!initFirebase()) return;
