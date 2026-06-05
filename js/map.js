@@ -572,10 +572,10 @@ function toggleLocation() {
                 dot.style.cssText = 'width:14px;height:14px;background:#3b82f6;border:2px solid white;border-radius:50%;box-shadow:0 0 0 4px rgba(59,130,246,0.25);';
                 locationOverlay = new kakao.maps.CustomOverlay({ position: latlng, content: dot, zIndex: 10 });
                 locationOverlay.setMap(map);
+                map.setCenter(latlng);  // 최초 1회만 — 이후엔 마커만 갱신(지도 자유 이동)
             } else {
                 locationOverlay.setPosition(latlng);
             }
-            map.setCenter(latlng);
         }, () => alert('위치를 가져올 수 없습니다.'), { enableHighAccuracy: true });
         locationActive = true;
         btn.classList.add('active');
