@@ -173,6 +173,18 @@
         });
     }
 
+    // 작업자완료 판정 — 하나라도 있으면 작업자 실작업 → awms 덮어쓰기 금지
+    function isWorkerDone(rep) {
+        if (!rep) return false;
+        if (rep.source && rep.source !== 'awms') return true;                       // awms 아닌 출처
+        if (rep.worker && rep.worker !== 'AWMS_IMPORT' && rep.worker !== 'AWMS 자동 동기화') return true;
+        if (rep.new_meter_photo || rep.old_meter_photo) return true;                // 사진
+        if (rep.removal_value != null && rep.removal_value !== '') return true;     // 철거지침
+        if (rep.removal_values) return true;                                        // 4칸 지침
+        if (rep.new_meter_mfg_ym) return true;                                      // 제조년월
+        return false;
+    }
+
     function buildPlan() {
         // 1) WORK_STEP=28 + CREMO_WHM_NO 채워진 것
         awmsCompleted = awmsAll.filter(a =>
@@ -193,19 +205,22 @@
 
         // 3) 우리 site 매칭 + 주소 추출
         plan = [];
-        let matched = 0, skipped = 0, override = 0, fresh = 0;
+        let matched = 0, skipped = 0, override = 0, fresh = 0, protectedCnt = 0;
         for (const meter in byMeter) {
             const a = byMeter[meter];
             const site = siteData[meter];
             if (!site) { skipped++; continue; }
-            matched++;
             const addr = site.주소;
             const existing = currentWS[addr] || null;
             const existingRep = existing && existing.replacement_list && existing.replacement_list[meter];
+            // ★ 작업자완료 보호 — awms 덮어쓰기로 작업자 사진/지침이 날아가는 걸 절대 막음
+            if (isWorkerDone(existingRep)) { protectedCnt++; continue; }
+            matched++;
             const action = existingRep ? 'override' : 'new';
             if (action === 'override') override++; else fresh++;
             plan.push({ addr, awms: a, existing, action, site });
         }
+        if (protectedCnt) log(`★ 작업자완료 보호 ${protectedCnt}건 — awms 덮어쓰기에서 제외(사진/지침 안 날림)`, 'warn');
 
         document.getElementById('stat-matched').textContent = matched;
         document.getElementById('stat-skipped').textContent = skipped;
