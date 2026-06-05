@@ -698,24 +698,36 @@ function renderMetersList() {
             });
         });
 
-        // 교체 사진 한 번에 다운로드 (철거전 + 교체후) — fetch→blob 강제 저장 (새탭 열림 방지)
+        // 교체 사진 받기 — Web Share(사진첩 저장, ami-board 방식) 우선, 폴백=강제 다운로드
         document.querySelectorAll('.repl-dl-all').forEach(a => {
             a.addEventListener('click', async (e) => {
                 e.preventDefault(); e.stopPropagation();
                 const base = a.getAttribute('data-base') || 'photo';
                 const items = [[a.getAttribute('data-old'), '철거전'], [a.getAttribute('data-new'), '교체후']];
+                // 1) 사진들을 File 객체로 수집
+                const files = [];
                 for (const [url, tag] of items) {
                     if (!url) continue;
                     try {
                         const r = await fetch(url);
                         const b = await r.blob();
-                        const u = URL.createObjectURL(b);
-                        const x = document.createElement('a');
-                        x.href = u; x.download = `${base}_${tag}.jpg`;
-                        document.body.appendChild(x); x.click(); x.remove();
-                        setTimeout(() => URL.revokeObjectURL(u), 2000);
-                        await new Promise(res => setTimeout(res, 500));  // 연속 저장 간격
-                    } catch (err) { window.open(url, '_blank'); }
+                        files.push(new File([b], `${base}_${tag}.jpg`, { type: 'image/jpeg' }));
+                    } catch (err) { /* 한 장 실패해도 나머지 진행 */ }
+                }
+                if (!files.length) { alert('사진을 불러오지 못했습니다.'); return; }
+                // 2) Web Share(공유시트 → 이미지 저장 = 사진첩) 가능하면 우선
+                if (navigator.canShare && navigator.canShare({ files })) {
+                    try { await navigator.share({ files, title: '교체 사진' }); return; }
+                    catch (err) { if (err && err.name === 'AbortError') return; /* 그 외엔 폴백 */ }
+                }
+                // 3) 폴백: 강제 다운로드 (Web Share 미지원 환경)
+                for (const f of files) {
+                    const u = URL.createObjectURL(f);
+                    const x = document.createElement('a');
+                    x.href = u; x.download = f.name;
+                    document.body.appendChild(x); x.click(); x.remove();
+                    setTimeout(() => URL.revokeObjectURL(u), 2000);
+                    await new Promise(res => setTimeout(res, 500));
                 }
             });
         });
