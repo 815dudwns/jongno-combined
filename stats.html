@@ -90,6 +90,19 @@
     /* 카카오맵 커스텀 마커 (번호 표시) */
     .stat-marker { background: #10b981; color: white; border: 2px solid white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
     .stat-marker.multi { background: #7c3aed; width: 36px; height: 36px; font-size: 11px; padding: 2px; line-height: 1; text-align: center; }
+    /* 분석 탭 */
+    .ana-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+    .ana-mode { padding: 8px 16px; border: 2px solid #e5e7eb; background: #fff; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; }
+    .ana-mode.active { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+    .ana-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 14px; }
+    .ana-table th, .ana-table td { border: 1px solid #e5e7eb; padding: 8px 10px; text-align: center; }
+    .ana-table th { background: #f9fafb; font-weight: 700; }
+    .ana-table td.tname { text-align: left; font-weight: 600; }
+    .ana-table tr.subtotal { background: #f3f4f6; font-weight: 800; }
+    .ana-table .num { font-variant-numeric: tabular-nums; }
+    .ana-h { font-size: 15px; font-weight: 800; margin: 6px 0 8px; color: #111827; }
+    /* 임시저장 뱃지 */
+    .draft-badge { display: inline-block; background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-left: 6px; }
   </style>
 </head>
 <body>
@@ -99,25 +112,40 @@
   </div>
 
   <div class="container">
-    <div class="date-bar">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="list">통계</button>
+      <button class="tab-btn" data-tab="map">지도</button>
+      <button class="tab-btn" data-tab="analysis">분석</button>
+    </div>
+
+    <!-- 통계/지도 공통 날짜 네비 (분석 탭에서는 숨김) -->
+    <div class="date-bar" id="date-bar">
+      <button class="sec" id="btn-prev">‹‹</button>
       <input type="date" id="date-input">
+      <button class="sec" id="btn-next">››</button>
       <button class="sec" id="btn-today">오늘</button>
-      <button id="btn-refresh">조회</button>
     </div>
 
     <div class="summary" id="summary"></div>
 
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="map">🗺 지도</button>
-      <button class="tab-btn" data-tab="list">📋 통계</button>
+    <div class="tab-panel active" id="tab-list">
+      <div id="list-container"></div>
     </div>
 
-    <div class="tab-panel active" id="tab-map">
+    <div class="tab-panel" id="tab-map">
       <div id="stats-map"></div>
     </div>
 
-    <div class="tab-panel" id="tab-list">
-      <div id="list-container"></div>
+    <div class="tab-panel" id="tab-analysis">
+      <div class="ana-bar">
+        <button class="ana-mode active" id="ana-week" data-mode="week">주간</button>
+        <button class="ana-mode" id="ana-month" data-mode="month">월간</button>
+        <span style="flex:1;"></span>
+        <button class="sec" id="ana-prev">‹</button>
+        <span id="ana-period" style="font-weight:700;min-width:140px;text-align:center;"></span>
+        <button class="sec" id="ana-next">›</button>
+      </div>
+      <div id="ana-content"></div>
     </div>
   </div>
 
@@ -338,9 +366,9 @@ function renderList() {
       <div class="list-item" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}">
         <div class="seq-badge">${item.daily_seq || '?'}</div>
         <div class="li-body">
-          <div class="addr">${item.address} ${editedTag}</div>
+          <div class="addr">${item.address} ${editedTag}${item.draft ? '<span class="draft-badge">임시저장</span>' : ''}</div>
           <div><b>${item.old_meter_id}</b> <span class="arrow">→</span> <b>${item.new_meter_id}</b></div>
-          <div class="meta">철거값 ${removalVal} kWh · 제조 ${mfgYm} · 작업자 ${item.worker} · ${time}</div>
+          <div class="meta">철거값 ${removalVal} kWh · 제조 ${mfgYm} · ${time}</div>
           <button class="li-edit-btn" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}" style="margin-top:6px;padding:6px 10px;background:#1d4ed8;color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">수정/삭제</button>
         </div>
         <div class="li-photos">
@@ -369,17 +397,20 @@ function renderList() {
 
 function renderSummary() {
   const summary = document.getElementById('summary');
-  const n = cachedData?.length || 0;
-  const workers = new Set();
-  const addrs = new Set();
-  cachedData?.forEach(i => {
-    if (i.worker) workers.add(i.worker);
-    if (i.address) addrs.add(i.address);
+  const arr = cachedData || [];
+  const n = arr.length;
+  let dansang = 0, samsang = 0, draftN = 0;
+  arr.forEach(i => {
+    const ph = (typeof phaseOf === 'function') ? phaseOf(i.old_meter_id) : null;
+    if (ph === '단상') dansang++;
+    else if (ph === '삼상') samsang++;
+    if (i.draft) draftN++;
   });
   summary.innerHTML = `
     <div class="summary-item"><div class="label">총 작업</div><div class="value">${n}</div></div>
-    <div class="summary-item"><div class="label">주소 수</div><div class="value">${addrs.size}</div></div>
-    <div class="summary-item"><div class="label">작업자</div><div class="value">${workers.size}</div></div>
+    <div class="summary-item"><div class="label">단상</div><div class="value">${dansang}</div></div>
+    <div class="summary-item"><div class="label">삼상</div><div class="value">${samsang}</div></div>
+    <div class="summary-item"><div class="label">임시저장</div><div class="value">${draftN}</div></div>
   `;
 }
 
@@ -469,20 +500,141 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     const tab = btn.dataset.tab;
     document.getElementById(`tab-${tab}`).classList.add('active');
+    // 날짜바·요약 = 통계/지도 전용. 분석은 자체 기간바.
+    const isAna = (tab === 'analysis');
+    document.getElementById('date-bar').style.display = isAna ? 'none' : '';
+    document.getElementById('summary').style.display = isAna ? 'none' : '';
     if (tab === 'map') {
       ensureMap();
       setTimeout(() => map && map.relayout(), 50);
     }
+    if (isAna) renderAnalysis();
   };
 });
 
-// 날짜 바
-document.getElementById('date-input').value = todayStr();
-document.getElementById('btn-today').onclick = () => {
-  document.getElementById('date-input').value = todayStr();
+// 날짜 네비 (조회 버튼 없음 — 날짜 바뀌면 자동 반영)
+function stepDate(delta) {
+  const cur = document.getElementById('date-input').value || todayStr();
+  const [y, m, d] = cur.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  const ns = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+  document.getElementById('date-input').value = ns;
   loadData();
-};
-document.getElementById('btn-refresh').onclick = loadData;
+}
+document.getElementById('date-input').value = todayStr();
+document.getElementById('btn-prev').onclick = () => stepDate(-1);
+document.getElementById('btn-next').onclick = () => stepDate(1);
+document.getElementById('btn-today').onclick = () => { document.getElementById('date-input').value = todayStr(); loadData(); };
+document.getElementById('date-input').onchange = loadData;
+
+// ───── 분석 탭 ─────
+const TYPE5_DANSANG = ['AE', 'G_단상', 'AMIGO_단상'];
+const TYPE5_SAMSANG = ['G_삼상', 'AMIGO_삼상'];
+let _anaMode = 'week';
+let _anaAnchor = null;       // 기간 기준 Date (그 날이 속한 주/월)
+let _allWsCache = null;
+
+async function getAllWs() {
+  if (_allWsCache) return _allWsCache;
+  const snap = await db.ref('workStatus/jongno').once('value');
+  _allWsCache = snap.val() || {};
+  return _allWsCache;
+}
+
+// 기간(KST) 계산 — week=월~일, month=해당 월
+function anaPeriod() {
+  const anchor = _anaAnchor || new Date();
+  if (_anaMode === 'month') {
+    const y = anchor.getFullYear(), m = anchor.getMonth();
+    const start = Date.UTC(y, m, 1, -9, 0, 0, 0);          // KST 1일 00:00
+    const end = Date.UTC(y, m + 1, 1, -9, 0, 0, 0) - 1;    // KST 말일 23:59:59
+    return { start, end, label: `${y}.${m + 1}` };
+  }
+  // 주간: anchor가 속한 주 월~일 (KST)
+  const kd = new Date(anchor.getTime() + 9 * 3600 * 1000); // KST 시각
+  const dow = (kd.getUTCDay() + 6) % 7;                     // 월=0
+  const ky = kd.getUTCFullYear(), km = kd.getUTCMonth(), kday = kd.getUTCDate();
+  const start = Date.UTC(ky, km, kday - dow, -9, 0, 0, 0);
+  const end = Date.UTC(ky, km, kday - dow + 7, -9, 0, 0, 0) - 1;
+  const s = new Date(start + 9 * 3600 * 1000), e = new Date(end + 9 * 3600 * 1000);
+  const fmt = (d) => `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+  return { start, end, label: `${fmt(s)}~${fmt(e)}` };
+}
+
+function stepAna(delta) {
+  const base = _anaAnchor || new Date();
+  const d = new Date(base);
+  if (_anaMode === 'month') d.setMonth(d.getMonth() + delta);
+  else d.setDate(d.getDate() + delta * 7);
+  _anaAnchor = d;
+  renderAnalysis();
+}
+
+function anaTable(title, cntMap, totalLabel) {
+  const row = (t) => `<tr><td class="tname">${(typeof type5Label === 'function') ? type5Label(t) : t}</td><td class="num">${cntMap[t] || 0}</td></tr>`;
+  const sum = (arr) => arr.reduce((a, t) => a + (cntMap[t] || 0), 0);
+  const dan = sum(TYPE5_DANSANG), sam = sum(TYPE5_SAMSANG), etc = cntMap['기타'] || 0;
+  const total = dan + sam + etc;
+  return `
+    <div class="ana-h">${title} (${totalLabel}: ${total})</div>
+    <table class="ana-table">
+      <thead><tr><th>타입</th><th>개수</th></tr></thead>
+      <tbody>
+        ${TYPE5_DANSANG.map(row).join('')}
+        <tr class="subtotal"><td class="tname">단상 소계</td><td class="num">${dan}</td></tr>
+        ${TYPE5_SAMSANG.map(row).join('')}
+        <tr class="subtotal"><td class="tname">삼상 소계</td><td class="num">${sam}</td></tr>
+        ${etc ? `<tr><td class="tname">기타</td><td class="num">${etc}</td></tr>` : ''}
+        <tr class="subtotal"><td class="tname">합계</td><td class="num">${total}</td></tr>
+      </tbody>
+    </table>`;
+}
+
+async function renderAnalysis() {
+  const content = document.getElementById('ana-content');
+  content.innerHTML = '<div class="empty">집계 중...</div>';
+  const [ws, sd] = await Promise.all([getAllWs(), loadSiteData()]);
+  const { start, end, label } = anaPeriod();
+  document.getElementById('ana-period').textContent = label;
+
+  const replacedOld = new Set();   // 전체 교체된 구계기 (잔여 계산용)
+  const repCnt = {};               // 기간 내 교체분 type5 카운트 (신계기 기준)
+  Object.values(ws).forEach(v => {
+    const rl = v && v.replacement_list; if (!rl) return;
+    Object.values(rl).forEach(r => {
+      if (r.old_meter_id) replacedOld.add(String(r.old_meter_id).trim());
+      const ts = r.replaced_at;
+      if (typeof ts === 'number' && ts >= start && ts <= end) {
+        const t = (typeof parseType5 === 'function' && parseType5(r.new_meter_id)) || '기타';
+        repCnt[t] = (repCnt[t] || 0) + 1;
+      }
+    });
+  });
+  // 잔여 = site-data 전체 − 교체된 구계기 (현재 시점, 기간 무관)
+  const remCnt = {};
+  Object.keys(sd).forEach(mid => {
+    if (replacedOld.has(String(mid).trim())) return;
+    const t = (typeof parseType5 === 'function' && parseType5(mid)) || '기타';
+    remCnt[t] = (remCnt[t] || 0) + 1;
+  });
+
+  content.innerHTML =
+    anaTable(`교체 (${label})`, repCnt, '교체수') +
+    anaTable('잔여 (현재 전체)', remCnt, '잔여수');
+}
+
+document.querySelectorAll('.ana-mode').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('.ana-mode').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    _anaMode = b.dataset.mode;
+    _anaAnchor = new Date();
+    renderAnalysis();
+  };
+});
+document.getElementById('ana-prev').onclick = () => stepAna(-1);
+document.getElementById('ana-next').onclick = () => stepAna(1);
 
 loadData();
 </script>
