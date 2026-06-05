@@ -377,8 +377,20 @@ function getSortedMeters(metersOverride) {
             return meters.indexOf(a) - meters.indexOf(b); // 그룹 내 원래 순서 유지
         });
     }
-    // 'none': 원래 순서
-    return meters;
+    // 'none': 상태순(미작업 → 이어서(임시저장) → 완료) + 그 안 daily_seq 오름차순
+    const st = (typeof workStatus !== 'undefined' && workStatus[currentAddress]) || {};
+    const rl = st.replacement_list || {};
+    const rank = m => {
+        const r = rl[m.계기번호];
+        if (!r) return 0;            // 미작업(nothing)
+        return r.draft ? 1 : 2;      // 이어서(임시저장) / 완료
+    };
+    const seq = m => {
+        const r = rl[m.계기번호];
+        return (r && typeof r.daily_seq === 'number') ? r.daily_seq : Number.MAX_SAFE_INTEGER;
+    };
+    return [...meters].sort((a, b) =>
+        rank(a) - rank(b) || seq(a) - seq(b) || meters.indexOf(a) - meters.indexOf(b));
 }
 
 // 계기 개별 불가 토글
