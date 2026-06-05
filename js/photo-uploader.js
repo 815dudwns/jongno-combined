@@ -2,9 +2,9 @@
 
 const PhotoUploader = (() => {
 
-  // 사진 압축: 긴 변 1280px 이하, JPEG quality 0.7
-  // → 보통 2~4MB 원본 → 100~250KB
-  async function compress(fileOrBlob, maxW = 1280, quality = 0.7) {
+  // 사진 압축: 해상도 원본 유지(awms 최소 해상도·용량 검증 충족), JPEG quality 0.85
+  // awms는 저해상도/저용량(과압축) 사진을 "파일 업로드 실패"로 거부 → 약압축만 (2~4MB → 1~2MB)
+  async function compress(fileOrBlob, maxW = 4096, quality = 0.85) {
     const img = await createImageBitmap(fileOrBlob);
     const ratio = Math.min(maxW / Math.max(img.width, img.height), 1);
     const w = Math.round(img.width * ratio);
