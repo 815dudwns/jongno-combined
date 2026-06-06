@@ -1,58 +1,76 @@
-/* login.css — 로그인 페이지 전용 스타일 */
+/* login.css — 로그인 페이지 (클레이모피즘) */
 
 /* 로그인 페이지는 overflow 허용 (common.css 덮어쓰기) */
 body.login-page {
     overflow: auto;
-    background: #f0f4f8;
-    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 14px;
+    background: radial-gradient(120% 90% at 50% 0%, #f0ede6 0%, var(--bg) 55%, #e2ddd4 100%);
+}
+
+/* 지도 영역이 로그인 페이지에서 보이지 않도록 */
+body.login-page #map { display: none; }
+
+/* 전체 컨테이너 — clay 그림자 여유 위해 폭 축소 (뷰포트 초과 방지) */
+.login-container {
+    width: 100%;
+    max-width: 352px;
+}
+
+/* 카드 — 볼록 클레이 표면 */
+.login-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--clay);
+    padding: 38px 28px 30px;
+}
+
+/* 헤더 */
+.login-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+/* 로고 타일 (볼록) + 한옥 지붕 SVG */
+.logo-tile {
+    width: 92px;
+    height: 92px;
+    margin: 0 auto 18px;
+    border-radius: 26px;
+    background: linear-gradient(150deg, #f6f4ef, #e6e2d9);
+    box-shadow: var(--clay);
     display: flex;
     align-items: center;
     justify-content: center;
 }
-
-/* 지도 영역이 로그인 페이지에서 보이지 않도록 */
-body.login-page #map {
-    display: none;
-}
-
-/* 전체 컨테이너 */
-.login-container {
-    width: 100%;
-    max-width: 380px;
-    padding: 24px 16px;
-}
-
-/* 카드 */
-.login-card {
-    background: #ffffff;
-    border-radius: 16px;
-    padding: 36px 28px 32px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.10);
-}
-
-/* 헤더 영역 */
-.login-header {
-    text-align: center;
-    margin-bottom: 32px;
-}
-
-.login-icon {
-    font-size: 40px;
-    margin-bottom: 10px;
-    line-height: 1;
-}
+.logo-mark { width: 56px; height: 50px; display: block; }
+.logo-mark svg { width: 100%; height: 100%; display: block; }
+.logo-mark .roof   { fill: var(--mint-ink); }
+.logo-mark .roof-2 { fill: var(--mint-strong); opacity: .55; }
+.logo-mark .pillar { fill: var(--mint-ink); opacity: .9; }
+.logo-mark .base   { fill: var(--mint-strong); opacity: .7; }
 
 .login-title {
-    font-size: 22px;
-    font-weight: 700;
-    color: #111827;
-    letter-spacing: -0.3px;
+    font-size: 25px;
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: -0.03em;
 }
-
 .login-subtitle {
-    margin-top: 4px;
+    margin-top: 7px;
     font-size: 13px;
-    color: #6b7280;
+    font-weight: 600;
+    color: var(--mint-strong);
+}
+.login-version {
+    margin-top: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ink-3);
+    letter-spacing: 0.04em;
 }
 
 /* 폼 */
@@ -61,99 +79,103 @@ body.login-page #map {
     flex-direction: column;
     gap: 16px;
 }
-
 .form-group {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
 }
-
 .form-group label {
     font-size: 13px;
-    font-weight: 600;
-    color: #374151;
+    font-weight: 700;
+    color: var(--ink-2);
+    margin-left: 6px;
 }
 
+/* 입력 — 오목 알약 (cinput 레시피) */
 .form-group input {
-    padding: 12px 14px;
-    border: 1.5px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 15px;
-    font-family: inherit;
-    color: #111827;
-    background: #fafafa;
+    font-family: var(--font);
+    font-size: 16px;
+    color: var(--ink);
+    width: 100%;
+    padding: 15px 18px;
+    border: none;
+    border-radius: var(--radius-pill);
+    background: var(--bg-deep);
+    box-shadow: var(--clay-inset);
     outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
     -webkit-appearance: none;
+    transition: box-shadow 0.18s ease;
 }
-
-.form-group input:focus {
-    border-color: #3b82f6;
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-}
+.form-group input::placeholder { color: var(--ink-3); }
+.form-group input:focus { box-shadow: var(--clay-inset), var(--focus-glow); }
 
 /* 에러 메시지 */
 .error-msg {
     min-height: 18px;
+    margin-top: -4px;
     font-size: 13px;
-    color: #ef4444;
+    font-weight: 700;
+    color: #c14f4f;
     text-align: center;
-    font-weight: 500;
 }
 
-/* 로그인 버튼 */
+/* 로그인 버튼 — 민트 볼록 (cbtn-primary 레시피) */
 .login-btn {
     margin-top: 4px;
-    padding: 13px;
-    background: #3b82f6;
-    color: #fff;
+    padding: 16px;
+    font-family: var(--font);
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--mint-deep);
+    background: linear-gradient(145deg, #bbe8d0, #93d2af);
     border: none;
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    font-family: inherit;
+    border-radius: var(--radius-pill);
+    box-shadow: var(--clay-mint);
     cursor: pointer;
-    transition: background 0.15s, opacity 0.15s;
-    letter-spacing: 0.3px;
+    letter-spacing: -0.01em;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    -webkit-tap-highlight-color: transparent;
 }
-
-.login-btn:hover:not(:disabled) {
-    background: #2563eb;
+.login-btn:hover:not(:disabled) { box-shadow: var(--clay-mint), var(--focus-glow); }
+.login-btn:active:not(:disabled) {
+    transform: translateY(1px) scale(0.985);
+    box-shadow: inset 4px 5px 10px rgba(80,150,115,0.45), inset -4px -4px 10px rgba(225,247,234,0.6);
 }
-
 .login-btn:disabled {
-    opacity: 0.55;
+    color: var(--ink-3);
+    background: var(--gray-soft);
+    box-shadow: var(--clay-sm);
     cursor: not-allowed;
 }
 
-/* 사용설명서 링크 */
+/* 사용설명서 링크 — 볼록 알약 */
 .guide-link {
     display: block;
-    margin-top: 20px;
-    padding: 10px;
+    margin-top: 24px;
+    padding-top: 20px;
     text-align: center;
-    font-size: 13px;
-    font-weight: 600;
-    color: #6b7280;
+    border-top: 1.5px solid rgba(170,162,148,0.3);
     text-decoration: none;
-    border-top: 1px solid #e5e7eb;
-    padding-top: 16px;
-    transition: color 0.15s;
 }
-
-.guide-link:hover,
-.guide-link:active {
-    color: #3b82f6;
+.guide-link span {
+    display: inline-block;
+    padding: 9px 18px;
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    box-shadow: var(--clay-sm);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-2);
+    transition: box-shadow 0.15s, color 0.15s;
+}
+.guide-link:active span,
+.guide-link:hover span {
+    box-shadow: var(--clay-inset-sm);
+    color: var(--mint-strong);
 }
 
 /* 모바일 최적화 */
 @media (max-width: 400px) {
-    .login-card {
-        padding: 28px 20px 24px;
-        border-radius: 12px;
-    }
-    .login-title {
-        font-size: 20px;
-    }
+    .login-card { padding: 30px 20px 24px; }
+    .login-title { font-size: 22px; }
 }
