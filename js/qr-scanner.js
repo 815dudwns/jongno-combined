@@ -395,7 +395,10 @@ const QrScanner = (() => {
 
   // ─── init ─────────────────────────
   function init() {
-    document.getElementById('qr-close-btn').onclick = stop;
+    // QR 스캐너 DOM이 없는 페이지(stats.html 등 공통 로드)에서는 초기화 스킵
+    const closeBtn = document.getElementById('qr-close-btn');
+    if (!closeBtn) return;
+    closeBtn.onclick = stop;
     const sw = document.getElementById('qr-switch-btn');
     if (sw) sw.onclick = switchCamera;
     document.getElementById('qr-zoom-in').onclick = () => adjustZoom(+0.5);

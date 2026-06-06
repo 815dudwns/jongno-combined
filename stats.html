@@ -585,8 +585,16 @@ document.getElementById('btn-today').onclick = () => { document.getElementById('
 document.getElementById('date-input').onchange = loadData;
 
 // ───── 분석 탭 ─────
-const TYPE5_DANSANG = ['AE', 'G_단상', 'AMIGO_단상'];
-const TYPE5_SAMSANG = ['G_삼상', 'AMIGO_삼상'];
+// 분석 타입 = parseType(E/EA/G/Amigo) + phaseOf(단상/삼상) 조합 — 구계기·신계기 공통(구형 17도 분류)
+function anaType(m) {
+  const t = (typeof parseType === 'function') ? parseType(m) : null;
+  const p = (typeof phaseOf === 'function') ? phaseOf(m) : null;
+  if (!t || !p) return '기타';
+  return `${t}_${p}`;
+}
+const ANA_DANSANG = ['E_단상', 'EA_단상', 'G_단상', 'Amigo_단상'];
+const ANA_SAMSANG = ['G_삼상', 'Amigo_삼상'];
+const ANA_LABEL = { 'E_단상': 'E 단상', 'EA_단상': 'EA 단상', 'G_단상': 'G 단상', 'Amigo_단상': 'AMIGO 단상', 'G_삼상': 'G 삼상', 'Amigo_삼상': 'AMIGO 삼상' };
 let _anaMode = 'week';
 let _anaAnchor = null;       // 기간 기준 Date (그 날이 속한 주/월)
 let _allWsCache = null;
@@ -628,18 +636,18 @@ function stepAna(delta) {
 }
 
 function anaTable(title, cntMap, totalLabel) {
-  const row = (t) => `<tr><td class="tname">${(typeof type5Label === 'function') ? type5Label(t) : t}</td><td class="num">${cntMap[t] || 0}</td></tr>`;
+  const row = (t) => `<tr><td class="tname">${ANA_LABEL[t] || t}</td><td class="num">${cntMap[t] || 0}</td></tr>`;
   const sum = (arr) => arr.reduce((a, t) => a + (cntMap[t] || 0), 0);
-  const dan = sum(TYPE5_DANSANG), sam = sum(TYPE5_SAMSANG), etc = cntMap['기타'] || 0;
+  const dan = sum(ANA_DANSANG), sam = sum(ANA_SAMSANG), etc = cntMap['기타'] || 0;
   const total = dan + sam + etc;
   return `
     <div class="ana-h">${title} (${totalLabel}: ${total})</div>
     <table class="ana-table">
       <thead><tr><th>타입</th><th>개수</th></tr></thead>
       <tbody>
-        ${TYPE5_DANSANG.map(row).join('')}
+        ${ANA_DANSANG.map(row).join('')}
         <tr class="subtotal"><td class="tname">단상 소계</td><td class="num">${dan}</td></tr>
-        ${TYPE5_SAMSANG.map(row).join('')}
+        ${ANA_SAMSANG.map(row).join('')}
         <tr class="subtotal"><td class="tname">삼상 소계</td><td class="num">${sam}</td></tr>
         ${etc ? `<tr><td class="tname">기타</td><td class="num">${etc}</td></tr>` : ''}
         <tr class="subtotal"><td class="tname">합계</td><td class="num">${total}</td></tr>
@@ -662,7 +670,7 @@ async function renderAnalysis() {
       if (r.old_meter_id) replacedOld.add(String(r.old_meter_id).trim());
       const ts = r.replaced_at;
       if (typeof ts === 'number' && ts >= start && ts <= end) {
-        const t = (typeof parseType5 === 'function' && parseType5(r.new_meter_id)) || '기타';
+        const t = anaType(r.new_meter_id);
         repCnt[t] = (repCnt[t] || 0) + 1;
       }
     });
@@ -671,7 +679,7 @@ async function renderAnalysis() {
   const remCnt = {};
   Object.keys(sd).forEach(mid => {
     if (replacedOld.has(String(mid).trim())) return;
-    const t = (typeof parseType5 === 'function' && parseType5(mid)) || '기타';
+    const t = anaType(mid);
     remCnt[t] = (remCnt[t] || 0) + 1;
   });
 
@@ -703,7 +711,7 @@ function exportExcel() {
       '순번': item.daily_seq ?? '',
       '주소': item.address || s.주소 || '',
       '도로명주소': s.도로명주소 || '',
-      '고객번호': s.고객번호 || '',
+      '고객번호': s.고객번호 || item.cust_no || '',
       '상호': s.상호 || '',
       '호수(공동주택)': s.공동주택명 || '',
       '고객명': s.고객명 || '',
