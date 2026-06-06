@@ -40,6 +40,7 @@
   <script src="js/auth.js"></script>
   <script src="js/config.js"></script>
   <script src="js/utils.js?v=20260528a"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="css/replacement-modal.css?v=20260528a">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -129,6 +130,7 @@
     <div class="summary" id="summary"></div>
 
     <div class="tab-panel active" id="tab-list">
+      <button id="btn-export" style="width:100%;margin-bottom:10px;padding:10px;background:#059669;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">엑셀 내보내기 (이 날짜)</button>
       <div id="list-container"></div>
     </div>
 
@@ -348,28 +350,73 @@ function drawMarkers() {
   }
 }
 
+const STAT_FL = { whme_day: '주간', whme_mngt: '야간', dm_mt_day: '최대', var_day: '무효' };
+function _cpBtn(v) {
+  return `<button class="copy-btn" data-copy="${String(v).replace(/"/g, '&quot;')}" title="복사" style="margin-left:4px;padding:1px 6px;font-size:10px;border:1px solid #d1d5db;background:#f9fafb;border-radius:4px;cursor:pointer;vertical-align:middle;">복사</button>`;
+}
+
+// 사진 받기 (Web Share=사진첩 저장 우선, 폴백 다운로드) — detail.js와 동일 로직
+async function sharePhotos(oldUrl, newUrl, base) {
+  const items = [[oldUrl, '철거전'], [newUrl, '철거후']];
+  const files = [];
+  for (const [url, tag] of items) {
+    if (!url) continue;
+    try {
+      const r = await fetch(url);
+      const b = await r.blob();
+      files.push(new File([b], `${base}_${tag}.jpg`, { type: 'image/jpeg' }));
+    } catch (e) {}
+  }
+  if (!files.length) { alert('사진을 불러오지 못했습니다.'); return; }
+  if (navigator.canShare && navigator.canShare({ files })) {
+    try { await navigator.share({ files, title: '교체 사진' }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  for (const f of files) {
+    const u = URL.createObjectURL(f);
+    const x = document.createElement('a');
+    x.href = u; x.download = f.name;
+    document.body.appendChild(x); x.click(); x.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 2000);
+    await new Promise(res => setTimeout(res, 500));
+  }
+}
+
 function renderList() {
   const container = document.getElementById('list-container');
   if (!cachedData || cachedData.length === 0) {
     container.innerHTML = '<div class="empty">그날 작업 기록 없음</div>';
     return;
   }
-  const sorted = [...cachedData].sort((a, b) => (a.daily_seq || 0) - (b.daily_seq || 0));
+  // daily_seq 숫자 우선(오름차순), 없는 것(?)은 후순위
+  const sorted = [...cachedData].sort((a, b) => (a.daily_seq ?? Infinity) - (b.daily_seq ?? Infinity));
   container.innerHTML = sorted.map(item => {
     const time = new Date(item.replaced_at).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' });
     const mfgYm = item.new_meter_mfg_ym || '';
-    const removalVal = item.removal_value ?? '';
-    const editedTag = item.last_edited_at
-      ? `<span style="color:#7c3aed;">(수정됨)</span>`
+    const editedTag = item.last_edited_at ? `<span style="color:#7c3aed;">(수정됨)</span>` : '';
+    // 철거지침 = 칸별 고유값 (주간/야간/최대/무효)
+    const rv = item.removal_values;
+    const rvParts = [];
+    if (rv && typeof rv === 'object') {
+      Object.keys(STAT_FL).forEach(k => { if (rv[k] != null && rv[k] !== '') rvParts.push(`${STAT_FL[k]} <b>${rv[k]}</b>${_cpBtn(rv[k])}`); });
+    }
+    if (!rvParts.length && item.removal_value != null && item.removal_value !== '') rvParts.push(`주간 <b>${item.removal_value}</b>${_cpBtn(item.removal_value)}`);
+    const rvStr = rvParts.length ? rvParts.join(' · ') : '<span style="color:#9ca3af;">지침 없음</span>';
+    const hasPhoto = item.old_meter_photo || item.new_meter_photo;
+    const dlBtn = hasPhoto
+      ? `<button class="li-dl-btn" data-old="${item.old_meter_photo || ''}" data-new="${item.new_meter_photo || ''}" data-base="${item.old_meter_id}" style="margin-top:6px;margin-left:6px;padding:6px 10px;background:#059669;color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">사진 받기</button>`
       : '';
     return `
       <div class="list-item" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}">
-        <div class="seq-badge">${item.daily_seq || '?'}</div>
+        <div class="seq-badge">${item.daily_seq ?? '?'}</div>
         <div class="li-body">
           <div class="addr">${item.address} ${editedTag}${item.draft ? '<span class="draft-badge">임시저장</span>' : ''}</div>
-          <div><b>${item.old_meter_id}</b> <span class="arrow">→</span> <b>${item.new_meter_id}</b></div>
-          <div class="meta">철거값 ${removalVal} kWh · 제조 ${mfgYm} · ${time}</div>
-          <button class="li-edit-btn" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}" style="margin-top:6px;padding:6px 10px;background:#1d4ed8;color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">수정/삭제</button>
+          <div><b>${item.old_meter_id}</b>${_cpBtn(item.old_meter_id)} <span class="arrow">→</span> <b>${item.new_meter_id}</b>${_cpBtn(item.new_meter_id)}</div>
+          <div class="meta">${rvStr} · 제조 ${mfgYm} · ${time}</div>
+          <div>
+            <button class="li-edit-btn" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}" style="margin-top:6px;padding:6px 10px;background:#1d4ed8;color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">수정/삭제</button>
+            ${dlBtn}
+          </div>
         </div>
         <div class="li-photos">
           ${item.old_meter_photo ? `<img src="${item.old_meter_photo}" alt="기존" data-full="${item.old_meter_photo}">` : ''}
@@ -381,6 +428,15 @@ function renderList() {
 
   container.querySelectorAll('.li-photos img').forEach(img => {
     img.onclick = (e) => { e.stopPropagation(); openLightbox(img.dataset.full); };
+  });
+  container.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      try { await navigator.clipboard.writeText(btn.dataset.copy); const t = btn.textContent; btn.textContent = '복사됨'; setTimeout(() => btn.textContent = t, 1000); } catch (err) {}
+    };
+  });
+  container.querySelectorAll('.li-dl-btn').forEach(btn => {
+    btn.onclick = (e) => { e.stopPropagation(); sharePhotos(btn.dataset.old, btn.dataset.new, btn.dataset.base); };
   });
   container.querySelectorAll('.li-edit-btn').forEach(btn => {
     btn.onclick = (e) => {
@@ -635,6 +691,40 @@ document.querySelectorAll('.ana-mode').forEach(b => {
 });
 document.getElementById('ana-prev').onclick = () => stepAna(-1);
 document.getElementById('ana-next').onclick = () => stepAna(1);
+
+// 엑셀 내보내기 (선택 날짜 작업) — site-data 결합, 철거지침 칸별, 사진 URL
+function exportExcel() {
+  if (!cachedData || !cachedData.length) { alert('내보낼 작업이 없습니다.'); return; }
+  const sd = siteDataByMeterId || {};
+  const rows = [...cachedData].sort((a, b) => (a.daily_seq ?? Infinity) - (b.daily_seq ?? Infinity)).map(item => {
+    const s = sd[String(item.old_meter_id)] || {};
+    const rv = item.removal_values || {};
+    return {
+      '순번': item.daily_seq ?? '',
+      '주소': item.address || s.주소 || '',
+      '도로명주소': s.도로명주소 || '',
+      '고객번호': s.고객번호 || '',
+      '상호': s.상호 || '',
+      '호수(공동주택)': s.공동주택명 || '',
+      '고객명': s.고객명 || '',
+      '철거계기번호': item.old_meter_id || '',
+      '신설계기번호': item.new_meter_id || '',
+      '철거지침_주간': rv.whme_day ?? (item.removal_value ?? ''),
+      '철거지침_야간': rv.whme_mngt ?? '',
+      '철거지침_최대': rv.dm_mt_day ?? '',
+      '철거지침_무효': rv.var_day ?? '',
+      '제조년월': item.new_meter_mfg_ym || '',
+      '철거전사진': item.old_meter_photo || '',
+      '철거후사진': item.new_meter_photo || '',
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '작업');
+  const dv = document.getElementById('date-input').value || todayStr();
+  XLSX.writeFile(wb, `종로_작업_${dv}.xlsx`);
+}
+document.getElementById('btn-export').onclick = exportExcel;
 
 loadData();
 </script>
