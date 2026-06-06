@@ -156,6 +156,27 @@
     left: 10px;
     z-index: 10;
 }
+/* 통신팀 누락만 — 검침일 필터 아래 */
+.comm-missing-filter {
+    position: absolute;
+    top: 90px;
+    left: 10px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e3a8a;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    user-select: none;
+}
+.comm-missing-filter input { cursor: pointer; width: 16px; height: 16px; }
 .checkday-toggle {
     padding: 8px 14px;
     background: #1e3a8a;

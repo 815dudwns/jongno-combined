@@ -49,7 +49,7 @@
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <link rel="stylesheet" href="css/common.css?v=20260528a">
     <link rel="stylesheet" href="css/marker.css?v=20260606e">
-    <link rel="stylesheet" href="css/panel.css?v=20260528a">
+    <link rel="stylesheet" href="css/panel.css?v=20260606a">
     <link rel="stylesheet" href="css/replacement-modal.css?v=20260528a">
 </head>
 <body>
@@ -65,6 +65,11 @@
             <!-- 체크박스 8개. JS에서 동적으로 생성 -->
         </div>
     </div>
+
+    <!-- 통신팀 누락만 필터 (켜면 모든 필터 무시, 통신팀이 빼먹은 주소만) -->
+    <label class="comm-missing-filter" id="comm-missing-filter">
+        <input type="checkbox" id="comm-missing-only"> 미연계
+    </label>
 
     <!-- 검침일 필터 (계기팀 시각에서만 표시) -->
     <div class="checkday-filter" id="checkday-filter" style="display:none;">
@@ -305,8 +310,8 @@
     <script src="js/config.js?v=20260528a"></script>
     <script src="js/utils.js?v=20260528a"></script>
     <script src="js/firebase.js?v=20260528a"></script>
-    <script src="js/detail.js?v=20260602e"></script>
-    <script src="js/map.js?v=20260528a"></script>
+    <script src="js/detail.js?v=20260606c"></script>
+    <script src="js/map.js?v=20260606b"></script>
     <script src="js/awms-parseValue.js?v=20260602a"></script>
     <script src="js/qr-scanner.js?v=20260602a"></script>
     <script src="js/photo-uploader.js?v=20260528a"></script>

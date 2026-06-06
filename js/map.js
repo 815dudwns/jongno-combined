@@ -79,6 +79,7 @@ async function initMap() {
 
     populateDongGroups();
     populateCheckdayFilter();
+    initCommMissingFilter();
     updateCheckdayFilterVisibility();
     loadMarkers();
     await initFirebase();
@@ -272,21 +273,51 @@ function updateCheckdayFilterVisibility() {
     if (filterEl) {
         filterEl.style.display = (role === 'meter') ? '' : 'none';
     }
+    // 미연계(통신팀 누락만) 필터 — 통신팀 시각에서만 표시
+    const commMissingEl = document.getElementById('comm-missing-filter');
+    if (commMissingEl) {
+        commMissingEl.style.display = (role === 'meter') ? 'none' : '';
+    }
 }
 
 // ── 전체 마커 생성 (주소 기준으로 계기 그룹핑) ──────────────────
+// ── 통신팀 누락만 필터 ────────────────────────────────────────
+function loadCommMissingOnly() {
+    return localStorage.getItem('jongno_comm_missing_only') === '1';
+}
+function saveCommMissingOnly(v) {
+    localStorage.setItem('jongno_comm_missing_only', v ? '1' : '0');
+}
+// 통신팀이 방문해 일부만 하고 빼먹은 주소 = 계기팀완료(replacement) 중 일부는 통신완료, 일부는 미완료
+function hasCommPartialMissing(addr) {
+    const st = workStatus[addr];
+    if (!st) return false;
+    const rl = st.replacement_list || {};
+    const ccl = st.comm_completed_list || {};
+    const oks = Object.keys(rl);
+    if (!oks.length) return false;
+    let done = 0, miss = 0;
+    oks.forEach(ok => { if (ccl[ok]) done++; else miss++; });
+    return done > 0 && miss > 0;
+}
+
 function loadMarkers() {
     const selectedGroups = loadSelectedGroups();
     const selectedCheckdays = loadSelectedCheckdays();
     const role = getEffectiveRole();
     const applyCheckdayFilter = (role === 'meter');
+    // 미연계(통신팀 누락만)는 통신팀 개념 — 계기팀 시각에서는 적용 안 함
+    const commMissingOnly = (role !== 'meter') && loadCommMissingOnly();
 
     const grouped = {};
     sampleData.forEach(item => {
-        if (!selectedGroups.has(item.동그룹)) return;
         if (item.lat == null || item.lng == null) return;
-        // 계기팀 시각에서만 검침일 그룹 필터 적용 (통신팀/admin-comm은 무시)
-        if (applyCheckdayFilter && !selectedCheckdays.has(item.검침일그룹)) return;
+        // 통신팀 누락만 모드 = 동그룹/검침일 필터 전부 무시
+        if (!commMissingOnly) {
+            if (!selectedGroups.has(item.동그룹)) return;
+            // 계기팀 시각에서만 검침일 그룹 필터 적용 (통신팀/admin-comm은 무시)
+            if (applyCheckdayFilter && !selectedCheckdays.has(item.검침일그룹)) return;
+        }
         const addr = item.주소;
         if (!grouped[addr]) {
             grouped[addr] = {
@@ -299,12 +330,33 @@ function loadMarkers() {
         grouped[addr].meters.push(item);
     });
 
+    // 통신팀 누락만 모드 — 빼먹은 주소만 남김
+    if (commMissingOnly) {
+        Object.keys(grouped).forEach(addr => {
+            if (!hasCommPartialMissing(addr)) delete grouped[addr];
+        });
+    }
+
     // 같은 좌표에 겹친 approximate 마커들 — 작은 원으로 분산 (안 겹치게)
     spreadOverlappingMarkers(grouped);
 
     Object.entries(grouped).forEach(([addr, data]) => {
         const coords = new kakao.maps.LatLng(data.lat, data.lng);
         createMarker(coords, addr, data.meters);
+    });
+}
+
+// 통신팀 누락만 체크박스 초기화
+function initCommMissingFilter() {
+    const cb = document.getElementById('comm-missing-only');
+    if (!cb) return;
+    cb.checked = loadCommMissingOnly();
+    cb.addEventListener('change', () => {
+        saveCommMissingOnly(cb.checked);
+        markers.forEach(m => m.overlay.setMap(null));
+        markers = [];
+        loadMarkers();
+        refreshAllMarkers();
     });
 }
 

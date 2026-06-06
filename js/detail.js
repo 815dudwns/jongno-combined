@@ -499,6 +499,13 @@ function renderMetersList() {
 
         const copyBtn = `<button class="copy-btn" data-copy="${meter.계기번호}" title="계기번호 복사"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
 
+        // 미연계 오타 판명 라벨 — 통신팀/admin 시각만 (계기팀 시각에선 미연계 숨김과 일관)
+        const _otaRole = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : ((authGetSession() || {}).role || 'meter');
+        const _commEntry = (status.comm_completed_list || {})[meter.계기번호];
+        const otaHtml = (_otaRole !== 'meter' && _commEntry && _commEntry.otype)
+            ? ` <span class="ota-badge" title="${_commEntry.comm_meter_id ? '통신팀 입력: ' + _commEntry.comm_meter_id : ''}" style="margin-left:4px;padding:1px 6px;border-radius:6px;font-size:11px;font-weight:700;${_commEntry.otype === '통신오타' ? 'background:#fef3c7;color:#92400e;border:1px solid #fbbf24;' : 'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;'}">(${_commEntry.otype})</span>`
+            : '';
+
         // 개별 불가 처리 상태
         const isFailed = failedMeters[meter.계기번호] !== undefined;
         const failReason = failedMeters[meter.계기번호] || '';
@@ -663,7 +670,7 @@ function renderMetersList() {
                        data-meter="${meter.계기번호}" ${checkboxChecked} ${checkboxDisabled}>
                 <div class="meter-info"${commDoneStyle}>
                     <span class="meter-type">${parsedType}</span>
-                    ${isDraft && replInfo.daily_seq != null ? `<span class="daily-seq-badge">${replInfo.daily_seq}</span>` : ''}${noHtml}${copyBtn}${addedBadge}${arrowHtml}
+                    ${isDraft && replInfo.daily_seq != null ? `<span class="daily-seq-badge">${replInfo.daily_seq}</span>` : ''}${noHtml}${otaHtml}${copyBtn}${addedBadge}${arrowHtml}
                     <button class="${failBtnClass}" data-meter="${meter.계기번호}">${failBtnLabel}</button>
                     ${rplBtnHtml}${removeAddedBtnHtml}
                     ${meterMetaHtml}
