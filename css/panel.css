@@ -111,26 +111,30 @@
     z-index: 10;
 }
 .dong-group-toggle {
-    padding: 8px 14px;
-    background: #1e3a8a;
-    color: white;
+    padding: 10px 16px;
+    background: var(--surface);
+    color: var(--ink);
     border: none;
-    border-radius: 8px;
+    border-radius: var(--radius-pill);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
+    font-family: var(--font);
     cursor: pointer;
+    box-shadow: var(--clay-sm);
+    transition: box-shadow 0.14s;
 }
+.dong-group-toggle:active { box-shadow: var(--clay-inset-sm); }
 /* 동그룹 패널 — 토글 옆(오른쪽)으로 펼침 (검침일 토글 안 가리게) */
 .dong-group-panel {
     display: none;
     position: absolute;
     top: 0;
     left: calc(100% + 6px);
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    background: var(--surface);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 9px;
+    box-shadow: var(--clay);
     max-height: 50vh;
     overflow-y: auto;
     white-space: nowrap;
@@ -139,14 +143,20 @@
 .dong-group-panel label {
     display: flex;
     align-items: center;
-    padding: 6px 4px;
+    padding: 7px 9px;
+    border-radius: 10px;
     font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
     cursor: pointer;
-    gap: 8px;
+    gap: 10px;
+    transition: background 0.12s;
 }
+.dong-group-panel label:active { background: var(--bg-deep); }
 .dong-group-panel input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--mint-ink);
 }
 
 /* 검침일 필터 (계기팀 시각 전용) — 동그룹 토글 아래 */
@@ -156,7 +166,7 @@
     left: 10px;
     z-index: 10;
 }
-/* 통신팀 누락만 — 검침일 필터 아래 */
+/* 미연계 — 검침일 필터 아래 (clay 알약) */
 .comm-missing-filter {
     position: absolute;
     top: 90px;
@@ -164,37 +174,41 @@
     z-index: 10;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: none;
+    border-radius: var(--radius-pill);
     font-size: 13px;
-    font-weight: 600;
-    color: #1e3a8a;
+    font-weight: 700;
+    color: var(--mint-strong);
     cursor: pointer;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    box-shadow: var(--clay-sm);
     user-select: none;
 }
-.comm-missing-filter input { cursor: pointer; width: 16px; height: 16px; }
+.comm-missing-filter input { cursor: pointer; width: 18px; height: 18px; accent-color: var(--mint-ink); }
 .checkday-toggle {
-    padding: 8px 14px;
-    background: #1e3a8a;
-    color: white;
+    padding: 10px 16px;
+    background: var(--surface);
+    color: var(--ink);
     border: none;
-    border-radius: 8px;
+    border-radius: var(--radius-pill);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
+    font-family: var(--font);
     cursor: pointer;
+    box-shadow: var(--clay-sm);
+    transition: box-shadow 0.14s;
 }
+.checkday-toggle:active { box-shadow: var(--clay-inset-sm); }
 .checkday-panel {
     display: none;
     margin-top: 6px;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    background: var(--surface);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 9px;
+    box-shadow: var(--clay);
     max-height: 50vh;
     overflow-y: auto;
 }
@@ -202,63 +216,83 @@
 .checkday-panel label {
     display: flex;
     align-items: center;
-    padding: 6px 4px;
+    padding: 7px 9px;
+    border-radius: 10px;
     font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
     cursor: pointer;
-    gap: 8px;
+    gap: 10px;
+    transition: background 0.12s;
 }
+.checkday-panel label:active { background: var(--bg-deep); }
 .checkday-panel input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--mint-ink);
 }
 
-/* 시각 토글 (admin 전용) — 계기팀 / 통신팀 — user-bar 아래로 */
+/* 시각 토글 (admin 전용) — 계기팀 / 통신팀 — cseg 세그먼트 */
 .view-role-toggle {
     position: absolute;
     top: 56px;
     right: 10px;
     z-index: 10;
-    background: white;
-    border-radius: 8px;
-    padding: 2px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    display: inline-flex;
+    gap: 4px;
+    padding: 5px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-deep);
+    box-shadow: var(--clay-inset-sm);
 }
 .view-role-toggle button {
-    padding: 6px 12px;
+    padding: 8px 14px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
+    font-family: var(--font);
+    color: var(--ink-2);
     border: none;
     background: transparent;
     cursor: pointer;
-    border-radius: 6px;
+    border-radius: var(--radius-pill);
+    transition: all 0.15s ease;
+    white-space: nowrap;
 }
 .view-role-toggle button.active {
-    background: #1e3a8a;
-    color: white;
+    color: var(--mint-deep);
+    background: linear-gradient(145deg, #bbe8d0, #93d2af);
+    box-shadow: 2px 3px 7px rgba(95,160,125,0.4), inset 1px 1px 3px rgba(225,247,234,0.7), inset -2px -2px 5px rgba(80,150,115,0.35);
 }
 
-/* 마커 모드 토글 (admin 전용) — 시각 토글 아래 */
+/* 마커 모드 토글 (admin 전용) — 시각 토글 아래 — cseg 세그먼트 */
 .marker-mode-toggle {
     position: absolute;
-    top: 98px;
+    top: 100px;
     right: 10px;
     z-index: 10;
-    background: white;
-    border-radius: 8px;
-    padding: 2px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    display: inline-flex;
+    gap: 4px;
+    padding: 5px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-deep);
+    box-shadow: var(--clay-inset-sm);
 }
 .marker-mode-toggle button {
-    padding: 6px 10px;
+    padding: 8px 12px;
     font-size: 12px;
+    font-weight: 700;
+    font-family: var(--font);
+    color: var(--ink-2);
     border: none;
     background: transparent;
     cursor: pointer;
-    border-radius: 6px;
+    border-radius: var(--radius-pill);
+    transition: all 0.15s ease;
 }
 .marker-mode-toggle button.active {
-    background: #1e3a8a;
-    color: white;
+    color: var(--mint-deep);
+    background: linear-gradient(145deg, #bbe8d0, #93d2af);
+    box-shadow: 2px 3px 7px rgba(95,160,125,0.4), inset 1px 1px 3px rgba(225,247,234,0.7), inset -2px -2px 5px rgba(80,150,115,0.35);
 }
 
 /* 중복 행 배경색 — 20° 간격 hsl, 그룹별 구분 */

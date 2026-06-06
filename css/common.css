@@ -3,22 +3,30 @@
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', sans-serif; overflow: hidden; }
 #map { width: 100%; height: 100vh; }
 
-.toast { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: rgba(17,24,39,0.85); color: white; padding: 8px 18px; border-radius: 20px; font-size: 13px; pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 9999; white-space: nowrap; }
+.toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--ink); padding: 11px 20px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 700; box-shadow: var(--clay-sm); pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 9999; white-space: nowrap; }
 .toast.show { opacity: 1; }
 
-.loc-btn { position: fixed; bottom: 16px; right: 16px; z-index: 500; width: 40px; height: 40px; border-radius: 50%; border: none; background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
-.loc-btn.active { background: #3b82f6; color: white; }
+/* 현재위치 버튼 — clay 원형 + 동심 타깃 도형(이모지 ◎ 대체) */
+.loc-btn { position: fixed; bottom: 16px; right: 16px; z-index: 500; width: 48px; height: 48px; border-radius: 50%; border: none; background: var(--surface); box-shadow: var(--clay-sm); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; transition: box-shadow 0.14s, transform 0.1s; -webkit-tap-highlight-color: transparent; }
+.loc-btn:active { box-shadow: var(--clay-inset-sm); transform: scale(0.96); }
+.loc-btn.active { background: linear-gradient(145deg,#bbe8d0,#93d2af); box-shadow: var(--clay-mint); }
+.loc-ico { width: 22px; height: 22px; position: relative; display: block; }
+.loc-ico::before, .loc-ico::after { content: ""; position: absolute; border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%,-50%); }
+.loc-ico::before { width: 20px; height: 20px; border: 2.4px solid var(--mint-strong); }
+.loc-ico::after  { width: 7px; height: 7px; background: var(--mint-strong); }
+.loc-btn.active .loc-ico::before { border-color: var(--mint-deep); }
+.loc-btn.active .loc-ico::after  { background: var(--mint-deep); }
 
-/* 사용자 정보 + 로그아웃 바 — 지도 우상단에 반투명으로 표시 */
-.user-bar { position: fixed; top: 10px; right: 10px; z-index: 500; display: flex; align-items: center; gap: 6px; background: rgba(17,24,39,0.55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); color: rgba(255,255,255,0.9); padding: 5px 10px; border-radius: 20px; font-size: 12px; line-height: 1; }
-.user-bar .user-name { font-weight: 500; letter-spacing: 0.01em; }
-.user-bar .user-divider { opacity: 0.45; }
-.user-bar .logout-btn { background: none; border: none; color: rgba(255,255,255,0.75); font-size: 12px; cursor: pointer; padding: 0; line-height: 1; }
-.user-bar .logout-btn:hover { color: #fff; text-decoration: underline; }
-.user-bar .search-btn { background: none; border: none; color: rgba(255,255,255,0.9); font-size: 12px; cursor: pointer; padding: 0; line-height: 1; font-weight: 600; }
-.user-bar .search-btn:hover { color: #fff; text-decoration: underline; }
+/* 사용자 정보 + 로그아웃 바 — 지도 우상단 clay 알약 */
+.user-bar { position: fixed; top: 10px; right: 10px; z-index: 500; display: flex; align-items: center; gap: 8px; background: var(--surface); box-shadow: var(--clay-sm); color: var(--ink); padding: 7px 14px; border-radius: var(--radius-pill); font-size: 12.5px; font-weight: 700; line-height: 1; }
+.user-bar .user-name { font-weight: 700; letter-spacing: 0.01em; color: var(--ink); }
+.user-bar .user-divider { color: var(--ink-3); opacity: 1; }
+.user-bar .logout-btn { background: none; border: none; color: var(--rose); font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; line-height: 1; }
+.user-bar .logout-btn:hover { text-decoration: underline; }
+.user-bar .search-btn { background: none; border: none; color: var(--mint-strong); font-size: 12px; cursor: pointer; padding: 0; line-height: 1; font-weight: 700; }
+.user-bar .search-btn:hover { text-decoration: underline; }
 /* 모바일: 터치 영역 확보 */
-@media (max-width: 640px) { .user-bar { top: 8px; right: 8px; padding: 6px 12px; font-size: 13px; } .user-bar .logout-btn, .user-bar .search-btn { font-size: 13px; min-height: 28px; } }
+@media (max-width: 640px) { .user-bar { top: 8px; right: 8px; padding: 8px 14px; font-size: 13px; } .user-bar .logout-btn, .user-bar .search-btn { font-size: 13px; min-height: 28px; } }
 
 /* 검색 모달 — 오버레이 */
 .search-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 2000; display: none; align-items: flex-start; justify-content: center; padding: 60px 16px 16px; }
@@ -52,6 +60,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothi
 
 /* 지사 필터 드롭다운 — 지도 좌상단 */
 .jisa-filter { position: fixed; top: 10px; left: 10px; z-index: 500; }
-.jisa-filter select { background: rgba(17,24,39,0.85); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); color: #fff; border: none; padding: 7px 28px 7px 12px; border-radius: 20px; font-size: 13px; font-family: inherit; cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='white' d='M0 0l5 6 5-6z'/></svg>"); background-repeat: no-repeat; background-position: right 10px center; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
-.jisa-filter select:focus { outline: 2px solid #3b82f6; }
+.jisa-filter select { background: var(--surface); color: var(--ink); border: none; padding: 9px 30px 9px 16px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 700; font-family: var(--font); cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%236f6b62' d='M0 0l5 6 5-6z'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; box-shadow: var(--clay-sm); }
+.jisa-filter select:focus { outline: none; box-shadow: var(--clay-sm), var(--focus-glow); }
 @media (max-width: 640px) { .jisa-filter { top: 8px; left: 8px; } .jisa-filter select { font-size: 14px; padding: 8px 30px 8px 14px; } }

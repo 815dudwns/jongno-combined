@@ -1,11 +1,12 @@
 /* marker.css — 마커 관련 스타일 */
 .custom-marker { position: relative; width: 20px; height: 26px; cursor: pointer; font-size: 0; /* 부모 font-size 상속 차단, 자식에서 명시적 지정 */ }
 .custom-marker svg { width: 100%; height: 100%; }
-.custom-marker.green  .pin-body { fill: #10b981; }
-.custom-marker.gray   .pin-body { fill: #4b5563; }
-.custom-marker.blue   .pin-body { fill: #3b82f6; }
-.custom-marker.red    .pin-body { fill: #ef4444; }
-.custom-marker.yellow .pin-body { fill: #f59e0b; }
+/* 상태 색 — 클레이 톤 (구조·크기·의미 유지, 색만 부드럽게) */
+.custom-marker.green  .pin-body { fill: #54b485; }
+.custom-marker.gray   .pin-body { fill: #9b9588; }
+.custom-marker.blue   .pin-body { fill: #5f95cf; }
+.custom-marker.red    .pin-body { fill: #d56e6e; }
+.custom-marker.yellow .pin-body { fill: #dcb152; }
 
 /* 리스트1(미완·폴백): 흰 원 표시 / 리스트2(완료·보류·불가): 꽉찬 핀 */
 .pin-circle { display: none; }
@@ -55,10 +56,10 @@
 .custom-marker.pri-4 .marker-number,
 .custom-marker.pri-past .marker-number { color: #1f2937; }
 
-/* 통신팀 화면 — 계기팀 완료된 곳 (가야 할 곳) */
-.custom-marker.comm-target .pin-body { fill: #4caf50; }       /* 초록 */
-.custom-marker.comm-last .pin-body { fill: #1b5e20; }         /* 찐초록 (마지막 작업) */
-.custom-marker.comm-done .pin-body { fill: #9e9e9e; }         /* 회색 */
+/* 통신팀 화면 — 계기팀 완료된 곳 (가야 할 곳) — 클레이 톤 */
+.custom-marker.comm-target .pin-body { fill: #54b485; }       /* 초록 */
+.custom-marker.comm-last .pin-body { fill: #2c5e44; }         /* 찐초록 (마지막 작업) */
+.custom-marker.comm-done .pin-body { fill: #9b9588; }         /* 회색 */
 
 /* 통신팀 화면에서 계기팀 pending — 파스텔이라 채도/명도 보정으로 선명하게 */
 .custom-marker.comm-bg { opacity: 0.65; filter: saturate(1.45) brightness(0.96); }
