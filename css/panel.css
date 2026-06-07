@@ -73,10 +73,11 @@
 .meter-seq b { font-size: 18px; font-weight: 900; }
 [data-theme="dark"] .meter-seq { color: #c4b5fd; background: rgba(167,139,250,0.18); }
 .meter-info { flex: 1; font-size: 13px; line-height: 1.6; word-break: break-all; color: var(--ink); }
-.meter-type { display: inline-block; padding: 4px 9px; background: linear-gradient(145deg,#86bbe8,#5b93cf); color: white; border-radius: 8px; font-size: 11px; font-weight: 800; margin-right: 6px; box-shadow: var(--clay-sm); }
+.meter-type { display: inline-block; padding: 4px 9px; background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); border-radius: 8px; font-size: 11px; font-weight: 800; margin-right: 6px; box-shadow: var(--clay-sm); }
 .meter-number { font-weight: 800; color: var(--ink); }
-.meter-details { color: var(--ink-2); font-size: 12px; margin-top: 4px; }
-.meter-meta { color: var(--mint-strong); font-size: 10.5px; margin-top: 3px; line-height: 1.4; word-break: break-all; font-weight: 600; }
+/* 상호·주택명 = 테마색 강조 */
+.meter-details { color: var(--mint-strong); font-size: 12px; margin-top: 4px; font-weight: 700; }
+.meter-meta { color: var(--ink-3); font-size: 10.5px; margin-top: 3px; line-height: 1.4; word-break: break-all; }
 
 /* 계기번호 색상 분리 */
 .meter-no-seg { letter-spacing: 0; }

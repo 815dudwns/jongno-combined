@@ -828,12 +828,15 @@ function refreshAllMarkers() {
 function updateTopbarInfo() {
     const el = document.getElementById('topbar-info');
     if (!el) return;
+    // 오늘(KST) 자정 ms — daily_seq는 그날 기준이므로 오늘 작업만 집계 (오늘 없으면 1)
+    const todayStart = Math.floor((Date.now() + 9 * 3600000) / 86400000) * 86400000 - 9 * 3600000;
     let maxSeq = 0, maxNo = '';
     Object.values(workStatus).forEach(st => {
         const rl = (st && st.replacement_list) || {};
         for (const no in rl) {
             const r = rl[no];
-            if (r && typeof r.daily_seq === 'number' && r.daily_seq > maxSeq) { maxSeq = r.daily_seq; maxNo = no; }
+            if (!r || typeof r.replaced_at !== 'number' || r.replaced_at < todayStart) continue;  // 오늘 작업만
+            if (typeof r.daily_seq === 'number' && r.daily_seq > maxSeq) { maxSeq = r.daily_seq; maxNo = no; }
         }
     });
     let day = '';
