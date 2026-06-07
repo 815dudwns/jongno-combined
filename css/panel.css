@@ -76,7 +76,7 @@
 .meter-type { display: inline-block; padding: 4px 9px; background: linear-gradient(145deg,#86bbe8,#5b93cf); color: white; border-radius: 8px; font-size: 11px; font-weight: 800; margin-right: 6px; box-shadow: var(--clay-sm); }
 .meter-number { font-weight: 800; color: var(--ink); }
 .meter-details { color: var(--ink-2); font-size: 12px; margin-top: 4px; }
-.meter-meta { color: var(--ink-3); font-size: 10.5px; margin-top: 3px; line-height: 1.4; word-break: break-all; }
+.meter-meta { color: var(--mint-strong); font-size: 10.5px; margin-top: 3px; line-height: 1.4; word-break: break-all; font-weight: 600; }
 
 /* 계기번호 색상 분리 */
 .meter-no-seg { letter-spacing: 0; }
