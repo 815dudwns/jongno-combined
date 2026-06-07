@@ -17,7 +17,7 @@
   --mint-strong:   #3f8e6b;   /* 진한 세이지 (텍스트) */
   --mint-deep:     #2c5e44;   /* 버튼 라벨용 딥그린 */
   --mint-soft:     #d6ecdf;   /* 옅은 민트 (칩 배경) */
-  --mint-glow:     #46e0a3;   /* 포커스 링 — 밝은 스프링그린 */
+  --mint-glow: rgba(70,224,163,0.5);   /* 포커스 링 — 밝은 스프링그린 */
 
   --ink:           #2c2a27;   /* 본문 텍스트 (웜 블랙) */
   --ink-2:         #6f6b62;   /* 보조 텍스트 */
@@ -66,7 +66,7 @@
     inset -4px -4px 9px rgba(80,150,115,0.4);
 
   /* 포커스 글로우 */
-  --focus-glow: 0 0 0 3px rgba(70,224,163,0.45), 0 0 14px rgba(70,224,163,0.35);
+  --focus-glow: 0 0 0 3px var(--mint-glow), 0 0 12px var(--mint-glow);
 
   --font: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
           'Malgun Gothic', sans-serif;
@@ -93,7 +93,7 @@
   --mint-strong:   #a7e4c6;
   --mint-deep:     #13261d;   /* 민트 버튼 라벨 — 딥 */
   --mint-soft:     #29413a;   /* 옅은 민트 칩 배경 → 다크 민트 틴트 */
-  --mint-glow:     #46e0a3;
+  --mint-glow: rgba(70,224,163,0.5);
 
   --ink:           #ece9e2;   /* 본문 — 웜 오프화이트 */
   --ink-2:         #a8a294;
@@ -134,7 +134,7 @@
     inset 2px 2px 5px rgba(190,240,215,0.25),
     inset -4px -4px 9px rgba(0,0,0,0.4);
 
-  --focus-glow: 0 0 0 3px rgba(70,224,163,0.4), 0 0 16px rgba(70,224,163,0.4);
+  --focus-glow: 0 0 0 3px var(--mint-glow), 0 0 12px var(--mint-glow);
 }
 
 /* 다크에서 민트 버튼 그라데이션 보정 */
@@ -162,7 +162,7 @@
     --mint-strong:   #a7e4c6;
     --mint-deep:     #13261d;
     --mint-soft:     #29413a;
-    --mint-glow:     #46e0a3;
+    --mint-glow: rgba(70,224,163,0.5);
 
     --ink:           #ece9e2;
     --ink-2:         #a8a294;
@@ -196,7 +196,7 @@
       calc(-4px * var(--depth)) calc(-4px * var(--depth)) calc(11px * var(--depth)) rgba(120,210,170,0.12),
       inset 2px 2px 5px rgba(190,240,215,0.25),
       inset -4px -4px 9px rgba(0,0,0,0.4);
-    --focus-glow: 0 0 0 3px rgba(70,224,163,0.4), 0 0 16px rgba(70,224,163,0.4);
+    --focus-glow: 0 0 0 3px var(--mint-glow), 0 0 12px var(--mint-glow);
   }
   /* 자동 다크에서도 민트 버튼 보정 */
   :root:not([data-theme="light"]):not([data-theme="dark"]) .cbtn-primary,

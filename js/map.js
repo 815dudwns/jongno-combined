@@ -683,10 +683,10 @@ function updateMeterLatestAddress() {
 // ── 마커 이미지 캐시 (canvas → dataURL) — DOM 마커 대신 이미지 아이콘으로 경량화 ──
 const _markerImgCache = {};
 const MARKER_FILL = {
-    green: '#54b485', gray: '#9b9588', blue: '#5f95cf', red: '#d56e6e', yellow: '#dcb152',
+    green: '#54b485', gray: '#6f6a5d', blue: '#5f95cf', red: '#d56e6e', yellow: '#dcb152',
     'day-g1': '#f5cbb1', 'day-g2': '#b5dfc7', 'day-g3': '#d0c0dc', 'day-g4': '#d9b8c5',
     'pri-1': '#e8b8b8', 'pri-2': '#e8d3b8', 'pri-3': '#d6cfa0', 'pri-4': '#bfd5a8', 'pri-past': '#b0b0b0',
-    'comm-target': '#54b485', 'comm-last': '#2c5e44', 'comm-done': '#9b9588',
+    'comm-target': '#54b485', 'comm-last': '#2c5e44', 'comm-done': '#6f6a5d',
 };
 // 흰 원(밝은 핀) 표시 + 번호 어둡게 = green/yellow/day/pri 계열
 const CIRCLE_CLASSES = new Set(['green', 'yellow', 'day-g1', 'day-g2', 'day-g3', 'day-g4', 'pri-1', 'pri-2', 'pri-3', 'pri-4', 'pri-past']);
