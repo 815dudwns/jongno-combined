@@ -150,7 +150,7 @@
     cursor: pointer;
     box-shadow: var(--clay-sm);
 }
-.meter-rpl-btn.new { background: linear-gradient(145deg,#c3b3e0,#a896d0); color: #3a2d57; }
+.meter-rpl-btn.new { background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); }
 .meter-rpl-btn.done { background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: #2c5e44; }
 .meter-rpl-btn.draft { background: linear-gradient(145deg,#eccf8c,#dcb152); color: #5a4413; }
 .meter-remove-added-btn { margin-left: 4px; padding: 5px 11px; background: var(--rose-soft); color: #b13c3c; }
@@ -213,7 +213,7 @@
 .dong-group-toggle {
     padding: 10px 16px;
     background: var(--surface);
-    color: var(--ink);
+    color: var(--mint-strong);
     border: none;
     border-radius: var(--radius-pill);
     font-size: 13px;
@@ -290,7 +290,7 @@
 .checkday-toggle {
     padding: 10px 16px;
     background: var(--surface);
-    color: var(--ink);
+    color: var(--mint-strong);
     border: none;
     border-radius: var(--radius-pill);
     font-size: 13px;
