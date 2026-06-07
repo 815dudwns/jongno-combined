@@ -27,6 +27,7 @@
     pref = order[(idx + 1) % order.length];
     localStorage.setItem(KEY, pref);
     applyTheme();
+    applyAccent(window.jongnoCurrentAccent());  // 다크/라이트 전환 시 강조색도 그 모드에 맞게 재적용
 
     // 네이버 지도 GL 스타일은 런타임 복귀가 불안정해서 지도 화면에서는 저장 후 재로드로 확실히 반영한다.
     if (document.getElementById('map')) {
@@ -35,7 +36,7 @@
   };
 
   if (mq && mq.addEventListener) {
-    mq.addEventListener('change', function () { applyTheme(); });
+    mq.addEventListener('change', function () { applyTheme(); applyAccent(window.jongnoCurrentAccent()); });
   }
   document.addEventListener('DOMContentLoaded', applyTheme);
   applyTheme();
@@ -58,6 +59,12 @@
     stone:      ['스톤 그레이', ['#9a9aa0', '#aaaab0', '#56555c', '#ffffff', '#e1e0e3', 'rgba(120,120,128,.32)']],
   };
 
+  function _hexToRgba(hex, a) {
+    const h = String(hex).replace('#', '');
+    if (h.length < 6) return hex;
+    const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
   function applyAccent(key) {
     const root = document.documentElement;
     const p = ACCENT_PALETTES[key];
@@ -67,9 +74,22 @@
       root.style.removeProperty('--mint-ink');
       return;
     }
-    const c = p[1];
-    ACCENT_VARS.forEach((v, i) => root.style.setProperty(v, c[i]));
-    root.style.setProperty('--mint-ink', c[2]); // 중간 텍스트색 ≈ strong
+    const c = p[1];  // [main, light, strong, deep, soft, glow]
+    const dark = (root.getAttribute('data-theme') === 'dark');
+    root.style.setProperty('--mint', c[0]);
+    root.style.setProperty('--mint-l', c[1]);
+    root.style.setProperty('--mint-deep', c[3]);
+    root.style.setProperty('--mint-glow', c[5]);
+    if (dark) {
+      // 테마색옵션 body.dark 방식: 강조 텍스트=main(밝은 색), 칩 배경=bg-deep(어두운)
+      root.style.setProperty('--mint-strong', c[0]);
+      root.style.setProperty('--mint-ink', c[0]);
+      root.style.setProperty('--mint-soft', 'var(--bg-deep)');
+    } else {
+      root.style.setProperty('--mint-strong', c[2]);
+      root.style.setProperty('--mint-ink', c[2]);
+      root.style.setProperty('--mint-soft', c[4]);
+    }
   }
 
   window.jongnoApplyAccent = function (key) {
