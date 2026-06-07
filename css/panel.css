@@ -1,5 +1,5 @@
 /* panel.css — 오버레이/패널 관련 스타일 */
-.fullpage-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; background: white; z-index: 1000; display: none; flex-direction: column; }
+.fullpage-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; height: 100dvh; background: var(--bg); z-index: 1000; display: none; flex-direction: column; }
 .fullpage-overlay.active { display: flex; }
 
 /* 모바일 한정: flex 해제하고 자연 흐름 + 전체 스크롤 (헤더가 위로 따라옴) */
@@ -22,49 +22,54 @@
 /* 작업자 정보 (기능 4) — 지도앱 버튼 아래, 작은 회색 글씨 */
 .worker-info { padding: 4px 16px 8px; font-size: 12px; color: #6b7280; flex-shrink: 0; }
 
-.overlay-header { padding: 16px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; display: flex; justify-content: space-between; align-items: flex-start; flex-shrink: 0; }
+.overlay-header { padding: 16px; background: var(--bg); display: flex; justify-content: space-between; align-items: flex-start; flex-shrink: 0; }
 .overlay-address { flex: 1; }
-.overlay-address h3 { font-size: 18px; margin-bottom: 6px; color: #111827; font-weight: 700; }
-.overlay-address p { font-size: 13px; color: #6b7280; line-height: 1.4; }
-.header-buttons { display: flex; gap: 8px; }
-/* 지도 앱 버튼 3개 묶음 */
-.map-app-btns { display: flex; gap: 4px; }
-.map-app-btn { padding: 4px 7px; background: #3b82f6; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; white-space: nowrap; font-weight: 600; }
-.close-btn { width: 32px; height: 32px; border: none; background: #e5e7eb; border-radius: 6px; cursor: pointer; font-size: 20px; line-height: 1; color: #374151; font-weight: 600; }
+.overlay-address h3 { font-size: 18px; margin-bottom: 6px; color: var(--ink); font-weight: 800; letter-spacing: -0.02em; }
+.overlay-address p { font-size: 13px; color: var(--ink-2); line-height: 1.4; font-weight: 600; }
+.header-buttons { display: flex; gap: 8px; align-items: center; }
+/* 지도 앱 버튼 3개 묶음 — 길찾기 T/N/K (채도 낮춘 clay톤) */
+.map-app-btns { display: flex; gap: 6px; }
+.map-app-btn { padding: 7px 11px; color: #fff; border: none; border-radius: 11px; font-size: 11px; cursor: pointer; white-space: nowrap; font-weight: 800; box-shadow: var(--clay-sm); transition: box-shadow 0.14s; }
+.map-app-btn:active { box-shadow: var(--clay-inset-sm); }
+.map-app-btn#tmap-btn  { background: linear-gradient(145deg,#d68f84,#c06f64); }
+.map-app-btn#naver-btn { background: linear-gradient(145deg,#84c79c,#5aa477); }
+.map-app-btn#kakao-btn { background: linear-gradient(145deg,#ddc079,#cba94f); color: #4a3a14; }
+.close-btn { width: 36px; height: 36px; border: none; background: var(--surface); border-radius: 50%; cursor: pointer; font-size: 20px; line-height: 1; color: var(--ink-2); font-weight: 600; box-shadow: var(--clay-sm); transition: box-shadow 0.14s; }
+.close-btn:active { box-shadow: var(--clay-inset-sm); }
 
-.overlay-actions { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 8px; background: white; flex-shrink: 0; }
+.overlay-actions { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; background: var(--bg); flex-shrink: 0; }
 .action-btn-row { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; }
 .action-btn-row .action-btn { flex: 1; min-width: 0; }
 .fail-reason-row { display: flex; }
 .fail-reason-row .fail-reason { flex: 1; }
 .search-row { display: flex; gap: 6px; align-items: center; }
-.action-btn { padding: 10px 16px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; cursor: pointer; background: white; transition: all 0.2s; font-weight: 600; }
-.action-btn.complete { border-color: #10b981; color: #10b981; }
-.action-btn.complete.active { background: #10b981; color: white; }
-.action-btn.reset { border-color: #6b7280; color: #6b7280; }
-.action-btn.reset:active { background: #6b7280; color: white; }
-.action-btn.hold { border-color: #3b82f6; color: #3b82f6; }
-.action-btn.hold.active { background: #3b82f6; color: white; }
-.action-btn.fail { border-color: #ef4444; color: #ef4444; }
-.action-btn.fail.active { background: #ef4444; color: white; }
-.fail-reason, .meter-search { flex: 1; min-width: 0; padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; transition: border-color 0.2s; }
-.search-reset-btn { padding: 8px 10px; border: 2px solid #e5e7eb; border-radius: 8px; background: #f3f4f6; color: #6b7280; font-size: 14px; cursor: pointer; flex-shrink: 0; }
-.common-pole { padding: 8px 16px; background: #eff6ff; border-bottom: 1px solid #dbeafe; font-size: 13px; color: #1d4ed8; font-weight: 600; flex-shrink: 0; }
+.action-btn { padding: 11px 14px; border: none; border-radius: 12px; font-size: 14px; cursor: pointer; background: var(--surface); box-shadow: var(--clay-sm); transition: all 0.14s; font-weight: 700; color: var(--ink-2); }
+.action-btn:active { box-shadow: var(--clay-inset-sm); }
+.action-btn.complete.active { background: linear-gradient(145deg,#9ee0bd,#5fbb8c); color: #1c4733; box-shadow: var(--clay-mint); }
+.action-btn.reset:active { background: var(--gray-soft); color: var(--ink); }
+.action-btn.hold.active { background: linear-gradient(145deg,#86bbe8,#5b93cf); color: #fff; box-shadow: 5px 6px 14px rgba(80,120,160,.4), inset 2px 2px 5px rgba(220,238,255,.7), inset -4px -4px 9px rgba(70,110,150,.4); }
+.action-btn.fail.active { background: linear-gradient(145deg,#ed9d9d,#d56e6e); color: #fff; box-shadow: 5px 6px 14px rgba(170,90,90,.4), inset 2px 2px 5px rgba(255,225,225,.7), inset -4px -4px 9px rgba(160,70,70,.4); }
+.fail-reason, .meter-search { flex: 1; min-width: 0; padding: 13px 16px; border: none; border-radius: var(--radius-pill); font-size: 14px; font-family: var(--font); color: var(--ink); background: var(--bg-deep); box-shadow: var(--clay-inset); outline: none; transition: box-shadow 0.18s; }
+.fail-reason::placeholder, .meter-search::placeholder { color: var(--ink-3); }
+.fail-reason:focus, .meter-search:focus { box-shadow: var(--clay-inset), var(--focus-glow); }
+.search-reset-btn { padding: 10px 13px; border: none; border-radius: var(--radius-pill); background: var(--surface); color: var(--ink-3); font-size: 14px; cursor: pointer; flex-shrink: 0; box-shadow: var(--clay-sm); }
+.search-reset-btn:active { box-shadow: var(--clay-inset-sm); }
+.common-pole { margin: 0 16px 8px; padding: 9px 14px; border-radius: 12px; background: var(--blue-soft); font-size: 13px; color: #2f6cad; font-weight: 700; flex-shrink: 0; box-shadow: var(--clay-sm); }
 
 /* 계기 리스트 정렬 버튼 바 */
-.meter-sort-bar { display: flex; gap: 8px; padding: 8px 16px; background: #f3f4f6; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
-.sort-btn { padding: 6px 14px; border: 1.5px solid #d1d5db; border-radius: 6px; background: white; color: #6b7280; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
-.sort-btn:hover { border-color: #9ca3af; color: #374151; }
-.sort-btn.active { background: #3b82f6; border-color: #3b82f6; color: white; }
+.meter-sort-bar { display: flex; gap: 8px; padding: 8px 16px; background: var(--bg); flex-shrink: 0; }
+.sort-btn { padding: 8px 15px; border: none; border-radius: var(--radius-pill); background: var(--surface); color: var(--ink-2); font-size: 12px; font-weight: 700; font-family: var(--font); cursor: pointer; transition: all 0.14s; box-shadow: var(--clay-sm); }
+.sort-btn:active { box-shadow: var(--clay-inset-sm); }
+.sort-btn.active { background: linear-gradient(145deg,#bbe8d0,#93d2af); color: var(--mint-deep); box-shadow: var(--clay-mint); }
 
-.overlay-meters { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); background: #f9fafb; }
-.meter-item { margin-bottom: 10px; padding: 12px; background: white; border-radius: 8px; display: flex; align-items: flex-start; gap: 10px; border: 1px solid #e5e7eb; }
-.meter-checkbox { width: 20px; height: 20px; cursor: pointer; margin-top: 2px; flex-shrink: 0; accent-color: #10b981; }
-.meter-info { flex: 1; font-size: 13px; line-height: 1.6; word-break: break-all; }
-.meter-type { display: inline-block; padding: 3px 8px; background: #3b82f6; color: white; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 6px; }
-.meter-number { font-weight: 700; color: #111827; }
-.meter-details { color: #6b7280; font-size: 12px; margin-top: 4px; }
-.meter-meta { color: #9ca3af; font-size: 10.5px; margin-top: 3px; line-height: 1.4; word-break: break-all; }
+.overlay-meters { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); background: var(--bg); }
+.meter-item { margin-bottom: 13px; padding: 13px 15px; background: var(--surface); border-radius: 18px; display: flex; align-items: flex-start; gap: 11px; border: none; box-shadow: var(--clay-sm); }
+.meter-checkbox { width: 22px; height: 22px; cursor: pointer; margin-top: 2px; flex-shrink: 0; accent-color: var(--mint-ink); }
+.meter-info { flex: 1; font-size: 13px; line-height: 1.6; word-break: break-all; color: var(--ink); }
+.meter-type { display: inline-block; padding: 4px 9px; background: linear-gradient(145deg,#86bbe8,#5b93cf); color: white; border-radius: 8px; font-size: 11px; font-weight: 800; margin-right: 6px; box-shadow: var(--clay-sm); }
+.meter-number { font-weight: 800; color: var(--ink); }
+.meter-details { color: var(--ink-2); font-size: 12px; margin-top: 4px; }
+.meter-meta { color: var(--ink-3); font-size: 10.5px; margin-top: 3px; line-height: 1.4; word-break: break-all; }
 
 /* 계기번호 색상 분리 */
 .meter-no-seg { letter-spacing: 0; }
@@ -75,33 +80,110 @@
 .seg-last  { color: #111; }                          /* 정상 */
 .seg-dup   { color: #E24B4A; font-weight: 500; }    /* 중복 */
 
-.copy-btn { background: none; border: none; cursor: pointer; padding: 0 3px; color: #9ca3af; line-height: 1; vertical-align: middle; display: inline-flex; align-items: center; }
-.copy-btn:hover { color: #374151; }
+/* 다크 모드: 계기번호 세그먼트가 검정 고정색으로 보이지 않게 보정 */
+[data-theme="dark"] .seg-maker,
+[data-theme="dark"] .seg-mid,
+[data-theme="dark"] .seg-last {
+  color: #f2efe7;
+}
+[data-theme="dark"] .seg-type {
+  color: #8fc8f2;
+}
+[data-theme="dark"] .seg-dup {
+  color: #ff8f8f;
+}
+
+.copy-btn { background: none; border: none; cursor: pointer; padding: 0 3px; color: var(--ink-3); line-height: 1; vertical-align: middle; display: inline-flex; align-items: center; }
+.copy-btn:hover { color: var(--ink); }
+
+.ota-badge,
+.added-meter-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 7px;
+    border-radius: 8px;
+    font-size: 10.5px;
+    font-weight: 800;
+    vertical-align: middle;
+}
+.ota-badge.comm-typo,
+.added-meter-badge {
+    background: var(--amber-soft);
+    color: #92400e;
+    border: 1px solid #fbbf24;
+}
+.ota-badge.missing {
+    background: var(--rose-soft);
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+}
+.new-meter-arrow,
+.repl-no { color: #7c3aed; font-weight: 800; }
+.meter-repl-info { margin-top: 4px; font-size: 12px; color: var(--ink-2); line-height: 1.8; font-weight: 650; }
+.repl-dl-all { color: #2563eb; font-weight: 800; text-decoration: underline; cursor: pointer; }
+.meter-rpl-btn,
+.meter-remove-added-btn {
+    margin-left: 6px;
+    padding: 5px 12px;
+    border: none;
+    border-radius: var(--radius-pill);
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: var(--clay-sm);
+}
+.meter-rpl-btn.new { background: linear-gradient(145deg,#c3b3e0,#a896d0); color: #3a2d57; }
+.meter-rpl-btn.done { background: linear-gradient(145deg,#bbe8d0,#93d2af); color: #2c5e44; }
+.meter-rpl-btn.draft { background: linear-gradient(145deg,#eccf8c,#dcb152); color: #5a4413; }
+.meter-remove-added-btn { margin-left: 4px; padding: 5px 11px; background: var(--rose-soft); color: #b13c3c; }
+
+[data-theme="dark"] .ota-badge.comm-typo,
+[data-theme="dark"] .added-meter-badge { background: rgba(251,191,36,0.16); color: #ffd36a; border-color: rgba(251,191,36,0.5); }
+[data-theme="dark"] .ota-badge.missing { background: rgba(248,113,113,0.16); color: #ff9b9b; border-color: rgba(248,113,113,0.52); }
+[data-theme="dark"] .new-meter-arrow,
+[data-theme="dark"] .repl-no { color: #c4b5fd; }
+[data-theme="dark"] .repl-dl-all { color: #93c5fd; }
+[data-theme="dark"] .meter-rpl-btn.new { color: #efe9ff; }
+[data-theme="dark"] .meter-rpl-btn.done { color: #062718; }
+[data-theme="dark"] .meter-rpl-btn.draft { color: #2d2107; }
+[data-theme="dark"] .meter-remove-added-btn { color: #ffb3b3; }
 
 /* 계기 개별 불가 버튼 */
-.meter-fail-btn { display: inline-block; padding: 1px 5px; font-size: 11px; font-weight: 600; border: 1.5px solid #f87171; border-radius: 4px; background: white; color: #ef4444; cursor: pointer; vertical-align: middle; margin-left: 5px; line-height: 1.4; transition: all 0.15s; }
-.meter-fail-btn:hover { background: #fef2f2; }
-.meter-fail-btn.active { background: #ef4444; color: white; border-color: #ef4444; }
-.meter-fail-btn.active:hover { background: #dc2626; border-color: #dc2626; }
+.meter-fail-btn { display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 700; border: none; border-radius: var(--radius-pill); background: var(--rose-soft); color: #b13c3c; cursor: pointer; vertical-align: middle; margin-left: 5px; line-height: 1.4; transition: all 0.14s; box-shadow: var(--clay-sm); }
+.meter-fail-btn:active { box-shadow: var(--clay-inset-sm); }
+.meter-fail-btn.active { background: linear-gradient(145deg,#ed9d9d,#d56e6e); color: white; }
 
-/* 교체 완료된 계기 — 하늘색 배경 */
-.meter-item-replaced { background: #e0f2fe !important; border-color: #7dd3fc !important; }
-/* 임시 저장(미완료)된 계기 — 옅은 노랑 + 점선 보더 */
-.meter-item-draft { background: #fffbeb !important; border-color: #fbbf24 !important; border-style: dashed !important; }
+/* 교체 완료된 계기 — 하늘색 clay 톤 */
+.meter-item-replaced { background: linear-gradient(145deg,#e7f4fc,#d8ebf8) !important; }
+/* 임시 저장(미완료)된 계기 — 옅은 노랑 + 앰버 링 */
+.meter-item-draft { background: linear-gradient(145deg,#fdf6e3,#f8edcc) !important; box-shadow: var(--clay-sm), inset 0 0 0 2px rgba(224,168,90,.45) !important; }
 
 /* 불가 처리된 계기 아이템 (우선순위 — 교체/임시보다 위) */
-.meter-item-failed { background: #fff5f5 !important; border-color: #fca5a5 !important; opacity: 0.85; }
+.meter-item-failed { background: linear-gradient(145deg,#fae3e3,#f4d4d4) !important; opacity: 0.9; }
 .meter-item-failed .meter-no-seg { text-decoration: line-through; color: #9ca3af; }
 .meter-item-failed .seg-maker,
 .meter-item-failed .seg-type,
 .meter-item-failed .seg-mid,
 .meter-item-failed .seg-last,
 .meter-item-failed .seg-dup { color: #9ca3af; }
+.meter-item-comm-inactive { opacity: 0.4; }
+.meter-item-comm-done { background: var(--surface-2); }
+
+/* 다크 모드: 상태 카드(완료/임시저장/불가) — 라이트 고정색 보정 */
+[data-theme="dark"] .meter-item-replaced { background: linear-gradient(145deg,#22323d,#1a2832) !important; }
+[data-theme="dark"] .meter-item-draft { background: linear-gradient(145deg,#332e1f,#262216) !important; box-shadow: var(--clay-sm), inset 0 0 0 2px rgba(224,168,90,.4) !important; }
+[data-theme="dark"] .meter-item-failed { background: linear-gradient(145deg,#33201f,#271918) !important; }
+[data-theme="dark"] .meter-item-failed .meter-no-seg,
+[data-theme="dark"] .meter-item-failed .seg-maker,
+[data-theme="dark"] .meter-item-failed .seg-type,
+[data-theme="dark"] .meter-item-failed .seg-mid,
+[data-theme="dark"] .meter-item-failed .seg-last,
+[data-theme="dark"] .meter-item-failed .seg-dup { color: #7d776b; }
 
 /* 불가 사유 입력창 */
 .meter-fail-input-wrap { margin-top: 6px; }
-.meter-fail-input { width: 100%; padding: 5px 8px; font-size: 12px; border: 1.5px solid #fca5a5; border-radius: 6px; background: white; color: #374151; box-sizing: border-box; outline: none; }
-.meter-fail-input:focus { border-color: #ef4444; }
+.meter-fail-input { width: 100%; padding: 9px 13px; font-size: 12px; border: none; border-radius: var(--radius-pill); background: var(--bg-deep); color: var(--ink); box-shadow: var(--clay-inset-sm); box-sizing: border-box; outline: none; }
+.meter-fail-input:focus { box-shadow: var(--clay-inset-sm), var(--focus-glow); }
 
 /* 동그룹 필터 패널 */
 .dong-group-filter {
@@ -295,8 +377,7 @@
     box-shadow: 2px 3px 7px rgba(95,160,125,0.4), inset 1px 1px 3px rgba(225,247,234,0.7), inset -2px -2px 5px rgba(80,150,115,0.35);
 }
 
-/* 중복 행 배경색 — 20° 간격 hsl, 그룹별 구분 */
-.meter-item { border: 1px solid #e5e7eb; background: #fff; }
+/* 중복 행 배경색 — 20° 간격 hsl, 그룹별 구분 (clay 표면 위) */
 .dup-row-0 { background: hsl(0,   100%, 96%); border-color: hsl(0,   80%, 88%); }
 .dup-row-1 { background: hsl(20,  100%, 96%); border-color: hsl(20,  80%, 87%); }
 .dup-row-2 { background: hsl(40,  100%, 96%); border-color: hsl(40,  80%, 87%); }

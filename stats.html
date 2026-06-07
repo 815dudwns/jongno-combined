@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>작업 통계 - 종로 합동시공</title>
-  <link rel="stylesheet" href="css/clay.css?v=20260606a">
+  <link rel="stylesheet" href="css/clay.css?v=20260606dark">
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
       const APP_VERSION = '20260528a';
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
-        ['jongno_auth', 'jongno_event_queue'].forEach(k => {
+        ['jongno_auth', 'jongno_event_queue', 'jongno_theme'].forEach(k => {
           const v = localStorage.getItem(k);
           if (v !== null) keep[k] = v;
         });
@@ -33,55 +33,57 @@
       } catch { window.location.replace('login.html'); }
     })();
   </script>
-  <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=2eae4b699110525f0dc62295ed8ed43d&autoload=false"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/config.js"></script>
+  <script src="js/theme.js?v=20260606dark"></script>
+  <script src="js/config.js?v=20260606naver"></script>
   <script src="js/utils.js?v=20260528a"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="css/replacement-modal.css?v=20260528a">
+  <link rel="stylesheet" href="css/replacement-modal.css?v=20260606clay">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    body { font-family: -apple-system, 'Noto Sans KR', sans-serif; background: #f3f4f6; min-height: 100vh; color: #1f2937; }
+    body { font-family: var(--font); background: var(--bg); min-height: 100vh; color: var(--ink); }
 
-    .header { background: #1e3a8a; color: white; padding: 12px 16px; position: sticky; top: 0; z-index: 200; display: flex; align-items: center; gap: 10px; }
-    .header a { color: rgba(255,255,255,0.85); text-decoration: none; font-size: 14px; font-weight: 600; }
-    .header h1 { font-size: 16px; font-weight: 700; flex: 1; }
+    .header { background: var(--surface); color: var(--ink); padding: 13px 16px; position: sticky; top: 0; z-index: 200; display: flex; align-items: center; gap: 10px; box-shadow: var(--clay-sm); }
+    .header a { color: var(--ink-2); text-decoration: none; font-size: 14px; font-weight: 700; }
+    .header h1 { font-size: 16px; font-weight: 800; flex: 1; letter-spacing: -0.01em; }
+    [data-theme-toggle] { background: var(--bg-deep) !important; color: var(--ink-2) !important; box-shadow: var(--clay-inset-sm); }
 
     .container { max-width: 1100px; margin: 0 auto; padding: 12px; }
 
-    .date-bar { background: white; border-radius: 10px; padding: 10px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-    .date-bar input { flex: 1; padding: 10px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 15px; min-width: 0; }
-    .date-bar button { padding: 10px 14px; background: #1d4ed8; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
-    .date-bar button.sec { background: #f3f4f6; color: #374151; border: 1.5px solid #d1d5db; }
+    .date-bar { background: var(--surface); border-radius: 16px; padding: 10px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; box-shadow: var(--clay-sm); }
+    .date-bar input { flex: 1; padding: 11px 13px; border: none; border-radius: var(--radius-pill); font-size: 15px; min-width: 0; font-family: var(--font); color: var(--ink); background: var(--bg-deep); box-shadow: var(--clay-inset-sm); outline: none; }
+    .date-bar button { padding: 11px 15px; background: linear-gradient(145deg,#bbe8d0,#93d2af); color: var(--mint-deep); border: none; border-radius: var(--radius-pill); font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: var(--clay-sm); transition: box-shadow .14s; }
+    .date-bar button:active { box-shadow: var(--clay-inset-sm); }
+    .date-bar button.sec { background: var(--surface); color: var(--ink-2); }
 
-    .summary { background: white; border-radius: 10px; padding: 12px; margin-bottom: 12px; display: flex; gap: 10px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-    .summary-item { flex: 1; min-width: 100px; text-align: center; padding: 6px; border-radius: 8px; background: #ecfdf5; }
-    .summary-item .label { font-size: 11px; color: #047857; }
-    .summary-item .value { font-size: 22px; font-weight: 800; color: #047857; }
+    .summary { background: var(--surface); border-radius: 18px; padding: 13px; margin-bottom: 12px; display: flex; gap: 10px; flex-wrap: wrap; box-shadow: var(--clay-sm); }
+    .summary-item { flex: 1; min-width: 100px; text-align: center; padding: 10px 6px; border-radius: 14px; background: var(--mint-soft); box-shadow: var(--clay-inset-sm); }
+    .summary-item .label { font-size: 11px; font-weight: 700; color: var(--mint-strong); }
+    .summary-item .value { font-size: 23px; font-weight: 800; color: var(--mint-strong); }
 
-    .tabs { display: flex; gap: 6px; background: #e5e7eb; padding: 4px; border-radius: 10px; margin-bottom: 12px; }
-    .tab-btn { flex: 1; padding: 10px; background: transparent; color: #6b7280; border: none; border-radius: 7px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
-    .tab-btn.active { background: white; color: #1d4ed8; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .tabs { display: flex; gap: 6px; background: var(--bg-deep); padding: 4px; border-radius: var(--radius-pill); margin-bottom: 12px; box-shadow: var(--clay-inset-sm); }
+    .tab-btn { flex: 1; padding: 11px; background: transparent; color: var(--ink-2); border: none; border-radius: var(--radius-pill); font-size: 14px; font-weight: 800; cursor: pointer; transition: all 0.15s; font-family: var(--font); }
+    .tab-btn.active { background: var(--surface); color: var(--mint-strong); box-shadow: var(--clay-sm); }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
-    #stats-map { width: 100%; height: 70vh; border-radius: 10px; background: #e5e7eb; }
+    #stats-map { width: 100%; height: 70vh; border-radius: 18px; background: var(--bg-deep); box-shadow: var(--clay-inset-sm); }
 
-    .list-item { background: white; border-radius: 10px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; gap: 12px; }
-    .seq-badge { width: 40px; height: 40px; flex-shrink: 0; background: #10b981; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; }
-    .li-body { flex: 1; min-width: 0; font-size: 13px; line-height: 1.5; }
-    .li-body .addr { font-weight: 700; color: #111827; margin-bottom: 4px; }
-    .li-body .arrow { color: #7c3aed; font-weight: 700; }
-    .li-body .meta { color: #6b7280; font-size: 12px; margin-top: 4px; }
-    .li-photos { display: flex; gap: 4px; flex-shrink: 0; }
-    .li-photos img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; cursor: pointer; }
+    .list-item { background: var(--surface); border-radius: 18px; padding: 13px; margin-bottom: 10px; box-shadow: var(--clay-sm); display: flex; gap: 12px; }
+    .seq-badge { width: 42px; height: 42px; flex-shrink: 0; background: linear-gradient(145deg,#9ee0bd,#5fbb8c); color: #1c4733; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; box-shadow: var(--clay-mint); }
+    .li-body { flex: 1; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--ink); }
+    .li-body .addr { font-weight: 800; color: var(--ink); margin-bottom: 4px; }
+    .li-body .arrow { color: var(--violet); font-weight: 800; }
+    .li-body .meta { color: var(--ink-2); font-size: 12px; margin-top: 4px; }
+    .li-photos { display: flex; gap: 5px; flex-shrink: 0; }
+    .li-photos img { width: 56px; height: 56px; object-fit: cover; border-radius: 11px; border: none; box-shadow: var(--clay-sm); cursor: pointer; }
 
-    .empty { text-align: center; color: #9ca3af; padding: 40px 8px; font-size: 14px; }
-    .err { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 10px; padding: 12px; margin-bottom: 12px; font-size: 13px; }
+    .empty { text-align: center; color: var(--ink-3); padding: 40px 8px; font-size: 14px; }
+    .err { background: var(--rose-soft); color: #b91c1c; border: none; border-radius: 14px; padding: 12px; margin-bottom: 12px; font-size: 13px; box-shadow: var(--clay-sm); }
 
     /* 사진 라이트박스 */
     .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 9000; display: none; align-items: center; justify-content: center; padding: 20px; }
@@ -89,28 +91,52 @@
     .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; }
     .lightbox-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.2); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; }
 
-    /* 카카오맵 커스텀 마커 (번호 표시) */
-    .stat-marker { background: #10b981; color: white; border: 2px solid white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-    .stat-marker.multi { background: #7c3aed; width: 36px; height: 36px; font-size: 11px; padding: 2px; line-height: 1; text-align: center; }
+    /* 네이버 지도 커스텀 마커 (번호 표시) */
+    .stat-marker { background: linear-gradient(145deg,#5fbb8c,#3f9e6f); color: white; border: 2px solid var(--surface); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+    .stat-marker.multi { background: linear-gradient(145deg,#b9a6e0,#9579c9); width: 36px; height: 36px; font-size: 11px; padding: 2px; line-height: 1; text-align: center; }
     /* 분석 탭 */
     .ana-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
-    .ana-mode { padding: 8px 16px; border: 2px solid #e5e7eb; background: #fff; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; }
-    .ana-mode.active { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+    .ana-mode { padding: 9px 16px; border: none; background: var(--surface); border-radius: var(--radius-pill); font-weight: 800; font-size: 14px; cursor: pointer; color: var(--ink-2); box-shadow: var(--clay-sm); font-family: var(--font); }
+    .ana-mode.active { background: linear-gradient(145deg,#bbe8d0,#93d2af); color: var(--mint-deep); box-shadow: var(--clay-mint); }
     .ana-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 14px; }
-    .ana-table th, .ana-table td { border: 1px solid #e5e7eb; padding: 8px 10px; text-align: center; }
-    .ana-table th { background: #f9fafb; font-weight: 700; }
-    .ana-table td.tname { text-align: left; font-weight: 600; }
-    .ana-table tr.subtotal { background: #f3f4f6; font-weight: 800; }
+    .ana-table th, .ana-table td { border: 1px solid var(--bg-deep); padding: 8px 10px; text-align: center; color: var(--ink); }
+    .ana-table th { background: var(--bg-deep); font-weight: 800; color: var(--ink-2); }
+    .ana-table td.tname { text-align: left; font-weight: 700; }
+    .ana-table tr.subtotal { background: var(--surface-2); font-weight: 800; }
     .ana-table .num { font-variant-numeric: tabular-nums; }
-    .ana-h { font-size: 15px; font-weight: 800; margin: 6px 0 8px; color: #111827; }
+    .ana-h { font-size: 15px; font-weight: 800; margin: 6px 0 8px; color: var(--ink); }
     /* 임시저장 뱃지 */
-    .draft-badge { display: inline-block; background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; border-radius: 4px; padding: 1px 6px; font-size: 11px; font-weight: 700; margin-left: 6px; }
+    .draft-badge { display: inline-block; background: var(--amber-soft); color: #92400e; border: none; border-radius: 7px; padding: 2px 7px; font-size: 11px; font-weight: 800; margin-left: 6px; box-shadow: var(--clay-sm); }
+
+    /* 다크 모드 보정 */
+    [data-theme="dark"] body { background: var(--bg); color: var(--ink); }
+    [data-theme="dark"] .date-bar,
+    [data-theme="dark"] .summary,
+    [data-theme="dark"] .list-item,
+    [data-theme="dark"] .tabs,
+    [data-theme="dark"] .ana-mode,
+    [data-theme="dark"] .section { background: var(--surface); color: var(--ink); box-shadow: var(--clay-sm); border-color: var(--surface-2); }
+    [data-theme="dark"] .date-bar input { background: var(--bg-deep); color: var(--ink); border-color: var(--surface-2); }
+    [data-theme="dark"] .date-bar button.sec,
+    [data-theme="dark"] .tab-btn.active { background: var(--bg-deep); color: var(--mint-strong); }
+    [data-theme="dark"] .tab-btn { color: var(--ink-2); }
+    [data-theme="dark"] .summary-item { background: var(--mint-soft); }
+    [data-theme="dark"] .summary-item .label,
+    [data-theme="dark"] .summary-item .value { color: var(--mint-strong); }
+    [data-theme="dark"] .li-body .addr,
+    [data-theme="dark"] .ana-h { color: var(--ink); }
+    [data-theme="dark"] .li-body .meta,
+    [data-theme="dark"] .empty { color: var(--ink-2); }
+    [data-theme="dark"] .ana-table th { background: var(--bg-deep); color: var(--ink-2); border-color: var(--surface-2); }
+    [data-theme="dark"] .ana-table td { border-color: var(--surface-2); }
+    [data-theme="dark"] .ana-table tr.subtotal { background: var(--bg-deep); }
   </style>
 </head>
 <body>
   <div class="header">
     <a href="map.html">← 지도</a>
     <h1>작업 통계</h1>
+    <button data-theme-toggle onclick="jongnoCycleTheme()" style="padding:6px 10px;border:none;border-radius:999px;background:rgba(255,255,255,0.18);color:inherit;font-size:12px;font-weight:700;cursor:pointer;">시스템</button>
   </div>
 
   <div class="container">
@@ -131,7 +157,7 @@
     <div class="summary" id="summary"></div>
 
     <div class="tab-panel active" id="tab-list">
-      <button id="btn-export" style="width:100%;margin-bottom:10px;padding:10px;background:#059669;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">엑셀 내보내기 (이 날짜)</button>
+      <button id="btn-export" style="width:100%;margin-bottom:10px;padding:12px;background:linear-gradient(145deg,#bbe8d0,#93d2af);color:var(--mint-deep);border:none;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:var(--clay-sm);">엑셀 내보내기 (이 날짜)</button>
       <div id="list-container"></div>
     </div>
 
@@ -175,7 +201,7 @@
       </div>
 
       <div class="rpl-photo rpl-replace-only" id="rpl-new-photo">
-        <span class="rpl-photo-label">📷 새 계기 사진 (탭하여 선택)</span>
+        <span class="rpl-photo-label">새 계기 사진 (탭하여 선택)</span>
         <img class="rpl-photo-preview" alt="새 계기">
       </div>
       <input type="file" id="rpl-new-photo-input" accept="image/*" style="display:none;">
@@ -185,7 +211,7 @@
           <label>철거 주간(kWh)</label>
           <input type="text" id="rpl-rv-whme-day" inputmode="numeric" placeholder="예: 12345">
           <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-whme-day" data-field="whme_day">
-            <span class="rpl-photo-label">📷 주간 계기판 사진 (탭하여 선택)</span>
+            <span class="rpl-photo-label">주간 계기판 사진 (탭하여 선택)</span>
             <img class="rpl-photo-preview" alt="주간 계기판">
           </div>
           <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-whme-day" data-field="whme_day" accept="image/*" style="display:none;">
@@ -194,7 +220,7 @@
           <label>철거 야간(kWh)</label>
           <input type="text" id="rpl-rv-whme-mngt" inputmode="numeric" placeholder="예: 12345">
           <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-whme-mngt" data-field="whme_mngt">
-            <span class="rpl-photo-label">📷 야간 계기판 사진 (탭하여 선택)</span>
+            <span class="rpl-photo-label">야간 계기판 사진 (탭하여 선택)</span>
             <img class="rpl-photo-preview" alt="야간 계기판">
           </div>
           <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-whme-mngt" data-field="whme_mngt" accept="image/*" style="display:none;">
@@ -203,7 +229,7 @@
           <label>최대전력(kW)</label>
           <input type="text" id="rpl-rv-dm-mt" inputmode="numeric" placeholder="예: 5">
           <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-dm-mt" data-field="dm_mt_day">
-            <span class="rpl-photo-label">📷 최대전력 계기판 사진 (탭하여 선택)</span>
+            <span class="rpl-photo-label">최대전력 계기판 사진 (탭하여 선택)</span>
             <img class="rpl-photo-preview" alt="최대전력 계기판">
           </div>
           <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-dm-mt" data-field="dm_mt_day" accept="image/*" style="display:none;">
@@ -212,7 +238,7 @@
           <label>무효전력(kVar)</label>
           <input type="text" id="rpl-rv-var" inputmode="numeric" placeholder="예: 0">
           <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-var" data-field="var_day">
-            <span class="rpl-photo-label">📷 무효 계기판 사진 (탭하여 선택)</span>
+            <span class="rpl-photo-label">무효 계기판 사진 (탭하여 선택)</span>
             <img class="rpl-photo-preview" alt="무효 계기판">
           </div>
           <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-var" data-field="var_day" accept="image/*" style="display:none;">
@@ -223,7 +249,7 @@
         <label>새 계기번호</label>
         <div class="rpl-input-with-qr">
           <input type="text" id="rpl-new-meter-id" inputmode="numeric" maxlength="11">
-          <button class="rpl-qr-btn" id="rpl-qr-btn">📷 QR</button>
+          <button class="rpl-qr-btn" id="rpl-qr-btn">QR</button>
         </div>
       </div>
 
@@ -241,7 +267,7 @@
       </div>
 
       <div class="rpl-footer">
-        <button class="rpl-btn" id="rpl-delete" style="display:none;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;">🗑 삭제</button>
+        <button class="rpl-btn" id="rpl-delete" style="display:none;">삭제</button>
         <button class="rpl-btn cancel" id="rpl-cancel">취소</button>
         <button class="rpl-btn save" id="rpl-save">저장</button>
       </div>
@@ -281,6 +307,42 @@ window.statsAfterModalChange = function () { loadData(); };
 let map = null;
 let markers = [];
 let cachedData = null;  // 그날 replacement 목록
+let _naverMapsLoading = null;
+
+function getNaverMapsKey() {
+  const key = (typeof NAVER_MAPS_NCP_KEY_ID !== 'undefined') ? NAVER_MAPS_NCP_KEY_ID : '';
+  return String(key || '').trim();
+}
+
+function loadNaverMapsSdk() {
+  if (window.naver && window.naver.maps) return Promise.resolve();
+  if (_naverMapsLoading) return _naverMapsLoading;
+  const key = getNaverMapsKey();
+  if (!key || key === 'YOUR_NCP_KEY_ID') {
+    return Promise.reject(new Error('네이버 지도 NCP Key ID가 설정되지 않았습니다. js/config.js의 NAVER_MAPS_NCP_KEY_ID를 입력하세요.'));
+  }
+  _naverMapsLoading = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-naver-map-sdk]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('네이버 지도 SDK 로드 실패')), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(key)}`;
+    script.async = true;
+    script.defer = true;
+    script.dataset.naverMapSdk = '1';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('네이버 지도 SDK 로드 실패'));
+    document.head.appendChild(script);
+  });
+  return _naverMapsLoading;
+}
+
+function makeLatLng(lat, lng) {
+  return new naver.maps.LatLng(Number(lat), Number(lng));
+}
 
 // 날짜 → ms 범위 (KST 자정 기준)
 function dayRange(yyyymmdd) {
@@ -291,17 +353,27 @@ function todayStr() {
   return kstYmd(new Date());
 }
 
-// 카카오맵 초기화 (지도 탭 활성 시점에 한 번만)
-function ensureMap() {
+// 네이버 지도 초기화 (지도 탭 활성 시점에 한 번만)
+async function ensureMap() {
   if (map) return;
-  kakao.maps.load(() => {
-    const container = document.getElementById('stats-map');
-    map = new kakao.maps.Map(container, {
-      center: new kakao.maps.LatLng(37.5760, 126.9850),  // 종로구 기본
-      level: 6,
-    });
-    drawMarkers();
+  const container = document.getElementById('stats-map');
+  try {
+    await loadNaverMapsSdk();
+  } catch (e) {
+    console.error('[naverMap] 로드 실패:', e);
+    if (container) container.innerHTML = `<div class="err">${e.message}</div>`;
+    return;
+  }
+  map = new naver.maps.Map(container, {
+    center: makeLatLng(37.5760, 126.9850),  // 종로구 기본
+    zoom: 13,
+    minZoom: 7,
+    zoomControl: false,
+    mapDataControl: false,
+    scaleControl: false,
+    logoControlOptions: { position: naver.maps.Position.BOTTOM_LEFT }
   });
+  drawMarkers();
 }
 
 function clearMarkers() {
@@ -321,7 +393,8 @@ function drawMarkers() {
     byAddr[key].push(item);
   });
 
-  const bounds = new kakao.maps.LatLngBounds();
+  const bounds = new naver.maps.LatLngBounds();
+  let hasBounds = false;
   Object.entries(byAddr).forEach(([addr, items]) => {
     // 좌표는 site-data가 아니라 첫 item의 lat/lng (siteData에서 가져와야 함)
     // 일단 시도: items[0].lat/lng 가정. 없으면 skip.
@@ -329,25 +402,25 @@ function drawMarkers() {
     const lng = items[0].lng;
     if (!lat || !lng) return;
 
-    const pos = new kakao.maps.LatLng(lat, lng);
+    const pos = makeLatLng(lat, lng);
     bounds.extend(pos);
+    hasBounds = true;
 
     const seqs = items.map(i => i.daily_seq).sort((a, b) => a - b);
     const label = seqs.length === 1 ? String(seqs[0]) : seqs.join(',');
     const isMulti = seqs.length > 1;
 
     const content = `<div class="stat-marker ${isMulti ? 'multi' : ''}">${label}</div>`;
-    const overlay = new kakao.maps.CustomOverlay({
+    const overlay = new naver.maps.Marker({
       position: pos,
-      content,
-      yAnchor: 0.5,
+      map,
+      icon: { content, anchor: new naver.maps.Point(isMulti ? 18 : 15, isMulti ? 18 : 15) },
     });
-    overlay.setMap(map);
     markers.push(overlay);
   });
 
-  if (!bounds.isEmpty()) {
-    map.setBounds(bounds);
+  if (hasBounds) {
+    map.fitBounds(bounds);
   }
 }
 
@@ -415,7 +488,7 @@ function renderList() {
           <div><b>${item.old_meter_id}</b>${_cpBtn(item.old_meter_id)} <span class="arrow">→</span> <b>${item.new_meter_id}</b>${_cpBtn(item.new_meter_id)}</div>
           <div class="meta">${rvStr} · 제조 ${mfgYm} · ${time}</div>
           <div>
-            <button class="li-edit-btn" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}" style="margin-top:6px;padding:6px 10px;background:#1d4ed8;color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">수정/삭제</button>
+            <button class="li-edit-btn" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}" style="margin-top:6px;padding:7px 13px;background:var(--surface);color:var(--ink-2);border:none;border-radius:999px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:var(--clay-sm);">수정/삭제</button>
             ${dlBtn}
           </div>
         </div>
@@ -563,7 +636,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById('summary').style.display = isAna ? 'none' : '';
     if (tab === 'map') {
       ensureMap();
-      setTimeout(() => map && map.relayout(), 50);
+      setTimeout(() => map && naver.maps.Event.trigger(map, 'resize'), 50);
     }
     if (isAna) renderAnalysis();
   };
@@ -740,8 +813,9 @@ loadData();
 
 <!-- 모달 의존 스크립트 (inline script 이후 로드 — RplModal 사용 가능) -->
 <script src="js/photo-uploader.js?v=20260528a"></script>
+<script src="js/lcd-crop.js?v=20260607a"></script>
 <script src="js/awms-parseValue.js?v=20260602a"></script>
 <script src="js/qr-scanner.js?v=20260602a"></script>
-<script src="js/replacement-modal.js?v=20260602a"></script>
+<script src="js/replacement-modal.js?v=20260607lcd"></script>
 </body>
 </html>

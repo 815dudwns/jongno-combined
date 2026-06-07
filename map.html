@@ -9,10 +9,10 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260528a';
+        const APP_VERSION = '20260606theme2';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
-          ['jongno_auth', 'jongno_event_queue'].forEach(k => {
+          ['jongno_auth', 'jongno_event_queue', 'jongno_theme'].forEach(k => {
             const v = localStorage.getItem(k);
             if (v !== null) keep[k] = v;
           });
@@ -41,17 +41,16 @@
         }
       });
     </script>
-    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=2eae4b699110525f0dc62295ed8ed43d&autoload=false"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <!-- QR/바코드 라이브 스캔 -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <link rel="stylesheet" href="css/clay.css?v=20260606a">
-    <link rel="stylesheet" href="css/common.css?v=20260606clay">
+    <link rel="stylesheet" href="css/clay.css?v=20260606dark">
+    <link rel="stylesheet" href="css/common.css?v=20260606theme3">
     <link rel="stylesheet" href="css/marker.css?v=20260606clay">
-    <link rel="stylesheet" href="css/panel.css?v=20260606clay">
-    <link rel="stylesheet" href="css/replacement-modal.css?v=20260528a">
+    <link rel="stylesheet" href="css/panel.css?v=20260606theme3">
+    <link rel="stylesheet" href="css/replacement-modal.css?v=20260606case4">
 </head>
 <body>
     <div id="map"></div>
@@ -99,6 +98,8 @@
         <span class="user-divider">|</span>
         <button class="search-btn" onclick="openSearch()">검색</button>
         <span class="user-divider">|</span>
+        <button class="theme-btn" data-theme-toggle onclick="jongnoCycleTheme()">시스템</button>
+        <span class="user-divider">|</span>
         <a id="admin-btn" href="admin.html" style="display:none;color:var(--ink-2);font-size:12px;text-decoration:none;font-weight:700;">관리자</a>
         <span id="admin-divider" style="display:none;color:var(--ink-3);font-size:12px;">|</span>
         <a id="stats-btn" href="stats.html" style="display:none;color:var(--ink-2);font-size:12px;text-decoration:none;font-weight:700;">통계</a>
@@ -143,9 +144,9 @@
         <div id="worker-info" class="worker-info" style="display:none;"></div>
         <div class="overlay-actions">
             <div class="action-btn-row">
-                <button class="action-btn complete" id="btn-complete">✅ 완료</button>
-                <button class="action-btn hold" id="btn-hold">⏸️ 보류</button>
-                <button class="action-btn fail" id="btn-fail">❌ 불가</button>
+                <button class="action-btn complete" id="btn-complete">완료</button>
+                <button class="action-btn hold" id="btn-hold">보류</button>
+                <button class="action-btn fail" id="btn-fail">불가</button>
                 <a id="admin-upload-btn" href="admin.html" style="display:none;padding:10px 12px;background:#1e3a8a;color:white;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap;">사진등록</a>
                 <button class="action-btn" id="btn-add-meter" style="display:none;border-color:#7c3aed;color:#7c3aed;white-space:nowrap;">+ 계기 추가</button>
             </div>
@@ -178,6 +179,11 @@
           <button class="rpl-close" id="rpl-close">×</button>
         </div>
 
+        <div class="rpl-current-meter rpl-replace-only" id="rpl-current-meter" style="display:none;">
+          <span class="rpl-current-label">현재 계기번호</span>
+          <strong id="rpl-current-meter-id">-</strong>
+        </div>
+
         <div class="rpl-field rpl-add-only" style="display:none;">
           <label>계기 11자리</label>
           <input type="text" id="rpl-old-meter-id" inputmode="numeric" maxlength="11" placeholder="">
@@ -190,18 +196,12 @@
           </div>
         </div>
 
-        <div class="rpl-photo rpl-replace-only" id="rpl-new-photo">
-          <span class="rpl-photo-label">📷 새 계기 사진 (탭하여 선택)</span>
-          <img class="rpl-photo-preview" alt="새 계기">
-        </div>
-        <input type="file" id="rpl-new-photo-input" accept="image/*" style="display:none;">
-
         <div class="rpl-replace-only" id="rpl-removal-fields">
           <div class="rpl-field" id="rpl-rv-field-whme-day" style="display:none;">
             <label>철거 주간(kWh)</label>
             <input type="text" id="rpl-rv-whme-day" inputmode="numeric" placeholder="예: 12345">
             <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-whme-day" data-field="whme_day">
-              <span class="rpl-photo-label">📷 주간 계기판 사진 (탭하여 선택)</span>
+              <span class="rpl-photo-label">주간 계기판 사진 (탭하여 선택)</span>
               <img class="rpl-photo-preview" alt="주간 계기판">
             </div>
             <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-whme-day" data-field="whme_day" accept="image/*" style="display:none;">
@@ -210,7 +210,7 @@
             <label>철거 야간(kWh)</label>
             <input type="text" id="rpl-rv-whme-mngt" inputmode="numeric" placeholder="예: 12345">
             <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-whme-mngt" data-field="whme_mngt">
-              <span class="rpl-photo-label">📷 야간 계기판 사진 (탭하여 선택)</span>
+              <span class="rpl-photo-label">야간 계기판 사진 (탭하여 선택)</span>
               <img class="rpl-photo-preview" alt="야간 계기판">
             </div>
             <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-whme-mngt" data-field="whme_mngt" accept="image/*" style="display:none;">
@@ -219,7 +219,7 @@
             <label>최대전력(kW)</label>
             <input type="text" id="rpl-rv-dm-mt" inputmode="numeric" placeholder="예: 5">
             <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-dm-mt" data-field="dm_mt_day">
-              <span class="rpl-photo-label">📷 최대전력 계기판 사진 (탭하여 선택)</span>
+              <span class="rpl-photo-label">최대전력 계기판 사진 (탭하여 선택)</span>
               <img class="rpl-photo-preview" alt="최대전력 계기판">
             </div>
             <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-dm-mt" data-field="dm_mt_day" accept="image/*" style="display:none;">
@@ -228,7 +228,7 @@
             <label>무효전력(kVar)</label>
             <input type="text" id="rpl-rv-var" inputmode="numeric" placeholder="예: 0">
             <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-var" data-field="var_day">
-              <span class="rpl-photo-label">📷 무효 계기판 사진 (탭하여 선택)</span>
+              <span class="rpl-photo-label">무효 계기판 사진 (탭하여 선택)</span>
               <img class="rpl-photo-preview" alt="무효 계기판">
             </div>
             <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-var" data-field="var_day" accept="image/*" style="display:none;">
@@ -239,9 +239,15 @@
           <label>새 계기번호</label>
           <div class="rpl-input-with-qr">
             <input type="text" id="rpl-new-meter-id" inputmode="numeric" maxlength="11" placeholder="QR 또는 직접 입력">
-            <button class="rpl-qr-btn" id="rpl-qr-btn">📷 QR</button>
+            <button class="rpl-qr-btn" id="rpl-qr-btn">QR</button>
           </div>
         </div>
+
+        <div class="rpl-photo rpl-replace-only" id="rpl-new-photo">
+          <span class="rpl-photo-label">새 계기 사진 (탭하여 선택)</span>
+          <img class="rpl-photo-preview" alt="새 계기">
+        </div>
+        <input type="file" id="rpl-new-photo-input" accept="image/*" style="display:none;">
 
         <div class="rpl-field rpl-replace-only">
           <label>제조년월 (선택/수정 가능)</label>
@@ -257,9 +263,9 @@
         </div>
 
         <div class="rpl-footer">
-          <button class="rpl-btn" id="rpl-delete" style="display:none;background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;">🗑 삭제</button>
+          <button class="rpl-btn" id="rpl-delete" style="display:none;">삭제</button>
           <button class="rpl-btn cancel" id="rpl-cancel">취소</button>
-          <button class="rpl-btn draft" id="rpl-draft" style="background:#fef3c7;color:#92400e;border:1.5px solid #fbbf24;">임시 저장</button>
+          <button class="rpl-btn draft" id="rpl-draft">임시 저장</button>
           <button class="rpl-btn save" id="rpl-save">저장</button>
         </div>
       </div>
@@ -286,6 +292,7 @@
     </div>
 
     <script src="js/auth.js"></script>
+    <script src="js/theme.js?v=20260606theme3"></script>
     <script>
         // 로그인 체크 — 미인증이면 login.html로 이동
         authRequire();
@@ -308,15 +315,16 @@
             }
         })();
     </script>
-    <script src="js/config.js?v=20260528a"></script>
+    <script src="js/config.js?v=20260606darkmap"></script>
     <script src="js/utils.js?v=20260528a"></script>
     <script src="js/firebase.js?v=20260528a"></script>
-    <script src="js/detail.js?v=20260606c"></script>
-    <script src="js/map.js?v=20260606b"></script>
+    <script src="js/detail.js?v=20260606theme4"></script>
+    <script src="js/map.js?v=20260606theme6"></script>
     <script src="js/awms-parseValue.js?v=20260602a"></script>
     <script src="js/qr-scanner.js?v=20260602a"></script>
     <script src="js/photo-uploader.js?v=20260528a"></script>
-    <script src="js/replacement-modal.js?v=20260602a"></script>
+    <script src="js/lcd-crop.js?v=20260607a"></script>
+    <script src="js/replacement-modal.js?v=20260607lcd"></script>
     <script src="js/simulate-helper.js?v=20260528a"></script>
 </body>
 </html>
