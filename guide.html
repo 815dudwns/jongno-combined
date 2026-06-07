@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>종로 합동시공 — 계기팀 사용설명서</title>
-<link rel="stylesheet" href="css/clay.css?v=20260608glow">
+<link rel="stylesheet" href="css/clay.css?v=20260608dark2">
 <style>
   :root {
     --primary: #1e3a8a;
@@ -337,18 +337,33 @@
     .account-card { grid-template-columns: auto 1fr; }
   }
 
-  /* 다크 모드 보정 */
-  [data-theme="dark"] body { background: var(--bg); color: var(--ink); }
-  [data-theme="dark"] .card,
+  /* 다크 모드 보정 — guide 실제 구조 기준 */
+  [data-theme="dark"] {
+    --gray-50:  #1a1815;
+    --gray-100: #232019;
+    --gray-200: #3a352d;
+    --gray-400: #7c766a;
+    --gray-600: #a8a294;
+    --gray-800: #d6d1c6;
+    --gray-900: #ece9e2;
+    --primary: #7da4e8;
+    --primary-light: #5b8fd9;
+  }
+  [data-theme="dark"] body { background: var(--gray-50); color: var(--gray-900); }
   [data-theme="dark"] .toc,
-  [data-theme="dark"] .step,
-  [data-theme="dark"] .note,
-  [data-theme="dark"] .warning { background: var(--surface); color: var(--ink); border-color: var(--surface-2); box-shadow: var(--clay-sm); }
-  [data-theme="dark"] h2,
-  [data-theme="dark"] h3,
-  [data-theme="dark"] .card-title { color: var(--ink); }
-  [data-theme="dark"] .muted,
-  [data-theme="dark"] .desc { color: var(--ink-2); }
+  [data-theme="dark"] section { background: #2a2723; box-shadow: var(--clay-sm); }
+  [data-theme="dark"] .account-card { background: #211f1c; }
+  [data-theme="dark"] .close-link { background: #2a2723; }
+  [data-theme="dark"] .top-bar { background: rgba(26,24,21,0.92); }
+  [data-theme="dark"] code,
+  [data-theme="dark"] .key { background: #232019; }
+  [data-theme="dark"] .info-box { background: #20283a; }
+  [data-theme="dark"] .info-box.warn { background: #3a3320; }
+  [data-theme="dark"] .info-box.tip { background: #20351f; }
+  [data-theme="dark"] .info-box.danger { background: #3a2422; }
+  /* 본문 인라인 예시 배지 */
+  [data-theme="dark"] span[style*="#fef3c7"] { background:#3a3320 !important; color:#e6c068 !important; }
+  [data-theme="dark"] span[style*="#fee2e2"] { background:#3a2422 !important; color:#f0a0a0 !important; }
 </style>
 <script src="js/theme.js?v=20260608dark"></script>
 </head>
@@ -357,6 +372,7 @@
 
   <div class="top-bar">
     <a href="login.html" class="close-link">← 닫기</a>
+    <button data-theme-toggle onclick="jongnoCycleTheme()" style="margin-left:auto;padding:6px 12px;border:none;border-radius:999px;background:var(--gray-200);color:var(--gray-800);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">시스템</button>
   </div>
 
   <div class="hero">

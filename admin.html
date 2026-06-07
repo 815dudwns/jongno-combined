@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>관리자 - Meter Care Solution</title>
-  <link rel="stylesheet" href="css/clay.css?v=20260608glow">
+  <link rel="stylesheet" href="css/clay.css?v=20260608dark2">
 
   <script>
     // 권한 게이트: admin만
@@ -198,6 +198,41 @@
     [data-theme="dark"] input,
     [data-theme="dark"] select,
     [data-theme="dark"] textarea { background: var(--bg-deep); color: var(--ink); border-color: var(--surface-2); }
+
+    /* 다크 보완 — 상태 카드/배지/버튼/모바일 행 */
+    [data-theme="dark"] .card .sub { color: var(--ink-3); }
+    [data-theme="dark"] .card.accent { background: #12161f; color: #eaf0fb; box-shadow: var(--clay-sm); }
+    [data-theme="dark"] .card.accent .value { color: #eaf0fb; }
+    [data-theme="dark"] .card.warn { background: #3a3320; box-shadow: var(--clay-sm); }
+    [data-theme="dark"] .card.danger { background: #3a2422; box-shadow: var(--clay-sm); }
+    [data-theme="dark"] .card.success { background: #20351f; box-shadow: var(--clay-sm); }
+    [data-theme="dark"] .section h2 .count { background: var(--bg-deep); color: var(--ink-2); }
+    [data-theme="dark"] tr:hover td { background: rgba(255,255,255,0.04); }
+    [data-theme="dark"] .photo-thumb { background: var(--surface-2); }
+    [data-theme="dark"] .photo-thumb.empty { background: var(--bg-deep); color: var(--ink-3); }
+    [data-theme="dark"] .v-state.unverified { background: var(--bg-deep); color: var(--ink-2); }
+    [data-theme="dark"] .v-state.verified { background: #20351f; color: #7fd49b; }
+    [data-theme="dark"] .v-state.needs_fix { background: #3a3320; color: #e6c068; }
+    [data-theme="dark"] .v-state.rework_requested { background: #3a2422; color: #f0a0a0; }
+    [data-theme="dark"] .btn.pass { background: #20351f; color: #7fd49b; }
+    [data-theme="dark"] .btn.fix { background: #3a3320; color: #e6c068; }
+    [data-theme="dark"] .btn.rework { background: #3a2422; color: #f0a0a0; }
+    [data-theme="dark"] .btn.primary { background: #2f4670; color: #eaf0fb; }
+    [data-theme="dark"] .btn.secondary { background: var(--surface); color: var(--ink); border-color: var(--surface-2); }
+    [data-theme="dark"] .btn.secondary:hover { background: var(--surface-2); }
+    [data-theme="dark"] .empty { color: var(--ink-3); }
+    [data-theme="dark"] .mockup-banner { background: linear-gradient(90deg,#3a3320,#2d2716); border-color: #6f5418; color: #e6c068; }
+    [data-theme="dark"] .modal-bg .close { background: var(--surface); color: var(--ink); }
+    [data-theme="dark"] .m-row { background: var(--surface); border-color: var(--surface-2); }
+    [data-theme="dark"] .m-row-meta,
+    [data-theme="dark"] .m-row-grid { color: var(--ink-3); }
+    [data-theme="dark"] .m-row-addr,
+    [data-theme="dark"] .m-row-meters { color: var(--ink-2); }
+    [data-theme="dark"] .m-row-customer,
+    [data-theme="dark"] .m-row-meters b,
+    [data-theme="dark"] .m-row-grid .v { color: var(--ink); }
+    /* 인라인 하드코딩 색 보정 (생성된 행) */
+    [data-theme="dark"] td span[style*="#6b7280"] { color: var(--ink-3) !important; }
   </style>
 </head>
 <body>
@@ -205,6 +240,7 @@
 <div class="header">
   <a href="map.html">← 지도</a>
   <h1>관리자 — 데이터관리 + 리포트</h1>
+  <button data-theme-toggle onclick="jongnoCycleTheme()" style="padding:6px 11px;border:none;border-radius:999px;background:rgba(255,255,255,0.14);color:#fff;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px;">시스템</button>
   <div id="demo-toggle" class="demo-toggle">
     <input type="checkbox" id="demo-checkbox">
     <label for="demo-checkbox">데모</label>
