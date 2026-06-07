@@ -792,19 +792,18 @@ function createMarker(position, address, meters) {
 
 // ── 마커 색상 갱신 (상태 변경 시 호출) ──────────────────────────
 function updateMarkerColor(address) {
-    const marker = markers.find(m => m.address === address);
-    if (!marker) return;
+    const idx = markers.findIndex(m => m.address === address);
+    if (idx < 0) return;
+    const old = markers[idx];
+    const pos = (old.overlay && old.overlay.getPosition) ? old.overlay.getPosition() : null;
+    const meters = old.meters;
+    if (!pos) return;
 
-    const status = workStatus[address] || makeEmptyEntry();
-    const session = authGetSession();
-    const style = decideMarkerStyle(marker.meters, { ...status, address }, session);
-
-    // 이미지 아이콘 교체 (색/번호/검침일칩/테마 반영)
-    if (marker.overlay && marker.overlay.setIcon) marker.overlay.setIcon(getMarkerImage(style));
-
-    // 미완료 우선 z-index 갱신 (완료되면 아래로 내려감)
-    const isDoneMarker = (style.colorClass === 'gray' || style.colorClass === 'comm-done');
-    if (marker.overlay && marker.overlay.setZIndex) marker.overlay.setZIndex(isDoneMarker ? 15 : 25);
+    // setIcon이 이미지 마커를 안정적으로 다시 안 그리는 케이스가 있어(첫 동기화 완료 미반영),
+    // 검증된 경로인 '마커 재생성'으로 갱신한다. 이미지는 캐시되므로 재생성 비용은 낮다.
+    old.overlay.setMap(null);
+    markers.splice(idx, 1);
+    createMarker(pos, address, meters);  // 최신 workStatus로 색/번호/검침일/zIndex 재계산
 }
 
 // ── 전체 마커 색상 일괄 갱신 (Firebase 동기화 후 호출) ──────────
