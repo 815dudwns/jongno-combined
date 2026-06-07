@@ -208,15 +208,17 @@
 }
 .rpl-btn {
   flex: 1;
-  padding: 13px 12px;
+  min-width: 0;
+  padding: 13px 6px;
   border: none;
   border-radius: var(--radius-pill);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
   cursor: pointer;
   background: var(--surface);
   color: var(--ink-2);
   box-shadow: var(--clay-sm);
+  white-space: nowrap;   /* 임시저장/수정저장이 두 줄로 넘어가지 않게 */
 }
 .rpl-btn:active { box-shadow: var(--clay-inset-sm); }
 .rpl-btn.cancel { color: var(--ink-2); }
