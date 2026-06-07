@@ -221,8 +221,10 @@ async function initMap() {
     populateCheckdayFilter();
     initCommMissingFilter();
     updateCheckdayFilterVisibility();
-    loadMarkers();
+    // workStatus(완료 포함)를 Firebase에서 먼저 받은 뒤 마커 생성 → 완료가 첫 화면부터 표시
+    // (이전: loadMarkers를 먼저 그려서 첫 로드 시 완료 미반영 → 필터를 한 번 거쳐야 보이던 버그)
     await initFirebase();
+    loadMarkers();
     refreshAllMarkers();
 
     // 마커 모드 — admin이 변경 시 Firebase 통해 모든 사용자에게 동기화

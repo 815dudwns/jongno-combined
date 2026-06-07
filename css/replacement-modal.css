@@ -140,7 +140,8 @@
   background: var(--mint-ink);
   box-shadow: inset 0 0 0 2px rgba(255,255,255,0.35);
 }
-.rpl-photo-preview { display: none; width: 100%; max-width: 100%; height: auto; max-height: 200px; object-fit: contain; border-radius: 14px; }
+/* 칸이 사진 비율대로 늘어나고 전체가 잘림 없이 보이게 (max-height 제거 → 찌그러짐/잘림 방지) */
+.rpl-photo-preview { display: none; width: 100%; max-width: 100%; height: auto; border-radius: 14px; }
 .rpl-photo.has-photo .rpl-photo-preview { display: block; }
 .rpl-photo.has-photo .rpl-photo-label { display: none; }
 
@@ -245,7 +246,6 @@
 
 /* 지침칸 내 계기판 사진 슬롯 */
 .rpl-rv-photo { margin-top: 6px; }
-.rpl-rv-photo .rpl-photo-preview { max-height: 120px; }
 
 /* 추가 데이터 영역 */
 .rpl-extra-add {

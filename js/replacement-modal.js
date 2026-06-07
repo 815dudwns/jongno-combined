@@ -219,6 +219,13 @@ const RplModal = (() => {
   // 사진 선택 — 카메라/앨범 선택 시트 (일부 안드로이드는 accept만으론 카메라 안 띄움 → 명시 선택)
   function triggerPhotoPick(inputEl) {
     if (!inputEl) return;
+    // iOS Safari는 OS가 '사진 보관함/사진 찍기' 선택을 자동 제공 → 우리 시트 생략, 바로 OS 선택
+    // (동적 시트 버튼의 input.click()이 iOS에서 사용자 제스처 밖으로 간주돼 막히는 문제도 회피)
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+      inputEl.removeAttribute('capture');
+      inputEl.click();
+      return;
+    }
     const sheet = document.createElement('div');
     sheet.style.cssText = 'position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;';
     sheet.innerHTML = '<div style="width:100%;max-width:420px;margin:10px;display:flex;flex-direction:column;gap:8px;">'
