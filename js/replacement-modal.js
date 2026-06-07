@@ -216,6 +216,25 @@ const RplModal = (() => {
   }
 
   // URL 사진을 슬롯에 미리보기 (수정 모드 prefill용)
+  // 사진 선택 — 카메라/앨범 선택 시트 (일부 안드로이드는 accept만으론 카메라 안 띄움 → 명시 선택)
+  function triggerPhotoPick(inputEl) {
+    if (!inputEl) return;
+    const sheet = document.createElement('div');
+    sheet.style.cssText = 'position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;';
+    sheet.innerHTML = '<div style="width:100%;max-width:420px;margin:10px;display:flex;flex-direction:column;gap:8px;">'
+      + '<button data-act="cam" style="padding:16px;border:none;border-radius:14px;background:#fff;color:#1f2937;font-size:16px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.2);">카메라로 촬영</button>'
+      + '<button data-act="alb" style="padding:16px;border:none;border-radius:14px;background:#fff;color:#1f2937;font-size:16px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.2);">앨범에서 선택</button>'
+      + '<button data-act="cancel" style="padding:16px;border:none;border-radius:14px;background:#374151;color:#fff;font-size:16px;font-weight:800;">취소</button></div>';
+    document.body.appendChild(sheet);
+    const close = () => sheet.remove();
+    sheet.addEventListener('click', (e) => {
+      const act = (e.target && e.target.dataset) ? e.target.dataset.act : null;
+      if (act === 'cam') { inputEl.setAttribute('capture', 'environment'); inputEl.click(); close(); }
+      else if (act === 'alb') { inputEl.removeAttribute('capture'); inputEl.click(); close(); }
+      else if (act === 'cancel' || e.target === sheet) { close(); }
+    });
+  }
+
   function showPhotoUrl(slotId, url) {
     const slot = document.getElementById(slotId);
     if (!slot) return;
@@ -830,7 +849,7 @@ const RplModal = (() => {
 
     // 신계기 사진 바인딩
     document.getElementById('rpl-new-photo').onclick = () =>
-      document.getElementById('rpl-new-photo-input').click();
+      triggerPhotoPick(document.getElementById('rpl-new-photo-input'));
     document.getElementById('rpl-new-photo-input').onchange = (e) =>
       onPhotoSelect('rpl-new-photo', e.target.files[0]);
 
@@ -840,7 +859,7 @@ const RplModal = (() => {
       const photoSlot  = document.getElementById(els.photo);
       const photoInput = document.getElementById(els.photoInput);
       if (photoSlot && photoInput) {
-        photoSlot.onclick  = () => photoInput.click();
+        photoSlot.onclick  = () => triggerPhotoPick(photoInput);
         photoInput.onchange = (e) => onPhotoSelect(els.photo, e.target.files[0]);
       }
     }

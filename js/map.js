@@ -180,6 +180,7 @@ function setupNaverMapThemeSync() {
             map = new naver.maps.Map(container, getNaverMapOptions(viewOptions));
             attachMapViewSaveListener();
             markers.forEach(m => m.overlay.setMap(map));  // 기존 마커를 새 map으로 이동 (완료 상태 보존)
+            refreshAllMarkers();  // 이미지 아이콘을 새 테마(다크/라이트)로 재생성 — workStatus 기반이라 완료 보존
         } catch (e) {
             console.warn('[naverMap] 스타일 전환 실패, 새로고침 후 적용됩니다:', e);
         }
@@ -677,45 +678,114 @@ function updateMeterLatestAddress() {
     meterLatestAddress = latest;
 }
 
+// ── 마커 이미지 캐시 (canvas → dataURL) — DOM 마커 대신 이미지 아이콘으로 경량화 ──
+const _markerImgCache = {};
+const MARKER_FILL = {
+    green: '#54b485', gray: '#9b9588', blue: '#5f95cf', red: '#d56e6e', yellow: '#dcb152',
+    'day-g1': '#f5cbb1', 'day-g2': '#b5dfc7', 'day-g3': '#d0c0dc', 'day-g4': '#d9b8c5',
+    'pri-1': '#e8b8b8', 'pri-2': '#e8d3b8', 'pri-3': '#d6cfa0', 'pri-4': '#bfd5a8', 'pri-past': '#b0b0b0',
+    'comm-target': '#54b485', 'comm-last': '#2c5e44', 'comm-done': '#9b9588',
+};
+// 흰 원(밝은 핀) 표시 + 번호 어둡게 = green/yellow/day/pri 계열
+const CIRCLE_CLASSES = new Set(['green', 'yellow', 'day-g1', 'day-g2', 'day-g3', 'day-g4', 'pri-1', 'pri-2', 'pri-3', 'pri-4', 'pri-past']);
+const PIN_PATH = 'M10 0C4.48 0 0 4.48 0 10c0 6.72 10 16 10 16s10-9.28 10-16C20 4.48 15.52 0 10 0z';
+function _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+}
+function getMarkerImage(style) {
+    const theme = (typeof getResolvedTheme === 'function') ? getResolvedTheme() : 'light';
+    const main = (style.labelMain == null ? '' : String(style.labelMain));
+    const sub = (style.labelSub == null ? '' : String(style.labelSub));
+    const key = [style.colorClass, main, sub, style.extraClass || '', theme].join('|');
+    if (_markerImgCache[key]) return _markerImgCache[key];
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const W = 40, H = 44;
+    const PIN_X = 10, PIN_Y = 12;   // 핀 좌상단 offset (위쪽 검침일 칩 공간)
+    const c = document.createElement('canvas');
+    c.width = W * dpr; c.height = H * dpr;
+    const ctx = c.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const fill = MARKER_FILL[style.colorClass] || '#5f95cf';
+    const showCircle = CIRCLE_CLASSES.has(style.colorClass);
+    const alpha = (style.extraClass && style.extraClass.indexOf('comm-bg') >= 0) ? 0.6 : 1;
+    ctx.globalAlpha = alpha;
+
+    // 핀 (물방울)
+    ctx.save();
+    ctx.translate(PIN_X, PIN_Y);
+    const pin = new Path2D(PIN_PATH);
+    ctx.fillStyle = fill;
+    ctx.fill(pin);
+    ctx.lineWidth = 0.8; ctx.strokeStyle = '#ffffff'; ctx.stroke(pin);   // 흰 링
+    if (showCircle) {
+        ctx.beginPath();
+        ctx.arc(10, 10, 5.5, 0, Math.PI * 2);
+        ctx.fillStyle = (theme === 'dark') ? '#cfcfcf' : '#ffffff';
+        ctx.fill();
+    }
+    ctx.restore();
+
+    // 번호 (핀 흰원 중심)
+    if (main) {
+        ctx.fillStyle = showCircle ? '#1f2937' : '#ffffff';
+        const fs = main.length > 3 ? 8.5 : 10.5;
+        ctx.font = `800 ${fs}px -apple-system, BlinkMacSystemFont, sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(main, PIN_X + 10, PIN_Y + 10);
+    }
+    ctx.globalAlpha = 1;
+
+    // 검침일 D-칩 (labelSub) — 핀 위 중앙
+    if (sub) {
+        ctx.font = '900 8px -apple-system, BlinkMacSystemFont, sans-serif';
+        const tw = ctx.measureText(sub).width;
+        const chipW = Math.ceil(tw) + 8, chipH = 12, cx = W / 2, cyT = 0.5;
+        _roundRect(ctx, cx - chipW / 2, cyT, chipW, chipH, 3.5);
+        ctx.fillStyle = (theme === 'dark') ? '#23211d' : '#ffffff';
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = (theme === 'dark') ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.18)';
+        ctx.stroke();
+        ctx.fillStyle = (theme === 'dark') ? '#ffffff' : '#23211d';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(sub, cx, cyT + chipH / 2);
+    }
+
+    const img = {
+        url: c.toDataURL('image/png'),
+        size: new naver.maps.Size(W, H),
+        scaledSize: new naver.maps.Size(W, H),
+        anchor: new naver.maps.Point(PIN_X + 10, PIN_Y + 26),
+    };
+    _markerImgCache[key] = img;
+    return img;
+}
+
 // ── 단일 마커 생성 및 지도에 추가 ────────────────────────────────
 function createMarker(position, address, meters) {
     const status = workStatus[address] || makeEmptyEntry();
     const session = authGetSession();
     const style = decideMarkerStyle(meters, { ...status, address }, session);
 
-    const markerContent = `
-        <div class="custom-marker ${style.colorClass}${style.extraClass ? ' ' + style.extraClass : ''}">
-            <svg viewBox="0 0 20 26" xmlns="http://www.w3.org/2000/svg">
-                <path class="pin-body" d="M10 0C4.48 0 0 4.48 0 10c0 6.72 10 16 10 16s10-9.28 10-16C20 4.48 15.52 0 10 0z"/>
-                <circle class="pin-circle" cx="10" cy="10" r="5.5" fill="white"/>
-            </svg>
-            <div class="marker-number">${style.labelMain}</div>
-            ${style.labelSub ? `<div class="marker-fraction">${style.labelSub}</div>` : ''}
-        </div>
-    `;
-
-    // DOM 엘리먼트로 직접 생성 (문자열 대신 — DOM 재구성 시 이벤트 유실 방지)
-    const markerEl = document.createElement('div');
-    markerEl.innerHTML = markerContent;
-
-    // 클릭 이벤트를 직접 생성한 DOM에 붙임
-    markerEl.addEventListener('click', () => {
-        showDetail(address, meters);
-    });
-
     // 미완료 우선: 완료(gray/comm-done) 마커는 아래로, 미완료는 위로 (겹칠 때 미완료가 보이게)
     const isDoneMarker = (style.colorClass === 'gray' || style.colorClass === 'comm-done');
     const customOverlay = new naver.maps.Marker({
         position: position,
         map: map,
-        icon: {
-            content: markerEl,
-            anchor: new naver.maps.Point(10, 26)
-        },
+        icon: getMarkerImage(style),   // canvas 이미지 아이콘 (DOM 마커 대비 대폭 경량)
         zIndex: isDoneMarker ? 15 : 25
     });
+    naver.maps.Event.addListener(customOverlay, 'click', () => showDetail(address, meters));
 
-    markers.push({ overlay: customOverlay, address, meters, element: markerEl });
+    markers.push({ overlay: customOverlay, address, meters });
 }
 
 // ── 마커 색상 갱신 (상태 변경 시 호출) ──────────────────────────
@@ -727,26 +797,8 @@ function updateMarkerColor(address) {
     const session = authGetSession();
     const style = decideMarkerStyle(marker.meters, { ...status, address }, session);
 
-    const el = marker.element.querySelector('.custom-marker');
-    if (el) {
-        el.className = `custom-marker ${style.colorClass}${style.extraClass ? ' ' + style.extraClass : ''}`;
-    }
-
-    const labelEl = marker.element.querySelector('.marker-number');
-    if (labelEl) labelEl.textContent = style.labelMain;
-
-    // labelSub 처리 — 있으면 marker-fraction 업데이트/생성, 없으면 제거
-    let fracEl = marker.element.querySelector('.marker-fraction');
-    if (style.labelSub) {
-        if (!fracEl) {
-            fracEl = document.createElement('div');
-            fracEl.className = 'marker-fraction';
-            marker.element.querySelector('.custom-marker').appendChild(fracEl);
-        }
-        fracEl.textContent = style.labelSub;
-    } else if (fracEl) {
-        fracEl.remove();
-    }
+    // 이미지 아이콘 교체 (색/번호/검침일칩/테마 반영)
+    if (marker.overlay && marker.overlay.setIcon) marker.overlay.setIcon(getMarkerImage(style));
 
     // 미완료 우선 z-index 갱신 (완료되면 아래로 내려감)
     const isDoneMarker = (style.colorClass === 'gray' || style.colorClass === 'comm-done');
