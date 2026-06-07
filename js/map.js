@@ -821,6 +821,27 @@ function refreshAllMarkers() {
     // forEach로 직접 돌면 순회가 깨져 마커가 누락/중복된다.
     const addrs = markers.map(m => m.address);
     addrs.forEach(a => updateMarkerColor(a));
+    updateTopbarInfo();
+}
+
+// ── 우상단 작업정보: 다음에 쓸 daily_seq + 마지막 작업 계기 검침일 ──
+function updateTopbarInfo() {
+    const el = document.getElementById('topbar-info');
+    if (!el) return;
+    let maxSeq = 0, maxNo = '';
+    Object.values(workStatus).forEach(st => {
+        const rl = (st && st.replacement_list) || {};
+        for (const no in rl) {
+            const r = rl[no];
+            if (r && typeof r.daily_seq === 'number' && r.daily_seq > maxSeq) { maxSeq = r.daily_seq; maxNo = no; }
+        }
+    });
+    let day = '';
+    if (maxNo) {
+        const m = sampleData.find(s => s.계기번호 === maxNo);
+        if (m && m.검침일) day = m.검침일;
+    }
+    el.textContent = maxSeq ? `다음 No.${maxSeq + 1}${day ? ' · 검침일 ' + day : ''}` : '';
 }
 
 // ── 현재 위치 추적 토글 ──────────────────────────────────────────

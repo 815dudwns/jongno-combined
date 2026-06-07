@@ -85,6 +85,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothi
 .topbar { position: fixed; top: 10px; right: 10px; z-index: 500; display: flex; gap: 8px; }
 .topbar-btn { background: var(--surface); box-shadow: var(--clay-sm); color: var(--ink); border: none; padding: 9px 15px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 800; cursor: pointer; font-family: var(--font); line-height: 1; }
 .topbar-btn:active { box-shadow: var(--clay-inset-sm); }
+.topbar-info { background: var(--surface); box-shadow: var(--clay-sm); border-radius: var(--radius-pill); padding: 8px 12px; font-size: 12px; font-weight: 800; color: var(--mint-strong); white-space: nowrap; align-self: center; }
+.topbar-info:empty { display: none; }
 .app-menu-overlay { position: fixed; inset: 0; z-index: 1400; background: rgba(0,0,0,0.28); display: none; }
 .app-menu-overlay.open { display: block; }
 .app-menu { position: fixed; top: 0; right: 0; z-index: 1500; width: 286px; max-width: 86vw; height: 100%; background: var(--bg); box-shadow: var(--clay); padding: 22px 18px calc(22px + env(safe-area-inset-bottom)); display: none; flex-direction: column; gap: 15px; overflow-y: auto; }

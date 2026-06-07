@@ -47,7 +47,7 @@
     <!-- QR/바코드 라이브 스캔 -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <link rel="stylesheet" href="css/clay.css?v=20260608glow">
-    <link rel="stylesheet" href="css/common.css?v=20260607menu2">
+    <link rel="stylesheet" href="css/common.css?v=20260608seq">
     <link rel="stylesheet" href="css/marker.css?v=20260607marker8">
     <link rel="stylesheet" href="css/panel.css?v=20260608tc">
     <link rel="stylesheet" href="css/replacement-modal.css?v=20260608photo2">
@@ -79,8 +79,9 @@
         </div>
     </div>
 
-    <!-- 우상단: 검색 + 메뉴 -->
+    <!-- 우상단: 작업정보 + 검색 + 메뉴 -->
     <div class="topbar">
+        <span class="topbar-info" id="topbar-info"></span>
         <button class="topbar-btn" onclick="openSearch()">검색</button>
         <button class="topbar-btn menu-trigger" id="menu-trigger" aria-label="메뉴">메뉴</button>
     </div>
@@ -370,7 +371,7 @@
     <script src="js/utils.js?v=20260528a"></script>
     <script src="js/firebase.js?v=20260528a"></script>
     <script src="js/detail.js?v=20260608repl"></script>
-    <script src="js/map.js?v=20260608glow"></script>
+    <script src="js/map.js?v=20260608seq"></script>
     <script src="js/awms-parseValue.js?v=20260602a"></script>
     <script src="js/qr-scanner.js?v=20260607gscan"></script>
     <script src="js/photo-uploader.js?v=20260528a"></script>
