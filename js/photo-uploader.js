@@ -4,11 +4,22 @@ const PhotoUploader = (() => {
 
   // 사진 압축: 해상도 원본 유지(awms 최소 해상도·용량 검증 충족), JPEG quality 0.85
   // awms는 저해상도/저용량(과압축) 사진을 "파일 업로드 실패"로 거부 → 약압축만 (2~4MB → 1~2MB)
-  async function compress(fileOrBlob, maxW = 4096, quality = 0.85) {
+  // opts.square=true → 촬영 사진 1:1 센터크롭 (계기교체 촬영본 강제, 업로드본은 원본 비율)
+  async function compress(fileOrBlob, opts = {}) {
+    const { maxW = 4096, quality = 0.85, square = false } = opts;
     const img = await createImageBitmap(fileOrBlob);
-    const ratio = Math.min(maxW / Math.max(img.width, img.height), 1);
-    const w = Math.round(img.width * ratio);
-    const h = Math.round(img.height * ratio);
+
+    // 소스 사각형: square면 짧은 변 기준 센터크롭, 아니면 원본 전체
+    let sx = 0, sy = 0, sw = img.width, sh = img.height;
+    if (square) {
+      const side = Math.min(img.width, img.height);
+      sx = Math.round((img.width - side) / 2);
+      sy = Math.round((img.height - side) / 2);
+      sw = sh = side;
+    }
+    const ratio = Math.min(maxW / Math.max(sw, sh), 1);
+    const w = Math.round(sw * ratio);
+    const h = Math.round(sh * ratio);
 
     // OffscreenCanvas 우선 (성능), 폴백 = 일반 canvas
     let canvas;
@@ -18,7 +29,7 @@ const PhotoUploader = (() => {
       canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
     }
-    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    canvas.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
 
     let blob;
     if (canvas.convertToBlob) {
@@ -65,8 +76,8 @@ const PhotoUploader = (() => {
   }
 
   // 압축 후 업로드 한 번에
-  async function compressAndUpload(fileOrBlob, path) {
-    const compressed = await compress(fileOrBlob);
+  async function compressAndUpload(fileOrBlob, path, opts = {}) {
+    const compressed = await compress(fileOrBlob, opts);
     const url = await upload(compressed, path);
     return { url, size: compressed.size };
   }

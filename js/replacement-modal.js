@@ -240,8 +240,8 @@ const RplModal = (() => {
     const close = () => sheet.remove();
     sheet.addEventListener('click', (e) => {
       const act = (e.target && e.target.dataset) ? e.target.dataset.act : null;
-      if (act === 'cam') { inputEl.setAttribute('capture', 'environment'); inputEl.click(); close(); }
-      else if (act === 'alb') { inputEl.removeAttribute('capture'); inputEl.click(); close(); }
+      if (act === 'cam') { inputEl.setAttribute('capture', 'environment'); inputEl.dataset.square = '1'; inputEl.click(); close(); }
+      else if (act === 'alb') { inputEl.removeAttribute('capture'); delete inputEl.dataset.square; inputEl.click(); close(); }
       else if (act === 'cancel' || e.target === sheet) { close(); }
     });
   }
@@ -398,7 +398,17 @@ const RplModal = (() => {
     setTimeout(() => t.classList.remove('active'), 2000);
   }
 
-  async function onPhotoSelect(slotId, file) {
+  // 카메라 촬영 판별 — 촬영본만 1:1 강제(앨범 업로드는 원본 비율 유지)
+  // Android: 선택 시트에서 '카메라' 누르면 input.dataset.square='1' (확실)
+  // iOS: capture 못 쓰는 구조(시트→click 제스처 차단) → 방금 촬영(15초 이내) 휴리스틱
+  function isCameraShot(inputEl, file) {
+    if (inputEl && inputEl.dataset && inputEl.dataset.square === '1') return true;
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent) && file && file.lastModified
+        && (Date.now() - file.lastModified) < 15000) return true;
+    return false;
+  }
+
+  async function onPhotoSelect(slotId, file, square = false) {
     if (!file) return;
     // 검침값(지침) 칸이면 압축 전 "원본"을 보관 → 저장 시 고화질 LCD 크롭본 생성용
     const slotEl = document.getElementById(slotId);
@@ -407,7 +417,7 @@ const RplModal = (() => {
       removalPhotoOriginals[field] = file;
     }
     try {
-      const compressed = await PhotoUploader.compress(file);
+      const compressed = await PhotoUploader.compress(file, { square });
       setPhoto(slotId, compressed);
     } catch (e) {
       console.warn('압축 실패, 원본 사용', e);
@@ -862,7 +872,7 @@ const RplModal = (() => {
     document.getElementById('rpl-new-photo').onclick = () =>
       triggerPhotoPick(document.getElementById('rpl-new-photo-input'));
     document.getElementById('rpl-new-photo-input').onchange = (e) =>
-      onPhotoSelect('rpl-new-photo', e.target.files[0]);
+      onPhotoSelect('rpl-new-photo', e.target.files[0], isCameraShot(e.target, e.target.files[0]));
 
     // 지침칸 사진 바인딩 — RV_FIELDS 기반
     for (const fid of ALL_KNOWN_FIELDS) {
@@ -871,7 +881,7 @@ const RplModal = (() => {
       const photoInput = document.getElementById(els.photoInput);
       if (photoSlot && photoInput) {
         photoSlot.onclick  = () => triggerPhotoPick(photoInput);
-        photoInput.onchange = (e) => onPhotoSelect(els.photo, e.target.files[0]);
+        photoInput.onchange = (e) => onPhotoSelect(els.photo, e.target.files[0], isCameraShot(e.target, e.target.files[0]));
       }
     }
 
@@ -912,7 +922,7 @@ const RplModal = (() => {
           extraRows = extraRows.filter(r => r !== row);
         } else if (e.target.classList.contains('ex-photo-btn')) {
           const inp = row.querySelector('.ex-photo-input');
-          if (inp) inp.click();
+          if (inp) triggerPhotoPick(inp);
         }
       });
       extraRows_container.addEventListener('change', async (e) => {
@@ -922,7 +932,7 @@ const RplModal = (() => {
         const row = e.target.closest('.rpl-extra-row');
         if (!row) return;
         try {
-          const compressed = await PhotoUploader.compress(file);
+          const compressed = await PhotoUploader.compress(file, { square: isCameraShot(e.target, file) });
           e.target._blob = compressed;
         } catch (err) {
           e.target._blob = file;
