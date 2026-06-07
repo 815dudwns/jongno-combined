@@ -47,7 +47,7 @@
 .search-row { display: flex; gap: 6px; align-items: center; }
 .action-btn { padding: 11px 14px; border: none; border-radius: 12px; font-size: 14px; cursor: pointer; background: var(--surface); box-shadow: var(--clay-sm); transition: all 0.14s; font-weight: 700; color: var(--ink-2); }
 .action-btn:active { box-shadow: var(--clay-inset-sm); }
-.action-btn.complete.active { background: linear-gradient(145deg,#9ee0bd,#5fbb8c); color: #1c4733; box-shadow: var(--clay-mint); }
+.action-btn.complete.active { background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); box-shadow: var(--clay-mint); }
 .action-btn.reset:active { background: var(--gray-soft); color: var(--ink); }
 .action-btn.hold.active { background: linear-gradient(145deg,#86bbe8,#5b93cf); color: #fff; box-shadow: 5px 6px 14px rgba(80,120,160,.4), inset 2px 2px 5px rgba(220,238,255,.7), inset -4px -4px 9px rgba(70,110,150,.4); }
 .action-btn.fail.active { background: linear-gradient(145deg,#ed9d9d,#d56e6e); color: #fff; box-shadow: 5px 6px 14px rgba(170,90,90,.4), inset 2px 2px 5px rgba(255,225,225,.7), inset -4px -4px 9px rgba(160,70,70,.4); }
@@ -69,9 +69,9 @@
 .meter-checkbox { width: 22px; height: 22px; cursor: pointer; margin-top: 2px; flex-shrink: 0; accent-color: var(--mint-ink); }
 /* 체크박스 + 통합 작업번호(No.) 세로 묶음 — daily_seq를 체크박스 밑에 크게 (주소상세 v2) */
 .meter-side { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
-.meter-seq { display: inline-flex; align-items: baseline; gap: 1px; font-size: 9.5px; font-weight: 800; color: #6a55a0; background: var(--violet-soft, #ede9fe); border-radius: 9px; padding: 3px 8px; box-shadow: var(--clay-sm); white-space: nowrap; line-height: 1; }
+.meter-seq { display: inline-flex; align-items: baseline; gap: 1px; font-size: 9.5px; font-weight: 800; color: var(--mint-strong); background: color-mix(in srgb, var(--mint) 22%, var(--surface)); border-radius: 9px; padding: 3px 8px; box-shadow: var(--clay-sm); white-space: nowrap; line-height: 1; }
 .meter-seq b { font-size: 18px; font-weight: 900; }
-[data-theme="dark"] .meter-seq { color: #c4b5fd; background: rgba(167,139,250,0.18); }
+[data-theme="dark"] .meter-seq { color: var(--mint-strong); background: color-mix(in srgb, var(--mint) 30%, var(--surface)); }
 .meter-info { flex: 1; font-size: 13px; line-height: 1.6; word-break: break-all; color: var(--ink); }
 .meter-type { display: inline-block; padding: 4px 9px; background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); border-radius: 8px; font-size: 11px; font-weight: 800; margin-right: 6px; box-shadow: var(--clay-sm); }
 .meter-number { font-weight: 800; color: var(--ink); }
@@ -176,8 +176,10 @@
 .meter-fail-btn:active { box-shadow: var(--clay-inset-sm); }
 .meter-fail-btn.active { background: linear-gradient(145deg,#ed9d9d,#d56e6e); color: white; }
 
-/* 교체 완료된 계기 — 하늘색 clay 톤 */
+/* 교체 완료된 계기 — 배경=테마색(강조색). 라이트는 --mint-soft 가 이미 테마색 */
 .meter-item-replaced { background: var(--mint-soft) !important; }
+/* 다크에선 --mint-soft 가 회색(bg-deep)이라 강조색 틴트로 보정 */
+[data-theme="dark"] .meter-item-replaced { background: color-mix(in srgb, var(--mint) 26%, var(--surface)) !important; }
 /* 임시 저장(미완료)된 계기 — 옅은 노랑 + 앰버 링 */
 .meter-item-draft { background: linear-gradient(145deg,#fdf6e3,#f8edcc) !important; box-shadow: var(--clay-sm), inset 0 0 0 2px rgba(224,168,90,.45) !important; }
 

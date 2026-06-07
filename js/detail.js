@@ -308,7 +308,7 @@ function updateStatusBar(state) {
     if (!bar) return;
 
     const colorMap = {
-        complete: '#10b981',
+        complete: 'var(--mint)',
         hold:     '#3b82f6',
         fail:     '#ef4444',
     };
