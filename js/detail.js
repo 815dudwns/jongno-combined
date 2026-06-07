@@ -608,16 +608,15 @@ function renderMetersList() {
             // 철거(현재 계기) → 새 계기 비교 블록 (주소상세 v2 m-swap)
             const _newNo = replInfo.new_meter_id;
             const swapHtml = `<div class="m-swap">`
-                + `<div class="swap-col old"><h4>철거</h4><div class="sw-no">${e(meter.계기번호)}</div>`
+                + `<div class="swap-col old"><h4>철거</h4><div class="sw-no">${e(meter.계기번호)}${cpBtn(meter.계기번호, '철거계기번호 복사')}</div>`
                 + (rvItems.length ? `<div class="sw-rv">${rvItems.join('')}</div>` : '')
                 + `</div>`
                 + `<div class="swap-arrow"><span></span></div>`
                 + `<div class="swap-col new${_newNo ? '' : ' empty'}"><h4>새 계기</h4>`
                 + `<div class="sw-no">${_newNo ? e(_newNo) + cpBtn(_newNo, '교체계기번호 복사') : '입력 대기'}</div>`
                 + `</div></div>`;
-            // 푸터: 통합 작업번호(No.) + 사진 받기
+            // 푸터: 사진 받기만 (No.는 체크박스 밑 meter-side에 이미 표시 — 중복 제거)
             const footParts = [];
-            if (replInfo.daily_seq != null) footParts.push(`<span class="repl-no">No.${e(replInfo.daily_seq)}</span>`);
             if (replInfo.old_meter_photo || replInfo.new_meter_photo) {
                 footParts.push(`<a class="repl-dl-all" data-old="${e(replInfo.old_meter_photo || '')}" data-new="${e(replInfo.new_meter_photo || '')}" data-base="${e(meter.계기번호)}">사진 받기 ↓</a>`);
             }
