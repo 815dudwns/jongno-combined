@@ -677,11 +677,14 @@ function renderMetersList() {
 
         return `
             <div class="${itemClass}">
-                <input type="checkbox" class="meter-checkbox"
-                       data-meter="${meter.계기번호}" ${checkboxChecked} ${checkboxDisabled}>
+                <div class="meter-side">
+                    <input type="checkbox" class="meter-checkbox"
+                           data-meter="${meter.계기번호}" ${checkboxChecked} ${checkboxDisabled}>
+                    ${(isReplaced && replInfo.daily_seq != null) ? `<span class="meter-seq">No.<b>${replInfo.daily_seq}</b></span>` : ''}
+                </div>
                 <div class="meter-info"${commDoneStyle}>
                     <span class="meter-type">${parsedType}</span>
-                    ${isDraft && replInfo.daily_seq != null ? `<span class="daily-seq-badge">${replInfo.daily_seq}</span>` : ''}${noHtml}${otaHtml}${copyBtn}${addedBadge}${arrowHtml}
+                    ${noHtml}${otaHtml}${copyBtn}${addedBadge}${arrowHtml}
                     <button class="${failBtnClass}" data-meter="${meter.계기번호}">${failBtnLabel}</button>
                     ${rplBtnHtml}${removeAddedBtnHtml}
                     ${replInfoHtml}
@@ -733,8 +736,9 @@ function renderMetersList() {
                     } catch (err) { /* 한 장 실패해도 나머지 진행 */ }
                 }
                 if (!files.length) { alert('사진을 불러오지 못했습니다.'); return; }
-                // 2) Web Share(공유시트 → 이미지 저장 = 사진첩) 가능하면 우선
-                if (navigator.canShare && navigator.canShare({ files })) {
+                // 2) iOS만 Web Share(공유시트 → 사진첩 저장). 안드로이드는 공유시트 건너뛰고 바로 다운로드.
+                const _isAndroid = /Android/i.test(navigator.userAgent);
+                if (!_isAndroid && navigator.canShare && navigator.canShare({ files })) {
                     try { await navigator.share({ files, title: '교체 사진' }); return; }
                     catch (err) { if (err && err.name === 'AbortError') return; /* 그 외엔 폴백 */ }
                 }

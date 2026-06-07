@@ -67,6 +67,11 @@
 .overlay-meters { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); background: var(--bg); }
 .meter-item { margin-bottom: 13px; padding: 13px 15px; background: var(--surface); border-radius: 18px; display: flex; align-items: flex-start; gap: 11px; border: none; box-shadow: var(--clay-sm); }
 .meter-checkbox { width: 22px; height: 22px; cursor: pointer; margin-top: 2px; flex-shrink: 0; accent-color: var(--mint-ink); }
+/* 체크박스 + 통합 작업번호(No.) 세로 묶음 — daily_seq를 체크박스 밑에 크게 (주소상세 v2) */
+.meter-side { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
+.meter-seq { display: inline-flex; align-items: baseline; gap: 1px; font-size: 9.5px; font-weight: 800; color: #6a55a0; background: var(--violet-soft, #ede9fe); border-radius: 9px; padding: 3px 8px; box-shadow: var(--clay-sm); white-space: nowrap; line-height: 1; }
+.meter-seq b { font-size: 18px; font-weight: 900; }
+[data-theme="dark"] .meter-seq { color: #c4b5fd; background: rgba(167,139,250,0.18); }
 .meter-info { flex: 1; font-size: 13px; line-height: 1.6; word-break: break-all; color: var(--ink); }
 .meter-type { display: inline-block; padding: 4px 9px; background: linear-gradient(145deg,#86bbe8,#5b93cf); color: white; border-radius: 8px; font-size: 11px; font-weight: 800; margin-right: 6px; box-shadow: var(--clay-sm); }
 .meter-number { font-weight: 800; color: var(--ink); }

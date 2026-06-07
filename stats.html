@@ -448,7 +448,9 @@ async function sharePhotos(oldUrl, newUrl, base) {
     } catch (e) {}
   }
   if (!files.length) { alert('사진을 불러오지 못했습니다.'); return; }
-  if (navigator.canShare && navigator.canShare({ files })) {
+  // iOS만 공유시트(사진첩 저장). 안드로이드는 공유시트 건너뛰고 바로 다운로드.
+  const _isAndroid = /Android/i.test(navigator.userAgent);
+  if (!_isAndroid && navigator.canShare && navigator.canShare({ files })) {
     try { await navigator.share({ files, title: '교체 사진' }); return; }
     catch (e) { if (e && e.name === 'AbortError') return; }
   }
