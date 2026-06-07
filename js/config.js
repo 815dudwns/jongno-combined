@@ -15,3 +15,15 @@ const STORAGE_KEY = 'jongno_work_status';
 const CHECKED_KEY = 'jongno_checked_meters';
 const PENDING_KEY = 'ami_pending_sync';   // 하위호환용, 미사용
 const EVENTS_KEY  = 'jongno_event_queue';
+
+
+// 네이버 지도 Web Dynamic Map NCP Key ID
+// 네이버 클라우드 콘솔에서 발급받은 Key ID를 입력하세요.
+const NAVER_MAPS_NCP_KEY_ID = "dxuz48sk06";
+
+
+// 네이버 지도 Style Editor 연동용 My Style ID
+// 다크 지도 타일을 쓰려면 네이버 클라우드 Maps > Style Editor에서 다크 스타일을 발행한 뒤
+// NAVER_MAPS_DARK_STYLE_ID에 My Style ID를 입력하세요. 비워두면 기본 지도 타일을 사용합니다.
+const NAVER_MAPS_LIGHT_STYLE_ID = "";
+const NAVER_MAPS_DARK_STYLE_ID = "68fdddd5-dbb4-420a-9e4f-45bc0b0cf5eb";

@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>작업 통계 - 종로 합동시공</title>
+  <title>작업 통계 - Meter Care Solution</title>
   <link rel="stylesheet" href="css/clay.css?v=20260606dark">
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260528a';
+      const APP_VERSION = '20260606theme2';
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
-        ['jongno_auth', 'jongno_event_queue', 'jongno_theme'].forEach(k => {
+        ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
           const v = localStorage.getItem(k);
           if (v !== null) keep[k] = v;
         });
@@ -42,7 +42,7 @@
   <script src="js/config.js?v=20260606naver"></script>
   <script src="js/utils.js?v=20260528a"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="css/replacement-modal.css?v=20260606clay">
+  <link rel="stylesheet" href="css/replacement-modal.css?v=20260607resp">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: var(--font); background: var(--bg); min-height: 100vh; color: var(--ink); }
@@ -130,6 +130,12 @@
     [data-theme="dark"] .ana-table th { background: var(--bg-deep); color: var(--ink-2); border-color: var(--surface-2); }
     [data-theme="dark"] .ana-table td { border-color: var(--surface-2); }
     [data-theme="dark"] .ana-table tr.subtotal { background: var(--bg-deep); }
+    /* 복사 토스트 — detail.js/map.html과 동일 (common.css .toast 이식) */
+    .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--ink); padding: 11px 20px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 700; box-shadow: var(--clay-sm); pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 9999; white-space: nowrap; }
+    .toast.show { opacity: 1; }
+    /* 복사버튼 — 주소 모달(panel.css)과 동일: 배경 없음 (stats는 panel.css 미로드) */
+    .copy-btn { background: none; border: none; cursor: pointer; padding: 0 3px; color: var(--ink-3); line-height: 1; vertical-align: middle; display: inline-flex; align-items: center; }
+    .copy-btn:hover { color: var(--ink); }
   </style>
 </head>
 <body>
@@ -426,7 +432,7 @@ function drawMarkers() {
 
 const STAT_FL = { whme_day: '주간', whme_mngt: '야간', dm_mt_day: '최대', var_day: '무효' };
 function _cpBtn(v) {
-  return `<button class="copy-btn" data-copy="${String(v).replace(/"/g, '&quot;')}" title="복사" style="margin-left:4px;padding:1px 6px;font-size:10px;border:1px solid #d1d5db;background:#f9fafb;border-radius:4px;cursor:pointer;vertical-align:middle;">복사</button>`;
+  return `<button class="copy-btn" data-copy="${String(v).replace(/"/g, '&quot;')}" title="복사" style="margin-left:4px;vertical-align:middle;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
 }
 
 // 사진 받기 (Web Share=사진첩 저장 우선, 폴백 다운로드) — detail.js와 동일 로직
@@ -504,9 +510,9 @@ function renderList() {
     img.onclick = (e) => { e.stopPropagation(); openLightbox(img.dataset.full); };
   });
   container.querySelectorAll('.copy-btn').forEach(btn => {
-    btn.onclick = async (e) => {
+    btn.onclick = (e) => {
       e.stopPropagation();
-      try { await navigator.clipboard.writeText(btn.dataset.copy); const t = btn.textContent; btn.textContent = '복사됨'; setTimeout(() => btn.textContent = t, 1000); } catch (err) {}
+      copyMeterNo(btn.dataset.copy);
     };
   });
   container.querySelectorAll('.li-dl-btn').forEach(btn => {
@@ -560,6 +566,7 @@ async function loadSiteData() {
 async function loadData() {
   const dateVal = document.getElementById('date-input').value;
   if (!dateVal) return;
+  try { localStorage.setItem('jongno_stats_date', dateVal); } catch (e) {}
   const { start, end } = dayRange(dateVal);
 
   const [wsSnap, sdMap] = await Promise.all([
@@ -629,6 +636,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     const tab = btn.dataset.tab;
+    try { localStorage.setItem('jongno_stats_tab', tab); } catch (e) {}
     document.getElementById(`tab-${tab}`).classList.add('active');
     // 날짜바·요약 = 통계/지도 전용. 분석은 자체 기간바.
     const isAna = (tab === 'analysis');
@@ -652,7 +660,8 @@ function stepDate(delta) {
   document.getElementById('date-input').value = ns;
   loadData();
 }
-document.getElementById('date-input').value = todayStr();
+const _savedStatsDate = (() => { try { return localStorage.getItem('jongno_stats_date'); } catch (e) { return null; } })();
+document.getElementById('date-input').value = _savedStatsDate || todayStr();
 document.getElementById('btn-prev').onclick = () => stepDate(-1);
 document.getElementById('btn-next').onclick = () => stepDate(1);
 document.getElementById('btn-today').onclick = () => { document.getElementById('date-input').value = todayStr(); loadData(); };
@@ -808,14 +817,42 @@ function exportExcel() {
 }
 document.getElementById('btn-export').onclick = exportExcel;
 
-loadData();
+// 초기 데이터 로드 후 이전 세션 탭 복원
+// (지도/분석 탭은 cachedData가 준비된 뒤 그려야 그전 날짜 필터가 반영됨)
+loadData().then(() => {
+  let st = null; try { st = localStorage.getItem('jongno_stats_tab'); } catch (e) {}
+  if (st && st !== 'list') {
+    const tb = document.querySelector(`.tab-btn[data-tab="${st}"]`);
+    if (tb) tb.click();
+  }
+});
 </script>
 
 <!-- 모달 의존 스크립트 (inline script 이후 로드 — RplModal 사용 가능) -->
 <script src="js/photo-uploader.js?v=20260528a"></script>
 <script src="js/lcd-crop.js?v=20260607a"></script>
 <script src="js/awms-parseValue.js?v=20260602a"></script>
-<script src="js/qr-scanner.js?v=20260602a"></script>
+<script src="js/qr-scanner.js?v=20260607gscan"></script>
 <script src="js/replacement-modal.js?v=20260607lcd"></script>
+<div id="toast" class="toast">복사했습니다</div>
+
+<!-- QR 스캔 오버레이 (교체모달 QR 버튼용 — map.html과 동일) -->
+<div id="qr-scan-overlay" style="display:none;position:fixed;inset:0;background:black;z-index:3000;flex-direction:column;">
+  <div style="display:flex;align-items:center;padding:10px 14px;background:#111;color:white;gap:8px;">
+    <span id="qr-cam-label" style="font-size:12px;font-weight:600;white-space:nowrap;">카메라</span>
+    <select id="qr-cam-select" style="flex:1;min-width:140px;padding:8px 10px;background:#374151;color:white;border:1.5px solid #6b7280;border-radius:6px;font-size:13px;font-weight:600;appearance:auto;-webkit-appearance:auto;"><option>카메라 로드 중...</option></select>
+    <button id="qr-close-btn" style="padding:6px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">×</button>
+  </div>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;background:black;overflow:hidden;">
+    <div id="qr-reader" style="width:min(100vw, 100%); aspect-ratio:1/1; max-height:100%; background:black; position:relative; overflow:hidden;"></div>
+  </div>
+  <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
+  <div style="display:flex;gap:6px;padding:8px;background:#111;">
+    <button id="qr-switch-btn" style="display:none;flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">카메라 전환</button>
+    <button id="qr-zoom-out" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">- 줌</button>
+    <button id="qr-zoom-in" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">+ 줌</button>
+    <button id="qr-torch-btn" style="display:none;flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">손전등</button>
+  </div>
+</div>
 </body>
 </html>

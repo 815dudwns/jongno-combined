@@ -179,3 +179,16 @@ body.login-page #map { display: none; }
     .login-card { padding: 30px 20px 24px; }
     .login-title { font-size: 22px; }
 }
+
+
+/* 다크 모드 보정 */
+[data-theme="dark"] body.login-page {
+    background: radial-gradient(120% 90% at 50% 0%, #2c2925 0%, var(--bg) 56%, #191714 100%);
+}
+[data-theme="dark"] .logo-tile {
+    background: linear-gradient(150deg, var(--surface), var(--surface-2));
+}
+[data-theme="dark"] .login-btn {
+    background: linear-gradient(145deg, #6fc59c, #4ea27a);
+    color: #0f221a;
+}

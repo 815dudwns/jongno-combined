@@ -103,7 +103,7 @@ function showDetail(address, meters) {
     // 도로명/지번 라인 — 헤더와 다를 때만 노출 (중복 표시 방지)
     let roadLine = '';
     if (roadAddr && roadAddr !== headerAddr) {
-        roadLine = `📍 <span>${esc(roadAddr)}</span>` +
+        roadLine = `<span>${esc(roadAddr)}</span>` +
             `<button class="copy-btn" data-copy="${esc(roadAddr)}" title="도로명 복사" style="margin-left:6px;vertical-align:middle;">${COPY_ICON_SVG}</button>` +
             errorTag;
     } else if (hasApproximate && roadAddr === headerAddr) {
@@ -112,7 +112,7 @@ function showDetail(address, meters) {
     let jibunLine = '';
     if (jibunAddr && jibunAddr !== headerAddr) {
         const br = roadLine ? '<br>' : '';
-        jibunLine = `${br}<span style="color:#9ca3af;">🏠 ${esc(jibunAddr)}</span>` +
+        jibunLine = `${br}<span style="color:#9ca3af;">${esc(jibunAddr)}</span>` +
             `<button class="copy-btn" data-copy="${esc(jibunAddr)}" title="지번 복사" style="margin-left:6px;vertical-align:middle;">${COPY_ICON_SVG}</button>`;
     }
     document.getElementById('detail-road-address').innerHTML = roadLine + jibunLine;
@@ -148,37 +148,37 @@ function showDetail(address, meters) {
     // 통신팀 시각 = 체크된 활성 계기 일괄 완료 (comm_completed_list에 저장)
     const isCommRole = (role === 'comm');
     if (myState === 'complete') {
-        btnComplete.textContent = '🔄 초기화';
+        btnComplete.textContent = '초기화';
         btnComplete.className = 'action-btn reset';
         btnComplete.onclick = () => resetStatus();
     } else if (isCommRole) {
-        btnComplete.textContent = '✅ 완료';
+        btnComplete.textContent = '완료';
         btnComplete.className = 'action-btn complete';
         btnComplete.onclick = () => bulkCommComplete(address);
     } else {
-        btnComplete.textContent = '✅ 완료';
+        btnComplete.textContent = '완료';
         btnComplete.className = 'action-btn complete';
         btnComplete.onclick = () => { updateStatus('complete'); closeDetail(); };
     }
 
     // 보류 상태면 초기화 버튼으로 전환
     if (myState === 'hold') {
-        btnHold.textContent = '🔄 초기화';
+        btnHold.textContent = '초기화';
         btnHold.className = 'action-btn reset';
         btnHold.onclick = () => resetStatus();
     } else {
-        btnHold.textContent = '⏸️ 보류';
+        btnHold.textContent = '보류';
         btnHold.className = 'action-btn hold';
         btnHold.onclick = () => { updateStatus('hold'); closeDetail(); };
     }
 
     // 불가 상태면 초기화 버튼으로 전환
     if (myState === 'fail') {
-        btnFail.textContent = '🔄 초기화';
+        btnFail.textContent = '초기화';
         btnFail.className = 'action-btn reset';
         btnFail.onclick = () => resetStatus();
     } else {
-        btnFail.textContent = '❌ 불가';
+        btnFail.textContent = '불가';
         btnFail.className = 'action-btn fail';
         btnFail.onclick = () => {
             const failInput = document.getElementById('fail-reason');
@@ -503,7 +503,7 @@ function renderMetersList() {
         const _otaRole = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : ((authGetSession() || {}).role || 'meter');
         const _commEntry = (status.comm_completed_list || {})[meter.계기번호];
         const otaHtml = (_otaRole !== 'meter' && _commEntry && _commEntry.otype)
-            ? ` <span class="ota-badge" title="${_commEntry.comm_meter_id ? '통신팀 입력: ' + _commEntry.comm_meter_id : ''}" style="margin-left:4px;padding:1px 6px;border-radius:6px;font-size:11px;font-weight:700;${_commEntry.otype === '통신오타' ? 'background:#fef3c7;color:#92400e;border:1px solid #fbbf24;' : 'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;'}">(${_commEntry.otype})</span>`
+            ? ` <span class="ota-badge ${_commEntry.otype === '통신오타' ? 'comm-typo' : 'missing'}" title="${_commEntry.comm_meter_id ? '통신팀 입력: ' + _commEntry.comm_meter_id : ''}">(${_commEntry.otype})</span>`
             : '';
 
         // 개별 불가 처리 상태
@@ -588,10 +588,8 @@ function renderMetersList() {
             const e = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             const ICON = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
             const cpBtn = (v, t) => `<button class="copy-btn" data-copy="${e(v)}" title="${t}" style="margin-left:3px;vertical-align:middle;">${ICON}</button>`;
-            const segs = [];
-            if (replInfo.daily_seq != null) segs.push(`<b style="color:#7c3aed;">No.${e(replInfo.daily_seq)}</b>`);
-            if (replInfo.new_meter_id) segs.push(`교체 <b>${e(replInfo.new_meter_id)}</b>${cpBtn(replInfo.new_meter_id, '교체계기번호 복사')}`);
-            // 철거지침: removal_values(다칸) 있으면 활성 항목 표시, 없으면 removal_value(단일) 폴백
+            // 철거값(검침지침) 수집 — 다칸(removal_values) 우선, 단일(removal_value) 폴백
+            const rvItems = [];
             if (replInfo.removal_values && typeof replInfo.removal_values === 'object') {
                 const activeFields = (typeof readingFieldsFor === 'function')
                     ? readingFieldsFor(meter.계약종별, meter.계약전력)
@@ -601,16 +599,30 @@ function renderMetersList() {
                     const fval = replInfo.removal_values[fid];
                     if (fval != null && String(fval) !== '') {
                         const flabel = (fieldLabels[fid] && fieldLabels[fid].label) ? fieldLabels[fid].label : fid;
-                        segs.push(`${flabel} <b>${e(fval)}</b>${cpBtn(fval, `${flabel} 복사`)}`);
+                        rvItems.push(`<span class="sw-rv-item">${flabel} <b>${e(fval)}</b>${cpBtn(fval, `${flabel} 복사`)}</span>`);
                     }
                 }
             } else if (replInfo.removal_value != null && String(replInfo.removal_value) !== '') {
-                segs.push(`철거지침 <b>${e(replInfo.removal_value)}</b>${cpBtn(replInfo.removal_value, '철거지침 복사')}`);
+                rvItems.push(`<span class="sw-rv-item">철거지침 <b>${e(replInfo.removal_value)}</b>${cpBtn(replInfo.removal_value, '철거지침 복사')}</span>`);
             }
+            // 철거(현재 계기) → 새 계기 비교 블록 (주소상세 v2 m-swap)
+            const _newNo = replInfo.new_meter_id;
+            const swapHtml = `<div class="m-swap">`
+                + `<div class="swap-col old"><h4>철거</h4><div class="sw-no">${e(meter.계기번호)}</div>`
+                + (rvItems.length ? `<div class="sw-rv">${rvItems.join('')}</div>` : '')
+                + `</div>`
+                + `<div class="swap-arrow"><span></span></div>`
+                + `<div class="swap-col new${_newNo ? '' : ' empty'}"><h4>새 계기</h4>`
+                + `<div class="sw-no">${_newNo ? e(_newNo) + cpBtn(_newNo, '교체계기번호 복사') : '입력 대기'}</div>`
+                + `</div></div>`;
+            // 푸터: 통합 작업번호(No.) + 사진 받기
+            const footParts = [];
+            if (replInfo.daily_seq != null) footParts.push(`<span class="repl-no">No.${e(replInfo.daily_seq)}</span>`);
             if (replInfo.old_meter_photo || replInfo.new_meter_photo) {
-                segs.push(`<a class="repl-dl-all" data-old="${e(replInfo.old_meter_photo || '')}" data-new="${e(replInfo.new_meter_photo || '')}" data-base="${e(meter.계기번호)}" style="color:#2563eb;font-weight:700;text-decoration:underline;cursor:pointer;">사진 받기 ↓</a>`);
+                footParts.push(`<a class="repl-dl-all" data-old="${e(replInfo.old_meter_photo || '')}" data-new="${e(replInfo.new_meter_photo || '')}" data-base="${e(meter.계기번호)}">사진 받기 ↓</a>`);
             }
-            if (segs.length) replInfoHtml = `<div class="meter-repl-info" style="margin-top:4px;font-size:12px;color:#374151;line-height:1.8;">${segs.join(' · ')}</div>`;
+            const footHtml = footParts.length ? `<div class="m-swap-foot">${footParts.join('')}</div>` : '';
+            replInfoHtml = swapHtml + footHtml;
         }
         } catch (err) { replInfoHtml = ''; console.error('replInfo 생성 오류:', err); }
 
@@ -622,17 +634,17 @@ function renderMetersList() {
 
         const rplBtnHtml = showRpl
             ? (isDraft
-                ? `<button class="meter-rpl-btn" data-meter="${meter.계기번호}" data-mode="edit" style="margin-left:6px;padding:3px 8px;background:#f59e0b;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">📝 이어서</button>`
+                ? `<button class="meter-rpl-btn draft" data-meter="${meter.계기번호}" data-mode="edit">이어서</button>`
                 : (isReplaced
-                    ? `<button class="meter-rpl-btn" data-meter="${meter.계기번호}" data-mode="edit" style="margin-left:6px;padding:3px 8px;background:#10b981;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">✏️ 수정</button>`
-                    : `<button class="meter-rpl-btn" data-meter="${meter.계기번호}" style="margin-left:6px;padding:3px 8px;background:#7c3aed;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">📝 교체</button>`))
+                    ? `<button class="meter-rpl-btn done" data-meter="${meter.계기번호}" data-mode="edit">수정</button>`
+                    : `<button class="meter-rpl-btn new" data-meter="${meter.계기번호}">교체</button>`))
             : '';
 
         // 통신팀 시각: 계기팀 완료한 계기만 활성. 활성 계기 = "기존 → 신" 표시
         const isCommView = (_role === 'comm');
         const commDone = isCommView && !!((status.comm_completed_list || {})[meter.계기번호]);
         const arrowHtml = isCommView && isReplaced
-            ? ` <span style="color:#7c3aed;font-weight:700;">→ ${replInfo.new_meter_id}</span>`
+            ? ` <span class="new-meter-arrow">→ ${replInfo.new_meter_id}</span>`
             : '';
         // 통신팀 시각에서 비활성(계기팀 미작업) 계기는 옅게
         const inactiveCommStyle = isCommView && !isReplaced
@@ -644,11 +656,11 @@ function renderMetersList() {
             : '';
         // "추가" 배지 — 작업자가 수동 추가한 계기 (site-data에 없는)
         const addedBadge = meter._isAdded
-            ? `<span style="margin-left:6px;padding:2px 7px;background:#fef3c7;color:#92400e;border:1px solid #fbbf24;border-radius:6px;font-size:10px;font-weight:700;">추가</span>`
+            ? `<span class="added-meter-badge">추가</span>`
             : '';
         // 추가 계기는 삭제 버튼 (잘못 추가한 경우 제거)
         const removeAddedBtnHtml = meter._isAdded
-            ? `<button class="meter-remove-added-btn" data-meter="${meter.계기번호}" title="추가 취소" style="margin-left:4px;padding:3px 8px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">🗑</button>`
+            ? `<button class="meter-remove-added-btn" data-meter="${meter.계기번호}" title="추가 취소">삭제</button>`
             : '';
 
         // 통신팀 시각: 비활성 계기 = disabled. 통신팀 완료 = 체크 자동 + disabled.
@@ -660,12 +672,11 @@ function renderMetersList() {
         } else {
             checkboxChecked = checked;
         }
-        const itemStyle = isCommView && !isReplaced
-            ? ' style="opacity:0.4;"'
-            : (commDone ? ' style="background:#f3f4f6;"' : '');
+        if (isCommView && !isReplaced) itemClass += ' meter-item-comm-inactive';
+        if (commDone) itemClass += ' meter-item-comm-done';
 
         return `
-            <div class="${itemClass}"${itemStyle}>
+            <div class="${itemClass}">
                 <input type="checkbox" class="meter-checkbox"
                        data-meter="${meter.계기번호}" ${checkboxChecked} ${checkboxDisabled}>
                 <div class="meter-info"${commDoneStyle}>
@@ -673,9 +684,9 @@ function renderMetersList() {
                     ${isDraft && replInfo.daily_seq != null ? `<span class="daily-seq-badge">${replInfo.daily_seq}</span>` : ''}${noHtml}${otaHtml}${copyBtn}${addedBadge}${arrowHtml}
                     <button class="${failBtnClass}" data-meter="${meter.계기번호}">${failBtnLabel}</button>
                     ${rplBtnHtml}${removeAddedBtnHtml}
-                    ${meterMetaHtml}
-                    ${details ? `<div class="meter-details">${details}</div>` : ''}
                     ${replInfoHtml}
+                    ${details ? `<div class="meter-details">${details}</div>` : ''}
+                    ${meterMetaHtml}
                     ${failInputHtml}
                 </div>
             </div>
@@ -747,7 +758,7 @@ function renderMetersList() {
             });
         });
 
-        // 추가 계기 삭제 버튼 (🗑) — added_meters에서 제거
+        // 추가 계기 삭제 버튼 — added_meters에서 제거
         document.querySelectorAll('.meter-remove-added-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
@@ -869,7 +880,7 @@ async function bulkCommComplete(address) {
         });
         workStatus[address] = status;
 
-        alert(`✅ 통신팀 완료: ${targets.length}건`);
+        alert(`통신팀 완료: ${targets.length}건`);
         renderMetersList();
         if (typeof updateMarkerColor === 'function') updateMarkerColor(address);
     } catch (e) {

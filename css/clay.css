@@ -71,6 +71,138 @@
           'Malgun Gothic', sans-serif;
 }
 
+/* ============================================================
+   다크 모드
+   • 기본: OS 설정 자동 추종 (@media prefers-color-scheme)
+   • 수동 강제: [data-theme="dark"] / [data-theme="light"]
+   클레이 다크: 표면이 배경보다 밝고, 그림자는 거의 블랙 +
+   상단 라이트 엣지로 입체. 광원 좌상단 유지.
+   ============================================================ */
+/* 다크 토큰 묶음 — 수동 강제(dark) + 자동 추종(시스템 dark, 강제 아님) */
+[data-theme="dark"],
+.theme-dark {
+  --bg:            #201e1b;   /* 웜 차콜 보드 */
+  --bg-deep:       #191714;   /* 음각/리세스 — 더 깊음 */
+  --surface:       #2c2925;   /* 볼록 표면 — 배경보다 밝음 */
+  --surface-2:     #262320;
+
+  --mint:          #7fcaa6;
+  --mint-ink:      #8fd9b4;   /* 다크 위 텍스트 — 밝게 */
+  --mint-strong:   #a7e4c6;
+  --mint-deep:     #13261d;   /* 민트 버튼 라벨 — 딥 */
+  --mint-soft:     #29413a;   /* 옅은 민트 칩 배경 → 다크 민트 틴트 */
+  --mint-glow:     #46e0a3;
+
+  --ink:           #ece9e2;   /* 본문 — 웜 오프화이트 */
+  --ink-2:         #a8a294;
+  --ink-3:         #746f64;
+
+  /* 상태색 — 다크에서 채도/명도 보정, soft는 어두운 틴트 */
+  --green:  #74c499;  --green-soft:  #2b4639;
+  --blue:   #7fb0e0;  --blue-soft:   #2a3a4d;
+  --amber:  #e0b85a;  --amber-soft:  #4a3f24;
+  --rose:   #e09a9a;  --rose-soft:   #4a2e2e;
+  --violet: #b3a3da;  --violet-soft: #393050;
+  --gray:   #aaa499;  --gray-soft:   #38352f;
+
+  /* 클레이 다크 그림자 — 음영은 블랙, 하이라이트는 저투명 화이트 */
+  --clay:
+    calc(6px * var(--depth)) calc(7px * var(--depth)) calc(16px * var(--depth)) rgba(0,0,0,0.55),
+    calc(-5px * var(--depth)) calc(-5px * var(--depth)) calc(13px * var(--depth)) rgba(255,255,255,0.045),
+    inset 2px 2px 4px rgba(255,255,255,0.06),
+    inset -4px -4px 9px rgba(0,0,0,0.45);
+
+  --clay-sm:
+    calc(3px * var(--depth)) calc(4px * var(--depth)) calc(10px * var(--depth)) rgba(0,0,0,0.5),
+    calc(-3px * var(--depth)) calc(-3px * var(--depth)) calc(8px * var(--depth)) rgba(255,255,255,0.04),
+    inset 1px 1px 2px rgba(255,255,255,0.05),
+    inset -2px -2px 5px rgba(0,0,0,0.4);
+
+  --clay-inset:
+    inset 4px 5px 10px rgba(0,0,0,0.55),
+    inset -3px -3px 8px rgba(255,255,255,0.04);
+
+  --clay-inset-sm:
+    inset 3px 3px 6px rgba(0,0,0,0.5),
+    inset -2px -2px 5px rgba(255,255,255,0.035);
+
+  --clay-mint:
+    calc(5px * var(--depth)) calc(6px * var(--depth)) calc(14px * var(--depth)) rgba(0,0,0,0.5),
+    calc(-4px * var(--depth)) calc(-4px * var(--depth)) calc(11px * var(--depth)) rgba(120,210,170,0.12),
+    inset 2px 2px 5px rgba(190,240,215,0.25),
+    inset -4px -4px 9px rgba(0,0,0,0.4);
+
+  --focus-glow: 0 0 0 3px rgba(70,224,163,0.4), 0 0 16px rgba(70,224,163,0.4);
+}
+
+/* 다크에서 민트 버튼 그라데이션 보정 */
+[data-theme="dark"] .cbtn-primary,
+[data-theme="dark"] .cseg button.active,
+.theme-dark .cbtn-primary,
+.theme-dark .cseg button.active {
+  background: linear-gradient(145deg, #6fc59c, #4ea27a);
+  color: #0f221a;
+}
+
+/* OS 다크 자동 추종 — 사용자가 라이트/다크로 강제하지 않은 경우에만.
+   ([data-theme="dark"] 와 동일한 토큰 — 두 곳을 함께 유지보수할 것) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+    --bg:            #201e1b;
+    --bg-deep:       #191714;
+    --surface:       #2c2925;
+    --surface-2:     #262320;
+
+    --mint:          #7fcaa6;
+    --mint-ink:      #8fd9b4;
+    --mint-strong:   #a7e4c6;
+    --mint-deep:     #13261d;
+    --mint-soft:     #29413a;
+    --mint-glow:     #46e0a3;
+
+    --ink:           #ece9e2;
+    --ink-2:         #a8a294;
+    --ink-3:         #746f64;
+
+    --green:  #74c499;  --green-soft:  #2b4639;
+    --blue:   #7fb0e0;  --blue-soft:   #2a3a4d;
+    --amber:  #e0b85a;  --amber-soft:  #4a3f24;
+    --rose:   #e09a9a;  --rose-soft:   #4a2e2e;
+    --violet: #b3a3da;  --violet-soft: #393050;
+    --gray:   #aaa499;  --gray-soft:   #38352f;
+
+    --clay:
+      calc(6px * var(--depth)) calc(7px * var(--depth)) calc(16px * var(--depth)) rgba(0,0,0,0.55),
+      calc(-5px * var(--depth)) calc(-5px * var(--depth)) calc(13px * var(--depth)) rgba(255,255,255,0.045),
+      inset 2px 2px 4px rgba(255,255,255,0.06),
+      inset -4px -4px 9px rgba(0,0,0,0.45);
+    --clay-sm:
+      calc(3px * var(--depth)) calc(4px * var(--depth)) calc(10px * var(--depth)) rgba(0,0,0,0.5),
+      calc(-3px * var(--depth)) calc(-3px * var(--depth)) calc(8px * var(--depth)) rgba(255,255,255,0.04),
+      inset 1px 1px 2px rgba(255,255,255,0.05),
+      inset -2px -2px 5px rgba(0,0,0,0.4);
+    --clay-inset:
+      inset 4px 5px 10px rgba(0,0,0,0.55),
+      inset -3px -3px 8px rgba(255,255,255,0.04);
+    --clay-inset-sm:
+      inset 3px 3px 6px rgba(0,0,0,0.5),
+      inset -2px -2px 5px rgba(255,255,255,0.035);
+    --clay-mint:
+      calc(5px * var(--depth)) calc(6px * var(--depth)) calc(14px * var(--depth)) rgba(0,0,0,0.5),
+      calc(-4px * var(--depth)) calc(-4px * var(--depth)) calc(11px * var(--depth)) rgba(120,210,170,0.12),
+      inset 2px 2px 5px rgba(190,240,215,0.25),
+      inset -4px -4px 9px rgba(0,0,0,0.4);
+    --focus-glow: 0 0 0 3px rgba(70,224,163,0.4), 0 0 16px rgba(70,224,163,0.4);
+  }
+  /* 자동 다크에서도 민트 버튼 보정 */
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .cbtn-primary,
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .cseg button.active {
+    background: linear-gradient(145deg, #6fc59c, #4ea27a);
+    color: #0f221a;
+  }
+}
+
 @font-face {
   font-family: 'Pretendard';
   font-weight: 400 800;

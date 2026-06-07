@@ -10,6 +10,8 @@ const RplModal = (() => {
   // 칸별 사진 blob / 수정모드 유지 URL
   let removalPhotoBlobs = {};    // { whme_day: Blob|null, ... }
   let keepRemovalPhotoUrls = {}; // { whme_day: 'https://...', ... }
+  // 칸별 "원본"(압축 전) file 보관 — 저장 시 LCD 크롭본(고화질) 생성용. 검침값 검증/학습 데이터.
+  let removalPhotoOriginals = {}; // { whme_day: File|Blob|null, ... }
 
   // 추가 데이터 행 (DOM 요소 배열 — save 시 collectExtraRows로 수집)
   let extraRows = [];
@@ -55,6 +57,7 @@ const RplModal = (() => {
     keepNewPhotoUrl = null;
     removalPhotoBlobs = {};
     keepRemovalPhotoUrls = {};
+    removalPhotoOriginals = {};
 
     document.getElementById('rpl-modal').classList.add('active');
     document.getElementById('rpl-title-addr').textContent = address;
@@ -88,6 +91,10 @@ const RplModal = (() => {
     } else {
       oldIdInput.value = meter.계기번호 || meter.meter_id || '';
     }
+    const currentMeterCard = document.getElementById('rpl-current-meter');
+    const currentMeterText = document.getElementById('rpl-current-meter-id');
+    if (currentMeterCard) currentMeterCard.style.display = isAddMode ? 'none' : '';
+    if (currentMeterText) currentMeterText.textContent = isAddMode ? '-' : (oldIdInput.value || '-');
 
     // 저장 버튼 라벨
     const saveBtn = document.getElementById('rpl-save');
@@ -363,6 +370,12 @@ const RplModal = (() => {
 
   async function onPhotoSelect(slotId, file) {
     if (!file) return;
+    // 검침값(지침) 칸이면 압축 전 "원본"을 보관 → 저장 시 고화질 LCD 크롭본 생성용
+    const slotEl = document.getElementById(slotId);
+    const field = slotEl && slotEl.dataset && slotEl.dataset.field;
+    if (field && RV_FIELDS[field]) {
+      removalPhotoOriginals[field] = file;
+    }
     try {
       const compressed = await PhotoUploader.compress(file);
       setPhoto(slotId, compressed);
@@ -442,7 +455,7 @@ const RplModal = (() => {
     const photoBtn = document.createElement('button');
     photoBtn.type = 'button';
     photoBtn.className = 'ex-photo-btn';
-    photoBtn.textContent = '📷';
+    photoBtn.textContent = '사진';
     if (prefill && prefill.photo_url) {
       photoBtn.classList.add('has');
       photoBtn.title = prefill.photo_url;
@@ -532,7 +545,7 @@ const RplModal = (() => {
 
         if (dryRun) {
           console.log('[DRY RUN] added_meters', addrKey, oldMeterId, added);
-          toast(`🧪 [DRY RUN] 추가 모의: ${oldMeterId}`);
+          toast(`[DRY RUN] 추가 모의: ${oldMeterId}`);
         } else {
           const node = statusRef.child(addrKey).child('added_meters').child(String(oldMeterId));
           await node.set(added);
@@ -540,7 +553,7 @@ const RplModal = (() => {
           if (!workStatus[currentAddress]) workStatus[currentAddress] = makeEmptyEntry();
           if (!workStatus[currentAddress].added_meters) workStatus[currentAddress].added_meters = {};
           workStatus[currentAddress].added_meters[oldMeterId] = added;
-          toast(`✅ 계기 추가됨: ${oldMeterId}`);
+          toast(`계기 추가됨: ${oldMeterId}`);
         }
 
         setTimeout(close, 700);
@@ -620,6 +633,26 @@ const RplModal = (() => {
               : Promise.resolve({ url: keepUrl }),
           });
         }
+
+        // 검침값 LCD 고화질 크롭본 (검증/학습용) — 원본 있을 때만, 실패해도 본 흐름 영향 없음
+        const orig = removalPhotoOriginals[fid];
+        if (!dryRun && orig && typeof LcdCrop !== 'undefined') {
+          uploadTasks.push({
+            tag: `lcd_${fid}`,
+            promise: (async () => {
+              try {
+                const c = await LcdCrop.cropLcd(orig); // { blob, ok, reason, roi }
+                if (!c || !c.blob) return { url: '', ok: false };
+                const url = await PhotoUploader.upload(c.blob, `${baseDir}/${fid}_lcd.jpg`);
+                // ok=false면 LCD가 고정영역에 없는 "문제 사진" — URL은 올리되 플래그 전달
+                return { url, ok: c.ok, reason: c.reason };
+              } catch (e) {
+                console.warn(`[LcdCrop] ${fid} 크롭본 업로드 실패(무시)`, e);
+                return { url: '', ok: false };
+              }
+            })(),
+          });
+        }
       }
 
       // 신계기 사진
@@ -638,8 +671,10 @@ const RplModal = (() => {
 
       // 태그 기반 결과 매핑
       const urlMap = {};
+      const resMap = {};
       for (let i = 0; i < uploadTasks.length; i++) {
         urlMap[uploadTasks[i].tag] = results[i].url || '';
+        resMap[uploadTasks[i].tag] = results[i];
       }
 
       // removal_photos 구성 (활성칸만)
@@ -647,6 +682,17 @@ const RplModal = (() => {
       for (const fid of activeFields) {
         const url = urlMap[`rv_${fid}`];
         if (url) removal_photos[fid] = url;
+      }
+
+      // 검침값 LCD 고화질 크롭본 URL (검증/학습용, 있을 때만)
+      // + LCD가 고정영역에 안 잡힌 "문제 사진" 칸 플래그 (검증단계에서 사람이 우선 확인)
+      const removal_lcd_photos = {};
+      const removal_lcd_flags = {};
+      for (const fid of activeFields) {
+        const url = urlMap[`lcd_${fid}`];
+        if (url) removal_lcd_photos[fid] = url;
+        const r = resMap[`lcd_${fid}`];
+        if (r && url && r.ok === false) removal_lcd_flags[fid] = r.reason || 'lcd_not_found';
       }
 
       // old_meter_photo = firstActive 칸 사진 (기존 소비자 호환, 절대 비우지 않음)
@@ -677,6 +723,14 @@ const RplModal = (() => {
         daily_seq: dailySeq,
         draft: !!isDraft,
       };
+      // 검침값 LCD 고화질 크롭본 URL (있을 때만 — 검증/학습용)
+      if (Object.keys(removal_lcd_photos).length) {
+        replacement.removal_lcd_photos = removal_lcd_photos;
+      }
+      // LCD가 고정영역에 안 잡힌 문제 사진 플래그 (있을 때만)
+      if (Object.keys(removal_lcd_flags).length) {
+        replacement.removal_lcd_flags = removal_lcd_flags;
+      }
       if (editingData) {
         replacement.last_edited_at = ts;
         replacement.last_edited_by = me;
@@ -685,7 +739,7 @@ const RplModal = (() => {
       if (dryRun) {
         console.log('[DRY RUN] replacement_list', addrKey, oldMeterId, replacement);
         saveLastMfgYm(y, m);
-        toast(editingData ? '🧪 [DRY RUN] 수정 모의' : `🧪 [DRY RUN] 저장 모의 (오늘 ${dailySeq}번째)`);
+        toast(editingData ? '[DRY RUN] 수정 모의' : `[DRY RUN] 저장 모의 (오늘 ${dailySeq}번째)`);
         setTimeout(close, 800);
         return;
       }
@@ -700,9 +754,9 @@ const RplModal = (() => {
 
       if (y && m) saveLastMfgYm(y, m);
       if (isDraft) {
-        toast('📝 임시 저장됨 — 나중에 이어서 작업하세요');
+        toast('임시 저장됨 — 나중에 이어서 작업하세요');
       } else {
-        toast(editingData ? '✏️ 수정 완료' : `✅ 저장 완료 (오늘 ${dailySeq}번째)`);
+        toast(editingData ? '수정 완료' : `저장 완료 (오늘 ${dailySeq}번째)`);
       }
       setTimeout(close, 800);
 
@@ -749,7 +803,7 @@ const RplModal = (() => {
       const rl = workStatus[currentAddress] && workStatus[currentAddress].replacement_list;
       if (rl) delete rl[oldId];
 
-      toast('🗑 삭제 완료');
+      toast('삭제 완료');
       setTimeout(close, 600);
 
       if (typeof updateMarkerColor === 'function') updateMarkerColor(currentAddress);
@@ -761,7 +815,7 @@ const RplModal = (() => {
       toast(`삭제 실패: ${e.message || e}`);
     } finally {
       delBtn.disabled = false;
-      delBtn.textContent = '🗑 삭제';
+      delBtn.textContent = '삭제';
     }
   }
 

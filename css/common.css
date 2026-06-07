@@ -25,31 +25,48 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothi
 .user-bar .logout-btn:hover { text-decoration: underline; }
 .user-bar .search-btn { background: none; border: none; color: var(--mint-strong); font-size: 12px; cursor: pointer; padding: 0; line-height: 1; font-weight: 700; }
 .user-bar .search-btn:hover { text-decoration: underline; }
+.theme-btn { background: none; border: none; color: var(--ink-2); font-size: 12px; font-weight: 700; cursor: pointer; padding: 0; line-height: 1; }
+.theme-btn:hover { text-decoration: underline; }
+@media (max-width: 640px) { .theme-btn { font-size: 13px; min-height: 28px; } }
+
 /* 모바일: 터치 영역 확보 */
 @media (max-width: 640px) { .user-bar { top: 8px; right: 8px; padding: 8px 14px; font-size: 13px; } .user-bar .logout-btn, .user-bar .search-btn { font-size: 13px; min-height: 28px; } }
 
-/* 검색 모달 — 오버레이 */
-.search-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 2000; display: none; align-items: flex-start; justify-content: center; padding: 60px 16px 16px; }
+/* 검색 모달 — 클레이 상단 시트 */
+.search-overlay { position: fixed; inset: 0; background: rgba(44,42,39,0.46); z-index: 2000; display: none; align-items: flex-start; justify-content: center; padding: 60px 16px 16px; }
 .search-overlay.active { display: flex; }
-.search-modal { background: white; border-radius: 12px; width: 100%; max-width: 520px; max-height: calc(100vh - 80px); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
-.search-header { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; background: #f9fafb; flex-shrink: 0; }
-.search-header h3 { font-size: 16px; font-weight: 700; color: #111827; margin: 0; }
-.search-header .close-btn { width: 32px; height: 32px; border: none; background: #e5e7eb; border-radius: 6px; cursor: pointer; font-size: 20px; line-height: 1; color: #374151; font-weight: 600; }
-.search-input-row { padding: 12px 16px; display: flex; gap: 6px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
-.search-input-row input { flex: 1; min-width: 0; padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; }
-.search-input-row input:focus { outline: none; border-color: #3b82f6; }
-.search-go-btn { padding: 10px 16px; background: #1d4ed8; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-.search-hint { padding: 8px 16px; font-size: 12px; color: #6b7280; background: #f9fafb; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
-.search-results { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 100px; }
-.search-result-row { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; cursor: pointer; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-.search-result-row:hover, .search-result-row:active { background: #eff6ff; }
+.search-modal { background: var(--bg); border-radius: 24px; width: 100%; max-width: 520px; max-height: calc(100vh - 80px); display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--clay); }
+.search-header { padding: 15px 18px 10px; display: flex; align-items: center; justify-content: space-between; background: var(--bg); flex-shrink: 0; }
+.search-header h3 { font-size: 18px; font-weight: 800; color: var(--ink); margin: 0; letter-spacing: -0.02em; }
+.search-header .close-btn { width: 36px; height: 36px; border: none; background: var(--surface); border-radius: 50%; cursor: pointer; font-size: 20px; line-height: 1; color: var(--ink-2); font-weight: 700; box-shadow: var(--clay-sm); }
+.search-header .close-btn:active { box-shadow: var(--clay-inset-sm); }
+.search-input-row { padding: 8px 16px 12px; display: flex; gap: 8px; flex-shrink: 0; }
+.search-input-row input { flex: 1; min-width: 0; padding: 13px 16px; border: none; border-radius: var(--radius-pill); font-family: var(--font); color: var(--ink); background: var(--bg-deep); box-shadow: var(--clay-inset); font-size: 14px; outline: none; }
+.search-input-row input::placeholder { color: var(--ink-3); }
+.search-input-row input:focus { box-shadow: var(--clay-inset), var(--focus-glow); }
+[data-theme="dark"] .search-input-row input {
+    color: #f2efe7;
+    -webkit-text-fill-color: #f2efe7;
+    caret-color: #46e0a3;
+}
+[data-theme="dark"] .search-input-row input::placeholder {
+    color: #9b9488;
+    -webkit-text-fill-color: #9b9488;
+    opacity: 1;
+}
+.search-go-btn { padding: 12px 18px; background: linear-gradient(145deg,#bbe8d0,#93d2af); color: var(--mint-deep); border: none; border-radius: var(--radius-pill); font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; box-shadow: var(--clay-mint); }
+.search-go-btn:active { box-shadow: var(--clay-inset-sm); }
+.search-hint { margin: 0 16px 8px; padding: 9px 14px; border-radius: var(--radius-pill); font-size: 12px; font-weight: 700; color: var(--ink-2); background: var(--surface-2); box-shadow: var(--clay-inset-sm); flex-shrink: 0; }
+.search-results { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 100px; padding: 4px 12px 14px; }
+.search-result-row { margin-bottom: 9px; padding: 13px 14px; border: none; border-radius: 16px; cursor: pointer; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; background: var(--surface); box-shadow: var(--clay-sm); }
+.search-result-row:hover, .search-result-row:active { box-shadow: var(--clay-inset-sm); }
 .search-result-row .sr-main { flex: 1; min-width: 0; }
-.search-result-row .sr-primary { font-size: 14px; font-weight: 700; color: #111827; word-break: break-all; line-height: 1.35; }
-.search-result-row .sr-secondary { font-size: 12px; color: #6b7280; margin-top: 2px; line-height: 1.35; word-break: break-all; }
+.search-result-row .sr-primary { font-size: 14px; font-weight: 800; color: var(--ink); word-break: break-all; line-height: 1.35; }
+.search-result-row .sr-secondary { font-size: 12px; color: var(--ink-2); margin-top: 3px; line-height: 1.35; word-break: break-all; font-weight: 600; }
 .search-result-row .sr-meta { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
-.search-result-row .sr-cond { font-size: 12px; color: #6b7280; }
-.search-result-row .sr-cond.wk { color: #6d28d9; font-weight: 700; }
-.search-empty { padding: 24px 16px; text-align: center; color: #9ca3af; font-size: 13px; }
+.search-result-row .sr-cond { font-size: 12px; color: var(--mint-strong); font-weight: 800; background: var(--mint-soft); border-radius: var(--radius-pill); padding: 5px 9px; }
+.search-result-row .sr-cond.wk { color: #6a55a0; background: var(--violet-soft); }
+.search-empty { padding: 24px 16px; text-align: center; color: var(--ink-3); font-size: 13px; font-weight: 700; }
 
 /* 검색 결과 임시 마커 — 현재위치 점과 동일 형태, 빨강 + 펄스 */
 .search-pulse { width: 14px; height: 14px; background: #ef4444; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 0 4px rgba(239,68,68,0.28); animation: search-pulse 1s infinite; }

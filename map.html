@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>종로 합동시공 지도</title>
+    <title>Meter Care Solution</title>
     <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
     <script>
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
@@ -12,7 +12,7 @@
         const APP_VERSION = '20260606theme2';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
-          ['jongno_auth', 'jongno_event_queue', 'jongno_theme'].forEach(k => {
+          ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
             const v = localStorage.getItem(k);
             if (v !== null) keep[k] = v;
           });
@@ -48,9 +48,9 @@
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <link rel="stylesheet" href="css/clay.css?v=20260606dark">
     <link rel="stylesheet" href="css/common.css?v=20260606theme3">
-    <link rel="stylesheet" href="css/marker.css?v=20260606clay">
-    <link rel="stylesheet" href="css/panel.css?v=20260606theme3">
-    <link rel="stylesheet" href="css/replacement-modal.css?v=20260606case4">
+    <link rel="stylesheet" href="css/marker.css?v=20260607marker8">
+    <link rel="stylesheet" href="css/panel.css?v=20260607v2swap2">
+    <link rel="stylesheet" href="css/replacement-modal.css?v=20260607resp">
 </head>
 <body>
     <div id="map"></div>
@@ -133,9 +133,9 @@
             </div>
             <div class="header-buttons">
                 <div class="map-app-btns">
-                    <button class="map-app-btn" id="tmap-btn">티맵</button>
-                    <button class="map-app-btn" id="naver-btn">네이버</button>
-                    <button class="map-app-btn" id="kakao-btn">카카오</button>
+                    <button class="map-app-btn" id="tmap-btn" aria-label="티맵 길찾기"><span class="nb-mark">T</span></button>
+                    <button class="map-app-btn" id="naver-btn" aria-label="네이버 길찾기"><span class="nb-mark">N</span></button>
+                    <button class="map-app-btn" id="kakao-btn" aria-label="카카오 길찾기"><span class="nb-mark">K</span></button>
                 </div>
                 <button class="close-btn" onclick="closeDetail()">×</button>
             </div>
@@ -288,6 +288,7 @@
         <button id="qr-switch-btn" style="display:none;flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">카메라 전환</button>
         <button id="qr-zoom-out" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">- 줌</button>
         <button id="qr-zoom-in" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">+ 줌</button>
+        <button id="qr-torch-btn" style="display:none;flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">손전등</button>
       </div>
     </div>
 
@@ -318,10 +319,10 @@
     <script src="js/config.js?v=20260606darkmap"></script>
     <script src="js/utils.js?v=20260528a"></script>
     <script src="js/firebase.js?v=20260528a"></script>
-    <script src="js/detail.js?v=20260606theme4"></script>
-    <script src="js/map.js?v=20260606theme6"></script>
+    <script src="js/detail.js?v=20260607v2swap2"></script>
+    <script src="js/map.js?v=20260607theme7"></script>
     <script src="js/awms-parseValue.js?v=20260602a"></script>
-    <script src="js/qr-scanner.js?v=20260602a"></script>
+    <script src="js/qr-scanner.js?v=20260607gscan"></script>
     <script src="js/photo-uploader.js?v=20260528a"></script>
     <script src="js/lcd-crop.js?v=20260607a"></script>
     <script src="js/replacement-modal.js?v=20260607lcd"></script>

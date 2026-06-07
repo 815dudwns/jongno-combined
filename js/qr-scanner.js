@@ -7,7 +7,11 @@ const QrScanner = (() => {
   let _stream = null;
   let _video = null;
   let _detector = null;
-  let _scanLoop = null;
+  let _scanLoop = null;     // 폴백(html5-qrcode) 경로 전용
+  let _frameHandle = null;  // requestVideoFrameCallback / rAF 핸들
+  let _roiCanvas = null;
+  let _roiCtx = null;
+  let _torchOn = false;
   let _detected = false;
   let _onSuccess = null;
   let _cameras = [];     // {id, label, groupId, facingMode}
@@ -255,29 +259,71 @@ const QrScanner = (() => {
     // zoom 적용
     await applyZoom(loadZoom() ?? 2.0);
 
+    // torch 버튼 표시 여부 갱신 (새 스트림은 torch 꺼진 상태)
+    _torchOn = false;
+    updateTorchBtn();
+
     // detect loop 시작
     startDetectLoop();
   }
 
-  function startDetectLoop() {
-    if (_scanLoop) clearInterval(_scanLoop);
-    _scanLoop = setInterval(async () => {
-      if (_detected) return;
-      if (!_video || _video.readyState < 2) return;
-      try {
-        const codes = await _detector.detect(_video);
-        if (codes && codes.length) {
-          _detected = true;
-          const text = codes[0].rawValue || '';
-          finish(text);
-        }
-      } catch (e) {
-        // ignore — detection 매 프레임 실패 가능
+  // ─── ROI 중앙크롭 (구글 스캐너식: 중앙 70% 정사각만 detect → CPU 절감·인식↑) ───
+  function getRoiCanvas() {
+    if (!_roiCanvas) {
+      _roiCanvas = document.createElement('canvas');
+      _roiCtx = _roiCanvas.getContext('2d');
+    }
+    return _roiCanvas;
+  }
+  function captureRoi() {
+    const vw = _video.videoWidth, vh = _video.videoHeight;
+    if (!vw || !vh) return null;
+    const roi = Math.floor(Math.min(vw, vh) * 0.7);   // 중앙 70% 정사각
+    const sx = Math.floor((vw - roi) / 2);
+    const sy = Math.floor((vh - roi) / 2);
+    const out = Math.min(roi, 640);                    // 다운스케일 ≤640 (QR 인식엔 충분)
+    const c = getRoiCanvas();
+    if (c.width !== out) { c.width = out; c.height = out; }
+    _roiCtx.drawImage(_video, sx, sy, roi, roi, 0, 0, out, out);
+    return c;
+  }
+
+  let _detecting = false;
+  async function detectOnce() {
+    if (_detected || _detecting || !_video || _video.readyState < 2) return;
+    _detecting = true;
+    try {
+      // ROI 중앙크롭(640px)만 detect — 전체 1080p보다 가벼움. QR은 중앙에 대고 스캔.
+      const roi = captureRoi();
+      if (!roi) return;
+      let codes = null;
+      try { codes = await _detector.detect(roi); } catch {}
+      if (codes && codes.length && !_detected) {
+        _detected = true;
+        finish(codes[0].rawValue || '');
       }
-    }, 200);
+    } finally {
+      _detecting = false;
+    }
+  }
+
+  // 프레임 루프: setInterval 5fps (안드로이드 BarcodeDetector엔 rVFC 60fps가 과부하 → 렉)
+  function startDetectLoop() {
+    stopDetectLoop();
+    _scanLoop = setInterval(() => { if (!_detected) detectOnce(); }, 200);
+  }
+
+  function stopDetectLoop() {
+    if (_scanLoop) { clearInterval(_scanLoop); _scanLoop = null; }
+    if (_frameHandle != null) {
+      try { if (_video && 'cancelVideoFrameCallback' in HTMLVideoElement.prototype) _video.cancelVideoFrameCallback(_frameHandle); } catch {}
+      try { cancelAnimationFrame(_frameHandle); } catch {}
+      _frameHandle = null;
+    }
   }
 
   function finish(text) {
+    try { if (navigator.vibrate) navigator.vibrate(80); } catch {}  // 인식 성공 햅틱(안드로이드)
     capturePhoto(async (blob) => {
       await stop();   // overlay까지 닫음
       _onSuccess && _onSuccess(text, blob);
@@ -299,7 +345,8 @@ const QrScanner = (() => {
   }
 
   async function stopStream() {
-    if (_scanLoop) { clearInterval(_scanLoop); _scanLoop = null; }
+    stopDetectLoop();
+    if (_torchOn) { try { await setTorch(false); } catch {} }
     if (_stream) {
       _stream.getTracks().forEach(t => { try { t.stop(); } catch {} });
       _stream = null;
@@ -319,6 +366,37 @@ const QrScanner = (() => {
   async function stop() {
     await stopAll();
     document.getElementById('qr-scan-overlay').style.display = 'none';
+  }
+
+  // ─── torch (손전등) ─────────────────────────
+  function trackHasTorch() {
+    try {
+      const cap = _stream?.getVideoTracks?.()[0]?.getCapabilities?.() || {};
+      return !!cap.torch;
+    } catch { return false; }
+  }
+  async function setTorch(on) {
+    try {
+      const t = _stream?.getVideoTracks?.()[0];
+      const cap = t?.getCapabilities?.() || {};
+      if (!t || !cap.torch) return;
+      await t.applyConstraints({ advanced: [{ torch: !!on }] });
+      _torchOn = !!on;
+      paintTorchBtn();
+    } catch {}
+  }
+  async function toggleTorch() { await setTorch(!_torchOn); }
+  function paintTorchBtn() {
+    const btn = document.getElementById('qr-torch-btn');
+    if (!btn) return;
+    btn.style.background = _torchOn ? '#f59e0b' : '#374151';
+    btn.style.color = _torchOn ? '#1f2937' : 'white';
+  }
+  function updateTorchBtn() {
+    const btn = document.getElementById('qr-torch-btn');
+    if (!btn) return;
+    btn.style.display = trackHasTorch() ? '' : 'none';   // 미지원 기기는 숨김
+    paintTorchBtn();
   }
 
   // ─── zoom ─────────────────────────
@@ -403,6 +481,8 @@ const QrScanner = (() => {
     if (sw) sw.onclick = switchCamera;
     document.getElementById('qr-zoom-in').onclick = () => adjustZoom(+0.5);
     document.getElementById('qr-zoom-out').onclick = () => adjustZoom(-0.5);
+    const torchBtn = document.getElementById('qr-torch-btn');
+    if (torchBtn) torchBtn.onclick = toggleTorch;
     const sel = document.getElementById('qr-cam-select');
     if (sel) {
       sel.onchange = async () => {

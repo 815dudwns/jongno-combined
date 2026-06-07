@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>관리자 - 종로 합동시공</title>
-  <link rel="stylesheet" href="css/clay.css?v=20260606a">
+  <title>관리자 - Meter Care Solution</title>
+  <link rel="stylesheet" href="css/clay.css?v=20260606dark">
 
   <script>
     // 권한 게이트: admin만
@@ -25,6 +25,7 @@
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
   <script src="js/auth.js"></script>
+  <script src="js/theme.js?v=20260606dark"></script>
   <script src="js/config.js"></script>
   <script src="js/utils.js?v=20260528a"></script>
   <script src="js/firebase.js?v=20260528a"></script>
@@ -177,6 +178,26 @@
       .m-card-list { display: none; }
       .m-table-wrap { display: block; }
     }
+
+    /* 다크 모드 보정 */
+    [data-theme="dark"] body { background: var(--bg); color: var(--ink); }
+    [data-theme="dark"] .tabs,
+    [data-theme="dark"] .card,
+    [data-theme="dark"] .section,
+    [data-theme="dark"] .upload-box,
+    [data-theme="dark"] .modal-content { background: var(--surface); color: var(--ink); border-color: var(--surface-2); box-shadow: var(--clay-sm); }
+    [data-theme="dark"] .tab { color: var(--ink-2); }
+    [data-theme="dark"] .tab:hover,
+    [data-theme="dark"] .tab.active,
+    [data-theme="dark"] .card .value,
+    [data-theme="dark"] .section h2 { color: var(--ink); }
+    [data-theme="dark"] .card .label,
+    [data-theme="dark"] .card .sub { color: var(--ink-2); }
+    [data-theme="dark"] th { background: var(--bg-deep); color: var(--ink-2); border-color: var(--surface-2); }
+    [data-theme="dark"] td { border-color: var(--surface-2); }
+    [data-theme="dark"] input,
+    [data-theme="dark"] select,
+    [data-theme="dark"] textarea { background: var(--bg-deep); color: var(--ink); border-color: var(--surface-2); }
   </style>
 </head>
 <body>

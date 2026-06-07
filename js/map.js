@@ -3,6 +3,118 @@
 let map;
 let markers = [];
 let sampleData = [];
+let _naverMapsLoading = null;
+
+function getNaverMapsKey() {
+    const key = (typeof NAVER_MAPS_NCP_KEY_ID !== 'undefined') ? NAVER_MAPS_NCP_KEY_ID : '';
+    return String(key || '').trim();
+}
+
+function getResolvedTheme() {
+    return document.documentElement.getAttribute('data-theme') || 'light';
+}
+
+function getNaverMapsStyleId() {
+    const theme = getResolvedTheme();
+    const darkId = (typeof NAVER_MAPS_DARK_STYLE_ID !== 'undefined') ? NAVER_MAPS_DARK_STYLE_ID : '';
+    const lightId = (typeof NAVER_MAPS_LIGHT_STYLE_ID !== 'undefined') ? NAVER_MAPS_LIGHT_STYLE_ID : '';
+    return String((theme === 'dark' ? darkId : lightId) || '').trim();
+}
+
+function getSavedMapViewOptions() {
+    const saved = (() => { try { return JSON.parse(localStorage.getItem('jongno_map_view')); } catch { return null; } })();
+    return {
+        center: makeLatLng(saved ? saved.lat : 37.578, saved ? saved.lng : 126.983),
+        zoom: saved ? (saved.zoom || (saved.level ? 18 - saved.level : 15)) : 15,
+        minZoom: 7,
+        zoomControl: false,
+        mapDataControl: false,
+        scaleControl: false,
+        logoControlOptions: { position: naver.maps.Position.BOTTOM_LEFT }
+    };
+}
+
+function getCurrentMapViewOptions() {
+    if (!map) return getSavedMapViewOptions();
+    const center = map.getCenter();
+    return {
+        ...getSavedMapViewOptions(),
+        center: makeLatLng(center.lat(), center.lng()),
+        zoom: map.getZoom()
+    };
+}
+
+function getNaverMapOptions(baseOptions) {
+    const options = { ...(baseOptions || getSavedMapViewOptions()) };
+    const customStyleId = getNaverMapsStyleId();
+    if (customStyleId) {
+        options.gl = true;
+        options.customStyleId = customStyleId;
+    }
+    // 라이트 모드는 customStyleId를 아예 넣지 않아야 네이버 기본 지도 타일로 정상 복귀한다.
+    // 빈 문자열 customStyleId는 일부 환경에서 흰 지도 배경처럼 깨질 수 있다.
+    return options;
+}
+
+function attachMapViewSaveListener() {
+    naver.maps.Event.addListener(map, 'idle', () => {
+        const c = map.getCenter();
+        localStorage.setItem('jongno_map_view', JSON.stringify({ lat: c.lat(), lng: c.lng(), zoom: map.getZoom() }));
+    });
+}
+
+function loadNaverMapsSdk() {
+    if (window.naver && window.naver.maps) return Promise.resolve();
+    if (_naverMapsLoading) return _naverMapsLoading;
+    const key = getNaverMapsKey();
+    if (!key || key === 'YOUR_NCP_KEY_ID') {
+        return Promise.reject(new Error('네이버 지도 NCP Key ID가 설정되지 않았습니다. js/config.js의 NAVER_MAPS_NCP_KEY_ID를 입력하세요.'));
+    }
+    _naverMapsLoading = new Promise((resolve, reject) => {
+        const existing = document.querySelector('script[data-naver-map-sdk]');
+        if (existing) {
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error('네이버 지도 SDK 로드 실패')), { once: true });
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(key)}`;
+        script.async = true;
+        script.defer = true;
+        script.dataset.naverMapSdk = '1';
+        script.onload = () => {
+            loadNaverMapsGlSdk().then(resolve).catch(reject);
+        };
+        script.onerror = () => reject(new Error('네이버 지도 SDK 로드 실패'));
+        document.head.appendChild(script);
+    });
+    return _naverMapsLoading;
+}
+
+function loadNaverMapsGlSdk() {
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector('script[data-naver-map-gl-sdk]') ||
+            Array.from(document.scripts).find(s => s.src && s.src.includes('/maps-gl.js'));
+        if (existing) {
+            if (existing.dataset.loaded === '1') return resolve();
+            existing.addEventListener('load', () => { existing.dataset.loaded = '1'; resolve(); }, { once: true });
+            existing.addEventListener('error', () => reject(new Error('네이버 지도 GL SDK 로드 실패')), { once: true });
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://oapi.map.naver.com/openapi/v3/maps-gl.js';
+        script.async = true;
+        script.defer = true;
+        script.dataset.naverMapGlSdk = '1';
+        script.onload = () => { script.dataset.loaded = '1'; resolve(); };
+        script.onerror = () => reject(new Error('네이버 지도 GL SDK 로드 실패'));
+        document.head.appendChild(script);
+    });
+}
+
+function makeLatLng(lat, lng) {
+    return new naver.maps.LatLng(Number(lat), Number(lng));
+}
 
 // 위치 추적 관련 상태
 let locationOverlay = null;
@@ -48,24 +160,51 @@ function getEffectiveRole() {
 // 조건: meter_state='complete' AND comm_state!='complete', meter_updatedAt 최대
 let meterLatestAddress = null;
 
+
+function setupNaverMapThemeSync() {
+    window.addEventListener('jongno:themechange', () => {
+        if (!map) return;
+        const container = document.getElementById('map');
+        if (!container) return;
+        try {
+            const viewOptions = getCurrentMapViewOptions();
+            // 마커는 재생성(loadMarkers)하지 않는다. 데이터로 다시 그리면
+            // workStatus 재읽기 과정에서 완료 상태가 미완료로 뒤집힐 수 있다.
+            // 다크/라이트 마커 스타일은 전부 [data-theme] CSS라 속성 변경만으로 자동 적용되므로,
+            // 기존 마커를 새 map에 그대로 재바인딩해 상태를 보존한다.
+            if (locationOverlay) { locationOverlay.setMap(null); locationOverlay = null; }
+            if (_searchPulseOverlay) { _searchPulseOverlay.setMap(null); _searchPulseOverlay = null; }
+
+            // 네이버 지도는 customStyleId를 비우는 setOptions만으로 기본 타일 복귀가 안정적이지 않다.
+            // 라이트/시스템 라이트로 돌아갈 때는 지도 인스턴스를 새로 만들어 기본 타일을 확실히 복원한다.
+            map = new naver.maps.Map(container, getNaverMapOptions(viewOptions));
+            attachMapViewSaveListener();
+            markers.forEach(m => m.overlay.setMap(map));  // 기존 마커를 새 map으로 이동 (완료 상태 보존)
+        } catch (e) {
+            console.warn('[naverMap] 스타일 전환 실패, 새로고침 후 적용됩니다:', e);
+        }
+    });
+}
+
 // ── 지도 초기화 ──────────────────────────────────────────────────
 async function initMap() {
+    try {
+        await loadNaverMapsSdk();
+    } catch (e) {
+        console.error('[naverMap] 로드 실패:', e);
+        const container = document.getElementById('map');
+        if (container) container.innerHTML = `<div style="padding:16px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;margin:12px;font-size:13px;line-height:1.5;">${e.message}</div>`;
+        return;
+    }
     workStatus = loadStatusLocal();
     const container = document.getElementById('map');
 
-    // 마지막 지도 위치/줌 레벨 복원
-    const saved = (() => { try { return JSON.parse(localStorage.getItem('jongno_map_view')); } catch { return null; } })();
-    const options = {
-        center: new kakao.maps.LatLng(saved ? saved.lat : 37.578, saved ? saved.lng : 126.983),
-        level: saved ? saved.level : 4
-    };
-    map = new kakao.maps.Map(container, options);
+    // 마지막 지도 위치/줌 레벨 복원 + 현재 테마 지도 타일 적용
+    map = new naver.maps.Map(container, getNaverMapOptions());
+    setupNaverMapThemeSync();
 
     // 지도 이동/줌 변경 시 현재 뷰 저장
-    kakao.maps.event.addListener(map, 'idle', () => {
-        const c = map.getCenter();
-        localStorage.setItem('jongno_map_view', JSON.stringify({ lat: c.getLat(), lng: c.getLng(), level: map.getLevel() }));
-    });
+    attachMapViewSaveListener();
 
     // 로컬 JSON에서 현장 데이터 로드
     try {
@@ -341,7 +480,7 @@ function loadMarkers() {
     spreadOverlappingMarkers(grouped);
 
     Object.entries(grouped).forEach(([addr, data]) => {
-        const coords = new kakao.maps.LatLng(data.lat, data.lng);
+        const coords = makeLatLng(data.lat, data.lng);
         createMarker(coords, addr, data.meters);
     });
 }
@@ -564,13 +703,17 @@ function createMarker(position, address, meters) {
         showDetail(address, meters);
     });
 
-    const customOverlay = new kakao.maps.CustomOverlay({
+    // 미완료 우선: 완료(gray/comm-done) 마커는 아래로, 미완료는 위로 (겹칠 때 미완료가 보이게)
+    const isDoneMarker = (style.colorClass === 'gray' || style.colorClass === 'comm-done');
+    const customOverlay = new naver.maps.Marker({
         position: position,
-        content: markerEl,  // DOM 엘리먼트로 전달
-        yAnchor: 1
+        map: map,
+        icon: {
+            content: markerEl,
+            anchor: new naver.maps.Point(10, 26)
+        },
+        zIndex: isDoneMarker ? 15 : 25
     });
-
-    customOverlay.setMap(map);
 
     markers.push({ overlay: customOverlay, address, meters, element: markerEl });
 }
@@ -604,6 +747,10 @@ function updateMarkerColor(address) {
     } else if (fracEl) {
         fracEl.remove();
     }
+
+    // 미완료 우선 z-index 갱신 (완료되면 아래로 내려감)
+    const isDoneMarker = (style.colorClass === 'gray' || style.colorClass === 'comm-done');
+    if (marker.overlay && marker.overlay.setZIndex) marker.overlay.setZIndex(isDoneMarker ? 15 : 25);
 }
 
 // ── 전체 마커 색상 일괄 갱신 (Firebase 동기화 후 호출) ──────────
@@ -618,12 +765,16 @@ function toggleLocation() {
     if (!locationActive) {
         if (!navigator.geolocation) { alert('위치 서비스를 지원하지 않는 브라우저입니다.'); return; }
         locationWatchId = navigator.geolocation.watchPosition(pos => {
-            const latlng = new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
+            const latlng = makeLatLng(pos.coords.latitude, pos.coords.longitude);
             if (!locationOverlay) {
                 const dot = document.createElement('div');
                 dot.style.cssText = 'width:14px;height:14px;background:#3b82f6;border:2px solid white;border-radius:50%;box-shadow:0 0 0 4px rgba(59,130,246,0.25);';
-                locationOverlay = new kakao.maps.CustomOverlay({ position: latlng, content: dot, zIndex: 10 });
-                locationOverlay.setMap(map);
+                locationOverlay = new naver.maps.Marker({
+                    position: latlng,
+                    map: map,
+                    icon: { content: dot, anchor: new naver.maps.Point(7, 7) },
+                    zIndex: 10
+                });
                 map.setCenter(latlng);  // 최초 1회만 — 이후엔 마커만 갱신(지도 자유 이동)
             } else {
                 locationOverlay.setPosition(latlng);
@@ -739,8 +890,8 @@ function gotoSearchResult(r) {
         return;
     }
     closeSearch();
-    const latlng = new kakao.maps.LatLng(it.lat, it.lng);
-    map.setLevel(1);
+    const latlng = makeLatLng(it.lat, it.lng);
+    map.setZoom(18);
     map.setCenter(latlng);
 
     showSearchPulse(latlng);
@@ -760,14 +911,12 @@ function showSearchPulse(latlng) {
     if (_searchPulseOverlay) { _searchPulseOverlay.setMap(null); _searchPulseOverlay = null; }
     const el = document.createElement('div');
     el.className = 'search-pulse';
-    _searchPulseOverlay = new kakao.maps.CustomOverlay({
+    _searchPulseOverlay = new naver.maps.Marker({
         position: latlng,
-        content: el,
-        yAnchor: 0.5,
-        xAnchor: 0.5,
+        map: map,
+        icon: { content: el, anchor: new naver.maps.Point(7, 7) },
         zIndex: 999,
     });
-    _searchPulseOverlay.setMap(map);
     _searchPulseTimer = setTimeout(() => {
         if (_searchPulseOverlay) { _searchPulseOverlay.setMap(null); _searchPulseOverlay = null; }
         _searchPulseTimer = null;
@@ -778,7 +927,5 @@ function escapeSearchHtml(s) {
     return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// 카카오맵 SDK 로드 완료 후 지도 초기화 실행
-kakao.maps.load(() => {
-    initMap();
-});
+// 네이버 지도 SDK 로드 후 지도 초기화 실행
+initMap();

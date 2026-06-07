@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>종로 합동시공 — 계기팀 사용설명서</title>
-<link rel="stylesheet" href="css/clay.css?v=20260606a">
+<link rel="stylesheet" href="css/clay.css?v=20260606dark">
 <style>
   :root {
     --primary: #1e3a8a;
@@ -336,7 +336,21 @@
     .hero h1 { font-size: 20px; }
     .account-card { grid-template-columns: auto 1fr; }
   }
+
+  /* 다크 모드 보정 */
+  [data-theme="dark"] body { background: var(--bg); color: var(--ink); }
+  [data-theme="dark"] .card,
+  [data-theme="dark"] .toc,
+  [data-theme="dark"] .step,
+  [data-theme="dark"] .note,
+  [data-theme="dark"] .warning { background: var(--surface); color: var(--ink); border-color: var(--surface-2); box-shadow: var(--clay-sm); }
+  [data-theme="dark"] h2,
+  [data-theme="dark"] h3,
+  [data-theme="dark"] .card-title { color: var(--ink); }
+  [data-theme="dark"] .muted,
+  [data-theme="dark"] .desc { color: var(--ink-2); }
 </style>
+<script src="js/theme.js?v=20260606dark"></script>
 </head>
 <body>
 <div class="container">

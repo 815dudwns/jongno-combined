@@ -1,7 +1,10 @@
-/* marker.css — 마커 관련 스타일 */
-.custom-marker { position: relative; width: 20px; height: 26px; cursor: pointer; font-size: 0; /* 부모 font-size 상속 차단, 자식에서 명시적 지정 */ }
+/* marker.css — 마커 (원본 파스텔 색 복원 + 효과·검침일 D-칩만 추가) */
+.custom-marker { position: relative; width: 20px; height: 26px; cursor: pointer; font-size: 0; /* 부모 font-size 상속 차단 */ }
 .custom-marker svg { width: 100%; height: 100%; }
-/* 상태 색 — 클레이 톤 (구조·크기·의미 유지, 색만 부드럽게) */
+/* 경량화: filter(drop-shadow) 완전 제거 — 마커마다 GPU 레이어 생성이 안드로이드 렉의 핵심.
+   지도 위 분리(흰 링)는 가벼운 path stroke로, 입체감은 stroke만으로 충분 */
+.custom-marker .pin-body { stroke: #ffffff; stroke-width: 0.8; paint-order: stroke fill; }
+/* 상태 색 — 원본 클레이 톤 (부드러운 색) */
 .custom-marker.green  .pin-body { fill: #54b485; }
 .custom-marker.gray   .pin-body { fill: #9b9588; }
 .custom-marker.blue   .pin-body { fill: #5f95cf; }
@@ -9,72 +12,83 @@
 .custom-marker.yellow .pin-body { fill: #dcb152; }
 
 /* 리스트1(미완·폴백): 흰 원 표시 / 리스트2(완료·보류·불가): 꽉찬 핀 */
-.pin-circle { display: none; }
+.pin-circle { display: none; transform: scale(1); transform-origin: 10px 10px; }
+/* 야간(다크)모드 — 흰 동그라미를 연그레이로 (눈부심 완화) */
+[data-theme="dark"] .pin-circle { fill: #cfcfcf; }
 .custom-marker.green .pin-circle,
 .custom-marker.yellow .pin-circle { display: block; }
 
-.marker-number { position: absolute; top: 3px; left: 50%; transform: translateX(-50%); font-size: 10.3px; font-weight: bold; color: white; line-height: 1; pointer-events: none; }
+.marker-number { position: absolute; top: 10px; left: 50%; transform: translate(-50%, -50%); font-size: 10.5px; font-weight: 800; color: white; line-height: 1; pointer-events: none; }
 .custom-marker.green .marker-number,
 .custom-marker.yellow .marker-number { color: #1f2937; }
 
-/* 검침일 그룹 4색 (채도 낮춤 = 상태 마커와 시각 위계 분리) */
+/* 검침일 그룹 4색 (원본 파스텔) */
 .custom-marker.day-g1 .pin-body { fill: #f5cbb1; }   /* 1주차 — 살구 */
 .custom-marker.day-g2 .pin-body { fill: #b5dfc7; }   /* 2주차 — 민트 */
 .custom-marker.day-g3 .pin-body { fill: #d0c0dc; }   /* 3주차 — 라벤더 */
 .custom-marker.day-g4 .pin-body { fill: #d9b8c5; }   /* 4주차 — 더스티 핑크 */
 
-/* 검침일 그룹 마커 - 흰 원 표시 (pending 계기팀 마커) */
 .custom-marker.day-g1 .pin-circle,
 .custom-marker.day-g2 .pin-circle,
 .custom-marker.day-g3 .pin-circle,
 .custom-marker.day-g4 .pin-circle { display: block; }
 
-/* 검침일 그룹 마커 숫자 색 (밝은 배경 → 어두운 텍스트) */
 .custom-marker.day-g1 .marker-number,
 .custom-marker.day-g2 .marker-number,
 .custom-marker.day-g3 .marker-number,
 .custom-marker.day-g4 .marker-number { color: #1f2937; }
 
-/* 우선순위 색 (채도 낮춤) */
+/* 우선순위 색 (원본 파스텔) */
 .custom-marker.pri-1 .pin-body { fill: #e8b8b8; }
 .custom-marker.pri-2 .pin-body { fill: #e8d3b8; }
 .custom-marker.pri-3 .pin-body { fill: #d6cfa0; }
 .custom-marker.pri-4 .pin-body { fill: #bfd5a8; }
 .custom-marker.pri-past .pin-body { fill: #b0b0b0; }  /* 과년도 */
 
-/* 우선순위 마커 - 흰 원 표시 (pending 계기팀 마커) */
 .custom-marker.pri-1 .pin-circle,
 .custom-marker.pri-2 .pin-circle,
 .custom-marker.pri-3 .pin-circle,
 .custom-marker.pri-4 .pin-circle,
 .custom-marker.pri-past .pin-circle { display: block; }
 
-/* 우선순위 마커 숫자 색 */
 .custom-marker.pri-1 .marker-number,
 .custom-marker.pri-2 .marker-number,
 .custom-marker.pri-3 .marker-number,
 .custom-marker.pri-4 .marker-number,
 .custom-marker.pri-past .marker-number { color: #1f2937; }
 
-/* 통신팀 화면 — 계기팀 완료된 곳 (가야 할 곳) — 클레이 톤 */
+/* 통신팀 화면 — 원본 톤 */
 .custom-marker.comm-target .pin-body { fill: #54b485; }       /* 초록 */
-.custom-marker.comm-last .pin-body { fill: #2c5e44; }         /* 찐초록 (마지막 작업) */
+.custom-marker.comm-last .pin-body { fill: #2c5e44; }         /* 찐초록 (마지막) */
 .custom-marker.comm-done .pin-body { fill: #9b9588; }         /* 회색 */
 
-/* 통신팀 화면에서 계기팀 pending — 파스텔이라 채도/명도 보정으로 선명하게 */
-.custom-marker.comm-bg { opacity: 0.65; filter: saturate(1.45) brightness(0.96); }
+/* 통신팀 화면에서 계기팀 pending — 옅게 */
+.custom-marker.comm-bg { opacity: 0.6; }  /* filter 제거 (경량화) */
 
-/* 보조 라벨 (D17 검침일, 우선순위 등) — 박스 제거, 텍스트만 (흰 외곽선) */
+/* ===== ★ 검침일 D-칩 (marker-fraction) ===== */
+/* 주간(라이트): 흰 배경 + 어두운 글씨 */
 .marker-fraction {
     position: absolute;
-    top: -10px;
+    top: -8px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 9.5px;
+    font-size: 6px;
     line-height: 1;
-    color: #1f2937;
-    pointer-events: none;
+    font-weight: 900;
+    letter-spacing: 0.01em;
     white-space: nowrap;
-    font-weight: 700;
-    text-shadow: 0 0 2px white, 0 0 2px white, 0 0 2px white, 0 0 2px white;
+    pointer-events: none;
+    padding: 1.2px 3.2px;
+    border-radius: 3.2px;
+    color: #23211d;
+    background: #ffffff;
+    box-shadow: 0 0 0 1.1px rgba(0,0,0,0.16), 0 1px 2px rgba(0,0,0,0.3);
+    text-shadow: none;
+    z-index: 2;
+}
+/* 야간(다크): 어두운 배경 + 흰 글씨 */
+[data-theme="dark"] .marker-fraction {
+    color: #fff;
+    background: #23211d;
+    box-shadow: 0 0 0 1.2px rgba(255,255,255,0.92), 0 1px 2px rgba(0,0,0,0.4);
 }
