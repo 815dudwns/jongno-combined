@@ -12,7 +12,7 @@
         const APP_VERSION = '20260606theme2';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
-          ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
+          ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
             const v = localStorage.getItem(k);
             if (v !== null) keep[k] = v;
           });
@@ -370,7 +370,7 @@
     <script src="js/utils.js?v=20260528a"></script>
     <script src="js/firebase.js?v=20260528a"></script>
     <script src="js/detail.js?v=20260607v2seq"></script>
-    <script src="js/map.js?v=20260607imgmarker2"></script>
+    <script src="js/map.js?v=20260607imgmarker3"></script>
     <script src="js/awms-parseValue.js?v=20260602a"></script>
     <script src="js/qr-scanner.js?v=20260607gscan"></script>
     <script src="js/photo-uploader.js?v=20260528a"></script>

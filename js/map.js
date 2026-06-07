@@ -809,7 +809,10 @@ function updateMarkerColor(address) {
 // ── 전체 마커 색상 일괄 갱신 (Firebase 동기화 후 호출) ──────────
 function refreshAllMarkers() {
     updateMeterLatestAddress();
-    markers.forEach(m => updateMarkerColor(m.address));
+    // 주소 목록을 스냅샷으로 떠서 순회 — updateMarkerColor가 markers를 재생성(splice/push)하므로
+    // forEach로 직접 돌면 순회가 깨져 마커가 누락/중복된다.
+    const addrs = markers.map(m => m.address);
+    addrs.forEach(a => updateMarkerColor(a));
 }
 
 // ── 현재 위치 추적 토글 ──────────────────────────────────────────
