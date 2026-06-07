@@ -77,7 +77,11 @@
 .meter-number { font-weight: 800; color: var(--ink); }
 /* 상호·주택명 = 테마색 강조 */
 .meter-details { color: var(--mint-strong); font-size: 12px; margin-top: 4px; font-weight: 700; }
-.meter-meta { color: var(--ink-3); font-size: 10.5px; margin-top: 3px; line-height: 1.4; word-break: break-all; }
+/* meta(순위/검침일/타입) = 테마색 배경 칩 */
+.meter-meta { display: inline-block; background: var(--mint-soft); color: var(--mint-deep); padding: 3px 9px; border-radius: 7px; font-size: 10.5px; margin-top: 4px; line-height: 1.4; word-break: break-all; font-weight: 600; }
+/* 완료 카드(배경=테마색)에선 상호·meta가 겹치니 대비색으로 */
+.meter-item-replaced .meter-details { color: var(--ink); }
+.meter-item-replaced .meter-meta { background: var(--surface); color: var(--ink-2); }
 
 /* 계기번호 색상 분리 */
 .meter-no-seg { letter-spacing: 0; }
@@ -154,7 +158,7 @@
 .meter-rpl-btn.new { background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); }
 .meter-rpl-btn.done { background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: #2c5e44; }
 .meter-rpl-btn.draft { background: linear-gradient(145deg,#eccf8c,#dcb152); color: #5a4413; }
-.meter-remove-added-btn { margin-left: 4px; padding: 5px 11px; background: var(--rose-soft); color: #b13c3c; }
+.meter-remove-added-btn { margin-left: 4px; padding: 5px 11px; background: var(--mint-soft); color: #b13c3c; }
 
 [data-theme="dark"] .ota-badge.comm-typo,
 [data-theme="dark"] .added-meter-badge { background: rgba(251,191,36,0.16); color: #ffd36a; border-color: rgba(251,191,36,0.5); }
@@ -168,12 +172,12 @@
 [data-theme="dark"] .meter-remove-added-btn { color: #ffb3b3; }
 
 /* 계기 개별 불가 버튼 */
-.meter-fail-btn { display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 700; border: none; border-radius: var(--radius-pill); background: var(--rose-soft); color: #b13c3c; cursor: pointer; vertical-align: middle; margin-left: 5px; line-height: 1.4; transition: all 0.14s; box-shadow: var(--clay-sm); }
+.meter-fail-btn { display: inline-block; padding: 4px 10px; font-size: 11px; font-weight: 700; border: none; border-radius: var(--radius-pill); background: var(--mint-soft); color: #b13c3c; cursor: pointer; vertical-align: middle; margin-left: 5px; line-height: 1.4; transition: all 0.14s; box-shadow: var(--clay-sm); }
 .meter-fail-btn:active { box-shadow: var(--clay-inset-sm); }
 .meter-fail-btn.active { background: linear-gradient(145deg,#ed9d9d,#d56e6e); color: white; }
 
 /* 교체 완료된 계기 — 하늘색 clay 톤 */
-.meter-item-replaced { background: linear-gradient(145deg,#e7f4fc,#d8ebf8) !important; }
+.meter-item-replaced { background: var(--mint-soft) !important; }
 /* 임시 저장(미완료)된 계기 — 옅은 노랑 + 앰버 링 */
 .meter-item-draft { background: linear-gradient(145deg,#fdf6e3,#f8edcc) !important; box-shadow: var(--clay-sm), inset 0 0 0 2px rgba(224,168,90,.45) !important; }
 
@@ -189,7 +193,6 @@
 .meter-item-comm-done { background: var(--surface-2); }
 
 /* 다크 모드: 상태 카드(완료/임시저장/불가) — 라이트 고정색 보정 */
-[data-theme="dark"] .meter-item-replaced { background: linear-gradient(145deg,#22323d,#1a2832) !important; }
 [data-theme="dark"] .meter-item-draft { background: linear-gradient(145deg,#332e1f,#262216) !important; box-shadow: var(--clay-sm), inset 0 0 0 2px rgba(224,168,90,.4) !important; }
 [data-theme="dark"] .meter-item-failed { background: linear-gradient(145deg,#33201f,#271918) !important; }
 [data-theme="dark"] .meter-item-failed .meter-no-seg,
