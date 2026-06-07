@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>작업 통계 - Meter Care Solution</title>
-  <link rel="stylesheet" href="css/clay.css?v=20260606dark">
+  <link rel="stylesheet" href="css/clay.css?v=20260607menu">
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
@@ -38,11 +38,11 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/theme.js?v=20260606dark"></script>
+  <script src="js/theme.js?v=20260607menu"></script>
   <script src="js/config.js?v=20260606naver"></script>
   <script src="js/utils.js?v=20260528a"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="css/replacement-modal.css?v=20260607bugfix">
+  <link rel="stylesheet" href="css/replacement-modal.css?v=20260607menu">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: var(--font); background: var(--bg); min-height: 100vh; color: var(--ink); }
@@ -56,7 +56,7 @@
 
     .date-bar { background: var(--surface); border-radius: 16px; padding: 10px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; box-shadow: var(--clay-sm); }
     .date-bar input { flex: 1; padding: 11px 13px; border: none; border-radius: var(--radius-pill); font-size: 15px; min-width: 0; font-family: var(--font); color: var(--ink); background: var(--bg-deep); box-shadow: var(--clay-inset-sm); outline: none; }
-    .date-bar button { padding: 11px 15px; background: linear-gradient(145deg,#bbe8d0,#93d2af); color: var(--mint-deep); border: none; border-radius: var(--radius-pill); font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: var(--clay-sm); transition: box-shadow .14s; }
+    .date-bar button { padding: 11px 15px; background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); border: none; border-radius: var(--radius-pill); font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: var(--clay-sm); transition: box-shadow .14s; }
     .date-bar button:active { box-shadow: var(--clay-inset-sm); }
     .date-bar button.sec { background: var(--surface); color: var(--ink-2); }
 
@@ -97,7 +97,7 @@
     /* 분석 탭 */
     .ana-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
     .ana-mode { padding: 9px 16px; border: none; background: var(--surface); border-radius: var(--radius-pill); font-weight: 800; font-size: 14px; cursor: pointer; color: var(--ink-2); box-shadow: var(--clay-sm); font-family: var(--font); }
-    .ana-mode.active { background: linear-gradient(145deg,#bbe8d0,#93d2af); color: var(--mint-deep); box-shadow: var(--clay-mint); }
+    .ana-mode.active { background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); box-shadow: var(--clay-mint); }
     .ana-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 14px; }
     .ana-table th, .ana-table td { border: 1px solid var(--bg-deep); padding: 8px 10px; text-align: center; color: var(--ink); }
     .ana-table th { background: var(--bg-deep); font-weight: 800; color: var(--ink-2); }
@@ -163,7 +163,7 @@
     <div class="summary" id="summary"></div>
 
     <div class="tab-panel active" id="tab-list">
-      <button id="btn-export" style="width:100%;margin-bottom:10px;padding:12px;background:linear-gradient(145deg,#bbe8d0,#93d2af);color:var(--mint-deep);border:none;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:var(--clay-sm);">엑셀 내보내기 (이 날짜)</button>
+      <button id="btn-export" style="width:100%;margin-bottom:10px;padding:12px;background:linear-gradient(145deg,var(--mint-l),var(--mint));color:var(--mint-deep);border:none;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:var(--clay-sm);">엑셀 내보내기 (이 날짜)</button>
       <div id="list-container"></div>
     </div>
 

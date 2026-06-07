@@ -9,7 +9,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothi
 /* 현재위치 버튼 — clay 원형 + 동심 타깃 도형(이모지 ◎ 대체) */
 .loc-btn { position: fixed; bottom: 16px; right: 16px; z-index: 500; width: 48px; height: 48px; border-radius: 50%; border: none; background: var(--surface); box-shadow: var(--clay-sm); cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; transition: box-shadow 0.14s, transform 0.1s; -webkit-tap-highlight-color: transparent; }
 .loc-btn:active { box-shadow: var(--clay-inset-sm); transform: scale(0.96); }
-.loc-btn.active { background: linear-gradient(145deg,#bbe8d0,#93d2af); box-shadow: var(--clay-mint); }
+.loc-btn.active { background: linear-gradient(145deg,var(--mint-l),var(--mint)); box-shadow: var(--clay-mint); }
 .loc-ico { width: 22px; height: 22px; position: relative; display: block; }
 .loc-ico::before, .loc-ico::after { content: ""; position: absolute; border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%,-50%); }
 .loc-ico::before { width: 20px; height: 20px; border: 2.4px solid var(--mint-strong); }
@@ -54,7 +54,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothi
     -webkit-text-fill-color: #9b9488;
     opacity: 1;
 }
-.search-go-btn { padding: 12px 18px; background: linear-gradient(145deg,#bbe8d0,#93d2af); color: var(--mint-deep); border: none; border-radius: var(--radius-pill); font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; box-shadow: var(--clay-mint); }
+.search-go-btn { padding: 12px 18px; background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); border: none; border-radius: var(--radius-pill); font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; box-shadow: var(--clay-mint); }
 .search-go-btn:active { box-shadow: var(--clay-inset-sm); }
 .search-hint { margin: 0 16px 8px; padding: 9px 14px; border-radius: var(--radius-pill); font-size: 12px; font-weight: 700; color: var(--ink-2); background: var(--surface-2); box-shadow: var(--clay-inset-sm); flex-shrink: 0; }
 .search-results { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; min-height: 100px; padding: 4px 12px 14px; }
@@ -80,3 +80,31 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothi
 .jisa-filter select { background: var(--surface); color: var(--ink); border: none; padding: 9px 30px 9px 16px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 700; font-family: var(--font); cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%236f6b62' d='M0 0l5 6 5-6z'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; box-shadow: var(--clay-sm); }
 .jisa-filter select:focus { outline: none; box-shadow: var(--clay-sm), var(--focus-glow); }
 @media (max-width: 640px) { .jisa-filter { top: 8px; left: 8px; } .jisa-filter select { font-size: 14px; padding: 8px 30px 8px 14px; } }
+
+/* ── 우상단 토픽바 + 앱 메뉴 패널 ── */
+.topbar { position: fixed; top: 10px; right: 10px; z-index: 500; display: flex; gap: 8px; }
+.topbar-btn { background: var(--surface); box-shadow: var(--clay-sm); color: var(--ink); border: none; padding: 9px 15px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 800; cursor: pointer; font-family: var(--font); line-height: 1; }
+.topbar-btn:active { box-shadow: var(--clay-inset-sm); }
+.app-menu-overlay { position: fixed; inset: 0; z-index: 1400; background: rgba(0,0,0,0.28); display: none; }
+.app-menu-overlay.open { display: block; }
+.app-menu { position: fixed; top: 0; right: 0; z-index: 1500; width: 286px; max-width: 86vw; height: 100%; background: var(--bg); box-shadow: var(--clay); padding: 22px 18px calc(22px + env(safe-area-inset-bottom)); display: none; flex-direction: column; gap: 15px; overflow-y: auto; }
+.app-menu.open { display: flex; }
+.am-name { font-size: 17px; font-weight: 800; color: var(--ink); }
+.am-block { display: flex; flex-direction: column; gap: 8px; }
+.am-label { font-size: 11px; font-weight: 800; color: var(--ink-3); letter-spacing: .03em; }
+.am-theme-btn { align-self: flex-start; background: var(--surface); box-shadow: var(--clay-sm); border: none; color: var(--ink-2); padding: 9px 16px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 800; cursor: pointer; font-family: var(--font); }
+.am-theme-btn:active { box-shadow: var(--clay-inset-sm); }
+.am-link { color: var(--mint-strong); font-size: 14px; font-weight: 800; text-decoration: none; padding: 6px 0; }
+.am-sep { height: 1px; background: rgba(140,132,120,0.2); margin: 3px 0; }
+.am-logout { align-self: flex-start; background: none; border: none; color: var(--rose); font-size: 14px; font-weight: 800; cursor: pointer; padding: 6px 0; font-family: var(--font); }
+.am-swatches { display: flex; flex-wrap: wrap; gap: 9px; }
+.am-swatch { width: 31px; height: 31px; border-radius: 9px; cursor: pointer; box-shadow: var(--clay-sm); border: 2.5px solid transparent; padding: 0; }
+.am-swatch.active { border-color: var(--ink); }
+
+/* 메뉴 안에 들어간 시각/마커 토글 — 고정위치 해제하고 흐름대로 꽉 차게 */
+.app-menu .view-role-toggle,
+.app-menu .marker-mode-toggle {
+  position: static; top: auto; right: auto; width: 100%; display: flex;
+}
+.app-menu .view-role-toggle button,
+.app-menu .marker-mode-toggle button { flex: 1; }

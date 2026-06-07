@@ -62,7 +62,7 @@
 .meter-sort-bar { display: flex; gap: 8px; padding: 8px 16px; background: var(--bg); flex-shrink: 0; }
 .sort-btn { padding: 8px 15px; border: none; border-radius: var(--radius-pill); background: var(--surface); color: var(--ink-2); font-size: 12px; font-weight: 700; font-family: var(--font); cursor: pointer; transition: all 0.14s; box-shadow: var(--clay-sm); }
 .sort-btn:active { box-shadow: var(--clay-inset-sm); }
-.sort-btn.active { background: linear-gradient(145deg,#bbe8d0,#93d2af); color: var(--mint-deep); box-shadow: var(--clay-mint); }
+.sort-btn.active { background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); box-shadow: var(--clay-mint); }
 
 .overlay-meters { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); background: var(--bg); }
 .meter-item { margin-bottom: 13px; padding: 13px 15px; background: var(--surface); border-radius: 18px; display: flex; align-items: flex-start; gap: 11px; border: none; box-shadow: var(--clay-sm); }
@@ -160,7 +160,7 @@
     box-shadow: var(--clay-sm);
 }
 .meter-rpl-btn.new { background: linear-gradient(145deg,#c3b3e0,#a896d0); color: #3a2d57; }
-.meter-rpl-btn.done { background: linear-gradient(145deg,#bbe8d0,#93d2af); color: #2c5e44; }
+.meter-rpl-btn.done { background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: #2c5e44; }
 .meter-rpl-btn.draft { background: linear-gradient(145deg,#eccf8c,#dcb152); color: #5a4413; }
 .meter-remove-added-btn { margin-left: 4px; padding: 5px 11px; background: var(--rose-soft); color: #b13c3c; }
 
@@ -369,7 +369,7 @@
 }
 .view-role-toggle button.active {
     color: var(--mint-deep);
-    background: linear-gradient(145deg, #bbe8d0, #93d2af);
+    background: linear-gradient(145deg, var(--mint-l), var(--mint));
     box-shadow: 2px 3px 7px rgba(95,160,125,0.4), inset 1px 1px 3px rgba(225,247,234,0.7), inset -2px -2px 5px rgba(80,150,115,0.35);
 }
 
@@ -400,7 +400,7 @@
 }
 .marker-mode-toggle button.active {
     color: var(--mint-deep);
-    background: linear-gradient(145deg, #bbe8d0, #93d2af);
+    background: linear-gradient(145deg, var(--mint-l), var(--mint));
     box-shadow: 2px 3px 7px rgba(95,160,125,0.4), inset 1px 1px 3px rgba(225,247,234,0.7), inset -2px -2px 5px rgba(80,150,115,0.35);
 }
 

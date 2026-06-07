@@ -12,6 +12,7 @@
   --surface-2:     #efece5;   /* 보조 표면 */
 
   --mint:          #a6dcc1;   /* 주색상 — 소프트 세이지 민트 */
+  --mint-l: var(--mint-l);
   --mint-ink:      #4e9b78;   /* 민트 위 텍스트/강조 (중간) */
   --mint-strong:   #3f8e6b;   /* 진한 세이지 (텍스트) */
   --mint-deep:     #2c5e44;   /* 버튼 라벨용 딥그린 */
@@ -87,6 +88,7 @@
   --surface-2:     #262320;
 
   --mint:          #7fcaa6;
+  --mint-l: #93d6b3;
   --mint-ink:      #8fd9b4;   /* 다크 위 텍스트 — 밝게 */
   --mint-strong:   #a7e4c6;
   --mint-deep:     #13261d;   /* 민트 버튼 라벨 — 딥 */
@@ -155,6 +157,7 @@
     --surface-2:     #262320;
 
     --mint:          #7fcaa6;
+  --mint-l: #93d6b3;
     --mint-ink:      #8fd9b4;
     --mint-strong:   #a7e4c6;
     --mint-deep:     #13261d;
@@ -239,7 +242,7 @@ body {
 
 .cbtn-primary {
   color: var(--mint-deep);
-  background: linear-gradient(145deg, #bbe8d0, #93d2af);
+  background: linear-gradient(145deg, var(--mint-l), var(--mint));
   box-shadow: var(--clay-mint); letter-spacing: -0.01em;
 }
 .cbtn-primary:hover { box-shadow: var(--clay-mint), var(--focus-glow); }
@@ -263,7 +266,7 @@ body {
   padding: 9px 16px; cursor: pointer; transition: all .15s ease; white-space: nowrap;
 }
 .cseg button.active {
-  color: var(--mint-deep); background: linear-gradient(145deg, #bbe8d0, #93d2af);
+  color: var(--mint-deep); background: linear-gradient(145deg, var(--mint-l), var(--mint));
   box-shadow: 2px 3px 7px rgba(95,160,125,0.4), inset 1px 1px 3px rgba(225,247,234,0.7), inset -2px -2px 5px rgba(80,150,115,0.35);
 }
 

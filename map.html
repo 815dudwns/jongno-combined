@@ -46,11 +46,11 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <!-- QR/바코드 라이브 스캔 -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <link rel="stylesheet" href="css/clay.css?v=20260606dark">
-    <link rel="stylesheet" href="css/common.css?v=20260606theme3">
+    <link rel="stylesheet" href="css/clay.css?v=20260607menu">
+    <link rel="stylesheet" href="css/common.css?v=20260607menu">
     <link rel="stylesheet" href="css/marker.css?v=20260607marker8">
-    <link rel="stylesheet" href="css/panel.css?v=20260607v2seq">
-    <link rel="stylesheet" href="css/replacement-modal.css?v=20260607bugfix">
+    <link rel="stylesheet" href="css/panel.css?v=20260607menu">
+    <link rel="stylesheet" href="css/replacement-modal.css?v=20260607menu">
 </head>
 <body>
     <div id="map"></div>
@@ -79,32 +79,52 @@
         </div>
     </div>
 
-    <!-- 시각 토글 (admin 전용) — 계기팀 시각 / 통신팀 시각 -->
-    <div class="view-role-toggle" id="view-role-toggle" style="display:none;">
-        <button data-view="meter" class="active">계기팀 시각</button>
-        <button data-view="comm">통신팀 시각</button>
+    <!-- 우상단: 검색 + 메뉴 -->
+    <div class="topbar">
+        <button class="topbar-btn" onclick="openSearch()">검색</button>
+        <button class="topbar-btn menu-trigger" id="menu-trigger" aria-label="메뉴">메뉴</button>
     </div>
 
-    <!-- 마커 모드 토글 (admin 전용) -->
-    <div class="marker-mode-toggle" id="marker-mode-toggle" style="display:none;">
-        <button data-mode="checkday" class="active">검침일</button>
-        <button data-mode="priority">우선순위</button>
-        <button data-mode="both">둘다</button>
-    </div>
+    <!-- 앱 메뉴 패널 -->
+    <div class="app-menu-overlay" id="app-menu-overlay"></div>
+    <div class="app-menu" id="app-menu">
+        <div class="am-name" id="user-name-display"></div>
 
-    <!-- 사용자 정보 + 검색 + 로그아웃 버튼 -->
-    <div class="user-bar" id="user-bar">
-        <span class="user-name" id="user-name-display"></span>
-        <span class="user-divider">|</span>
-        <button class="search-btn" onclick="openSearch()">검색</button>
-        <span class="user-divider">|</span>
-        <button class="theme-btn" data-theme-toggle onclick="jongnoCycleTheme()">시스템</button>
-        <span class="user-divider">|</span>
-        <a id="admin-btn" href="admin.html" style="display:none;color:var(--ink-2);font-size:12px;text-decoration:none;font-weight:700;">관리자</a>
-        <span id="admin-divider" style="display:none;color:var(--ink-3);font-size:12px;">|</span>
-        <a id="stats-btn" href="stats.html" style="display:none;color:var(--ink-2);font-size:12px;text-decoration:none;font-weight:700;">통계</a>
-        <span id="stats-divider" style="display:none;color:var(--ink-3);font-size:12px;">|</span>
-        <button class="logout-btn" onclick="authLogout()">로그아웃</button>
+        <div class="am-block">
+            <span class="am-label">테마</span>
+            <button class="am-theme-btn" data-theme-toggle onclick="jongnoCycleTheme()">시스템</button>
+        </div>
+
+        <div class="am-block">
+            <span class="am-label">테마색</span>
+            <div class="am-swatches" id="am-swatches"></div>
+        </div>
+
+        <a class="am-link" id="stats-btn" href="stats.html" style="display:none;">통계</a>
+
+        <!-- admin 전용: 관리자/리포트 + 시각·마커 토글 -->
+        <div class="am-admin" id="am-admin" style="display:none;">
+            <div class="am-sep"></div>
+            <a class="am-link" id="admin-btn" href="admin.html">관리자 · 리포트</a>
+            <div class="am-block">
+                <span class="am-label">시각</span>
+                <div class="view-role-toggle" id="view-role-toggle">
+                    <button data-view="meter" class="active">계기팀</button>
+                    <button data-view="comm">통신팀</button>
+                </div>
+            </div>
+            <div class="am-block">
+                <span class="am-label">마커</span>
+                <div class="marker-mode-toggle" id="marker-mode-toggle">
+                    <button data-mode="checkday" class="active">검침일</button>
+                    <button data-mode="priority">우선순위</button>
+                    <button data-mode="both">둘다</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="am-sep"></div>
+        <button class="am-logout" onclick="authLogout()">로그아웃</button>
     </div>
 
     <!-- 검색 모달 -->
@@ -293,7 +313,7 @@
     </div>
 
     <script src="js/auth.js"></script>
-    <script src="js/theme.js?v=20260606theme3"></script>
+    <script src="js/theme.js?v=20260607menu"></script>
     <script>
         // 로그인 체크 — 미인증이면 login.html로 이동
         authRequire();
@@ -304,14 +324,13 @@
             if (session) {
                 document.getElementById('user-name-display').textContent = session.name;
                 if (session.role === 'admin') {
-                    document.getElementById('admin-btn').style.display = '';
-                    document.getElementById('admin-divider').style.display = '';
-                    document.getElementById('admin-upload-btn').style.display = '';
+                    document.getElementById('am-admin').style.display = '';
+                    const up = document.getElementById('admin-upload-btn');
+                    if (up) up.style.display = '';
                 }
                 // 통계 — admin + 계기팀(meter)에게 노출
                 if (session.role === 'admin' || session.role === 'meter') {
                     document.getElementById('stats-btn').style.display = '';
-                    document.getElementById('stats-divider').style.display = '';
                 }
             }
         })();
@@ -327,5 +346,37 @@
     <script src="js/lcd-crop.js?v=20260607a"></script>
     <script src="js/replacement-modal.js?v=20260607bugfix"></script>
     <script src="js/simulate-helper.js?v=20260528a"></script>
+    <script>
+      // 앱 메뉴 토글 + 테마색 스와치
+      (function () {
+        const trigger = document.getElementById('menu-trigger');
+        const menu = document.getElementById('app-menu');
+        const overlay = document.getElementById('app-menu-overlay');
+        if (!trigger || !menu || !overlay) return;
+        const openMenu = () => { menu.classList.add('open'); overlay.classList.add('open'); };
+        const closeMenu = () => { menu.classList.remove('open'); overlay.classList.remove('open'); };
+        trigger.onclick = openMenu;
+        overlay.onclick = closeMenu;
+        // 테마색 스와치 렌더
+        const sw = document.getElementById('am-swatches');
+        if (sw && window.jongnoAccentPalettes) {
+          const cur = (window.jongnoCurrentAccent && window.jongnoCurrentAccent()) || 'sage';
+          Object.keys(window.jongnoAccentPalettes).forEach((key) => {
+            const p = window.jongnoAccentPalettes[key];
+            const b = document.createElement('button');
+            b.className = 'am-swatch' + (key === cur ? ' active' : '');
+            b.style.background = p[1][0];
+            b.title = p[0];
+            b.setAttribute('aria-label', p[0]);
+            b.onclick = () => {
+              window.jongnoApplyAccent(key);
+              sw.querySelectorAll('.am-swatch').forEach(x => x.classList.remove('active'));
+              b.classList.add('active');
+            };
+            sw.appendChild(b);
+          });
+        }
+      })();
+    </script>
 </body>
 </html>
