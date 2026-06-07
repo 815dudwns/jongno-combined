@@ -717,7 +717,8 @@ function getMarkerImage(style) {
 
     const fill = MARKER_FILL[style.colorClass] || '#5f95cf';
     const showCircle = CIRCLE_CLASSES.has(style.colorClass);
-    const alpha = (style.extraClass && style.extraClass.indexOf('comm-bg') >= 0) ? 0.6 : 1;
+    // 통신팀 시각의 계기팀 미완료(comm-bg): 다크모드에선 투명도 10% 더 낮춰 덜 튀게
+    const alpha = (style.extraClass && style.extraClass.indexOf('comm-bg') >= 0) ? (theme === 'dark' ? 0.5 : 0.6) : 1;
     ctx.globalAlpha = alpha;
 
     // 핀 (물방울)
@@ -777,13 +778,20 @@ function createMarker(position, address, meters) {
     const session = authGetSession();
     const style = decideMarkerStyle(meters, { ...status, address }, session);
 
-    // 미완료 우선: 완료(gray/comm-done) 마커는 아래로, 미완료는 위로 (겹칠 때 미완료가 보이게)
+    // 겹칠 때: 완료(gray/comm-done)는 맨 아래, 미완료(작업할 것)는 위로 + 순위 높을수록 더 위로
     const isDoneMarker = (style.colorClass === 'gray' || style.colorClass === 'comm-done');
+    let _zi;
+    if (isDoneMarker) {
+        _zi = 10;
+    } else {
+        const _pr = { '1순위': 5, '2순위': 4, '3순위': 3, '4순위': 2, '과년도': 1 }[meters[0] && meters[0].순위] || 2;
+        _zi = 30 + _pr;   // 32~35: 미완료, 순위 높을수록 위
+    }
     const customOverlay = new naver.maps.Marker({
         position: position,
         map: map,
         icon: getMarkerImage(style),   // canvas 이미지 아이콘 (DOM 마커 대비 대폭 경량)
-        zIndex: isDoneMarker ? 15 : 25
+        zIndex: _zi
     });
     naver.maps.Event.addListener(customOverlay, 'click', () => showDetail(address, meters));
 
