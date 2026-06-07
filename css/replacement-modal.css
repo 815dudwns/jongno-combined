@@ -349,6 +349,8 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
+/* 활성 지침 1개면 한 줄 전체 사용 */
+#rpl-removal-fields.single { grid-template-columns: 1fr; }
 #rpl-removal-fields .rpl-field {
   min-width: 0;
   padding: 12px;

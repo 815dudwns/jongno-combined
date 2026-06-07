@@ -137,6 +137,10 @@ const RplModal = (() => {
           resetPhoto(els.photo);
         }
       }
+
+      // 활성 지침이 1개(단상=주간만 등)면 grid 한 줄을 전체로 사용 (반쪽 방지)
+      const _rfWrap = document.getElementById('rpl-removal-fields');
+      if (_rfWrap) _rfWrap.classList.toggle('single', activeFields.length <= 1);
     }
 
     // 신계기 사진 초기화

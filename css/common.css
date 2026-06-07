@@ -89,14 +89,30 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothi
 .app-menu-overlay.open { display: block; }
 .app-menu { position: fixed; top: 0; right: 0; z-index: 1500; width: 286px; max-width: 86vw; height: 100%; background: var(--bg); box-shadow: var(--clay); padding: 22px 18px calc(22px + env(safe-area-inset-bottom)); display: none; flex-direction: column; gap: 15px; overflow-y: auto; }
 .app-menu.open { display: flex; }
-.am-name { font-size: 17px; font-weight: 800; color: var(--ink); }
-.am-block { display: flex; flex-direction: column; gap: 8px; }
-.am-label { font-size: 11px; font-weight: 800; color: var(--ink-3); letter-spacing: .03em; }
+.app-menu { gap: 4px; }
+.am-header { display: flex; align-items: center; justify-content: space-between; }
+.am-name { font-size: 16px; font-weight: 800; color: var(--ink); }
+.am-x { background: none; border: none; font-size: 24px; color: var(--ink-3); cursor: pointer; line-height: 1; padding: 0 2px; }
+/* 공통 행: 아이콘 + 텍스트 (트리 헤더·링크·로그아웃 모두 동일 형태로 통일) */
+.am-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 8px; background: none; border: none; border-radius: 12px; font-family: var(--font); font-size: 15px; font-weight: 700; color: var(--ink); cursor: pointer; text-decoration: none; text-align: left; }
+.am-row:active { background: var(--bg-deep); }
+.am-ico { width: 22px; height: 22px; flex-shrink: 0; color: var(--mint-strong); display: flex; align-items: center; justify-content: center; }
+.am-ico svg { width: 22px; height: 22px; }
+.am-txt { flex: 1; }
+.am-caret, .am-go { width: 18px; height: 18px; color: var(--ink-3); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.am-caret svg, .am-go svg { width: 18px; height: 18px; }
+.am-caret { transition: transform .2s; }
+.am-tree.open > .am-head .am-caret { transform: rotate(180deg); }
+.am-body { display: none; flex-direction: column; gap: 4px; padding: 2px 0 8px 34px; }
+.am-tree.open > .am-body { display: flex; }
+.am-sub { display: flex; flex-direction: column; gap: 8px; padding: 7px 0; }
+.am-sub-label { font-size: 11px; font-weight: 800; color: var(--ink-3); letter-spacing: .03em; }
+.am-sub-link { padding: 9px 0; font-size: 14px; gap: 10px; }
+.am-sub-link .am-ico { width: 18px; height: 18px; } .am-sub-link .am-ico svg { width: 18px; height: 18px; }
+.am-logout, .am-logout .am-ico { color: var(--rose); }
 .am-theme-btn { align-self: flex-start; background: var(--surface); box-shadow: var(--clay-sm); border: none; color: var(--ink-2); padding: 9px 16px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 800; cursor: pointer; font-family: var(--font); }
 .am-theme-btn:active { box-shadow: var(--clay-inset-sm); }
-.am-link { color: var(--mint-strong); font-size: 14px; font-weight: 800; text-decoration: none; padding: 6px 0; }
-.am-sep { height: 1px; background: rgba(140,132,120,0.2); margin: 3px 0; }
-.am-logout { align-self: flex-start; background: none; border: none; color: var(--rose); font-size: 14px; font-weight: 800; cursor: pointer; padding: 6px 0; font-family: var(--font); }
+.am-sep { height: 1px; background: rgba(140,132,120,0.2); margin: 4px 0; }
 .am-swatches { display: flex; flex-wrap: wrap; gap: 9px; }
 .am-swatch { width: 31px; height: 31px; border-radius: 9px; cursor: pointer; box-shadow: var(--clay-sm); border: 2.5px solid transparent; padding: 0; }
 .am-swatch.active { border-color: var(--ink); }
