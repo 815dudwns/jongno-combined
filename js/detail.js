@@ -605,23 +605,16 @@ function renderMetersList() {
             } else if (replInfo.removal_value != null && String(replInfo.removal_value) !== '') {
                 rvItems.push(`<span class="sw-rv-item">철거지침 <b>${e(replInfo.removal_value)}</b>${cpBtn(replInfo.removal_value, '철거지침 복사')}</span>`);
             }
-            // 철거(현재 계기) → 새 계기 비교 블록 (주소상세 v2 m-swap)
+            // 박스 없이 심플하게: → 새계기번호[복사] / 철거지침[복사] / 사진받기
             const _newNo = replInfo.new_meter_id;
-            const swapHtml = `<div class="m-swap">`
-                + `<div class="swap-col old"><h4>철거</h4><div class="sw-no">${e(meter.계기번호)}${cpBtn(meter.계기번호, '철거계기번호 복사')}</div>`
-                + (rvItems.length ? `<div class="sw-rv">${rvItems.join('')}</div>` : '')
-                + `</div>`
-                + `<div class="swap-arrow"><span></span></div>`
-                + `<div class="swap-col new${_newNo ? '' : ' empty'}"><h4>새 계기</h4>`
-                + `<div class="sw-no">${_newNo ? e(_newNo) + cpBtn(_newNo, '교체계기번호 복사') : '입력 대기'}</div>`
-                + `</div></div>`;
-            // 푸터: 사진 받기만 (No.는 체크박스 밑 meter-side에 이미 표시 — 중복 제거)
-            const footParts = [];
+            let _h = '<div class="m-repl">';
+            _h += `<div class="m-repl-new"><span class="m-repl-arrow">→</span><b>${_newNo ? e(_newNo) : '입력 대기'}</b>${_newNo ? cpBtn(_newNo, '교체계기번호 복사') : ''}</div>`;
+            if (rvItems.length) _h += `<div class="m-repl-rv">${rvItems.join('')}</div>`;
             if (replInfo.old_meter_photo || replInfo.new_meter_photo) {
-                footParts.push(`<a class="repl-dl-all" data-old="${e(replInfo.old_meter_photo || '')}" data-new="${e(replInfo.new_meter_photo || '')}" data-base="${e(meter.계기번호)}">사진 받기 ↓</a>`);
+                _h += `<a class="repl-dl-all" data-old="${e(replInfo.old_meter_photo || '')}" data-new="${e(replInfo.new_meter_photo || '')}" data-base="${e(meter.계기번호)}">사진 받기 ↓</a>`;
             }
-            const footHtml = footParts.length ? `<div class="m-swap-foot">${footParts.join('')}</div>` : '';
-            replInfoHtml = swapHtml + footHtml;
+            _h += '</div>';
+            replInfoHtml = _h;
         }
         } catch (err) { replInfoHtml = ''; console.error('replInfo 생성 오류:', err); }
 

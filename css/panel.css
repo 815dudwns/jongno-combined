@@ -129,31 +129,16 @@
 .meter-repl-info { margin-top: 4px; font-size: 12px; color: var(--ink-2); line-height: 1.8; font-weight: 650; }
 .repl-dl-all { color: #2563eb; font-weight: 800; text-decoration: underline; cursor: pointer; }
 
-/* ── 철거 → 새 계기 비교 블록 (주소상세 v2 m-swap) ── */
-/* 철거 칸을 넓게(번호·지침 한 줄씩 들어가게), 새계기는 번호만이라 좁게 */
-.m-swap { margin-top: 9px; display: grid; grid-template-columns: 1.3fr auto 0.9fr; gap: 5px; align-items: stretch; }
-.swap-col { background: var(--bg-deep); border-radius: 11px; padding: 8px 9px; box-shadow: var(--clay-inset-sm); min-width: 0; }
-.swap-col h4 { font-size: 9.5px; font-weight: 800; letter-spacing: .04em; margin-bottom: 4px; }
-.swap-col.old h4 { color: var(--ink-3); }
-.swap-col.new h4 { color: var(--mint-strong); }
-/* 계기번호 + 복사 한 줄 */
-.swap-col .sw-no { font-size: 12.5px; font-weight: 800; letter-spacing: .01em; color: var(--ink); display: flex; align-items: center; gap: 2px; white-space: nowrap; }
-.swap-col.empty .sw-no { color: var(--ink-3); font-weight: 700; }
-.swap-col .sw-no .copy-btn { flex-shrink: 0; }
-.swap-col .sw-rv { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--ink-2); }
-/* 철거지침: 라벨 + 값 + 복사 한 줄 */
-.swap-col .sw-rv-item { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
-.swap-col .sw-rv-item b { color: var(--ink); font-weight: 800; }
-.swap-col .sw-rv-item .copy-btn { flex-shrink: 0; }
-.swap-arrow { align-self: center; display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); box-shadow: var(--clay-sm); flex-shrink: 0; }
-.swap-arrow span { width: 8px; height: 8px; border-top: 2.2px solid var(--mint-strong); border-right: 2.2px solid var(--mint-strong); transform: rotate(45deg) translate(-1px,1px); }
-.m-swap-foot { margin-top: 7px; display: flex; align-items: center; gap: 12px; font-size: 12px; font-weight: 700; color: var(--ink-2); flex-wrap: wrap; }
-.m-swap-foot .repl-no { color: var(--violet, #7c3aed); font-weight: 800; }
-/* 상태별 카드 톤일 때 swap-col 배경 (라이트) */
-.meter-item-replaced .swap-col { background: rgba(255,255,255,.55); }
-.meter-item-draft .swap-col { background: rgba(255,255,255,.5); }
-[data-theme="dark"] .meter-item-replaced .swap-col,
-[data-theme="dark"] .meter-item-draft .swap-col { background: rgba(255,255,255,.06); }
+/* ── 교체 정보 (박스 없이 심플): → 새계기[복사] / 철거지침[복사] / 사진받기 ── */
+.m-repl { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.m-repl-new { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: 14.5px; font-weight: 800; color: var(--ink); }
+.m-repl-arrow { color: var(--mint-strong); font-weight: 900; font-size: 17px; line-height: 1; }
+.m-repl-new b { letter-spacing: .01em; }
+.m-repl-rv { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-2); }
+.m-repl-rv .sw-rv-item { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+.m-repl-rv .sw-rv-item b { color: var(--ink); font-weight: 800; }
+.m-repl-rv .sw-rv-item .copy-btn { flex-shrink: 0; }
+.m-repl .repl-dl-all { font-size: 12.5px; }
 .meter-rpl-btn,
 .meter-remove-added-btn {
     margin-left: 6px;
