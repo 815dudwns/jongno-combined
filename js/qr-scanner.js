@@ -51,6 +51,24 @@ const QrScanner = (() => {
     return typeof window.BarcodeDetector === 'function';
   }
 
+  // iOS Safari 등 BarcodeDetector 미지원 환경: barcode-detector(ZXing wasm) 폴리필을 주입해
+  // iOS/안드로이드 모두 동일하게 getUserMedia + BarcodeDetector 경로로 처리한다.
+  let _polyfillTried = false;
+  async function ensureBarcodeDetector() {
+    if (typeof window.BarcodeDetector === 'function') {
+      try { await window.BarcodeDetector.getSupportedFormats(); return true; } catch (e) {}
+    }
+    if (_polyfillTried) return typeof window.BarcodeDetector === 'function';
+    _polyfillTried = true;
+    try {
+      await import('https://cdn.jsdelivr.net/npm/barcode-detector@2/dist/es/side-effects.min.js');
+      debugLog('barcode-detector 폴리필 로드 OK');
+    } catch (e) {
+      debugLog('폴리필 로드 실패: ' + (e?.message || e));
+    }
+    return typeof window.BarcodeDetector === 'function';
+  }
+
   async function initDetector() {
     if (!hasBarcodeDetector()) return null;
     try {
@@ -142,9 +160,10 @@ const QrScanner = (() => {
       return showError('이 브라우저는 카메라 미지원 (HTTPS 필요)');
     }
 
-    // BarcodeDetector 가능 여부 확인
-    if (!hasBarcodeDetector()) {
-      debugLog('BarcodeDetector 미지원 → html5-qrcode 폴백');
+    // BarcodeDetector 확보 (iOS는 폴리필 주입). 실패 시에만 html5-qrcode 폴백
+    const hasBD = await ensureBarcodeDetector();
+    if (!hasBD) {
+      debugLog('BarcodeDetector 미지원(폴리필도 실패) → html5-qrcode 폴백');
       _useFallback = true;
       return startFallback();
     }
@@ -155,17 +174,9 @@ const QrScanner = (() => {
       return startFallback();
     }
 
-    // 권한 부여를 위해 우선 environment로 임시 stream 받기 (enumerateDevices 라벨 노출 위해)
-    if (!loadCameraLabel() && _cameras.length === 0) {
-      try {
-        debugLog('초기 권한 요청 (facingMode environment)...');
-        const tmp = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        tmp.getTracks().forEach(t => t.stop());
-        debugLog('초기 권한 OK');
-      } catch (e) {
-        debugLog('초기 권한 실패: ' + (e?.message||e));
-      }
-    }
+    // 임시 권한 스트림은 받지 않는다 — iOS Safari에서 두 번째 getUserMedia가
+    // 첫 스트림을 muted/검은 화면으로 만드는 WebKit 버그(#179363) 회피.
+    // 카메라 라벨은 실제 스트림을 잡은 뒤 채워진다.
 
     await enumerateCameras();
 
@@ -202,28 +213,34 @@ const QrScanner = (() => {
     // 기존 stream 정리
     await stopStream();
 
-    debugLog(`getUserMedia({deviceId: ${deviceId.slice(-8)}})...`);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     try {
-      _stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          deviceId: { exact: deviceId },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        }
-      });
+      if (isIOS || !deviceId) {
+        // iOS Safari는 deviceId:{exact}가 OverconstrainedError 빈발 + 세션마다 deviceId 바뀜
+        // → facingMode:{ideal:environment}로 후면 카메라 요청
+        debugLog('getUserMedia(facingMode environment)...');
+        _stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+        });
+      } else {
+        debugLog(`getUserMedia({deviceId: ${deviceId.slice(-8)}})...`);
+        _stream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+        });
+      }
     } catch (e) {
       debugLog('getUserMedia 실패: ' + (e?.message||e));
-      // 폴백: deviceId 없이 environment
+      // 폴백: 제약 최소화 facingMode
       try {
         debugLog('폴백: facingMode environment 시도');
-        _stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        _stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
       } catch (e2) {
         return showError('카메라 접근 실패: ' + (e2?.message||e2));
       }
     }
 
     _video.srcObject = _stream;
-    try { await _video.play(); } catch {}
+    try { await _video.play(); } catch (e) { debugLog('video.play 실패(무시): ' + (e?.message||e)); }
 
     // 연속 자동초점 적용 — 미지원 기기는 조용히 무시
     try {
