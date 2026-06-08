@@ -458,7 +458,7 @@ async function initFirebase() {
         } else {
             // 3순위 (폴백): 정적 JSON
             try {
-                const res = await fetch('./data/jongno-work-status.json');
+                const res = await fetch('./data/jongno-work-status.json?v=20260608fix');
                 if (!res.ok) throw new Error('fetch 실패: ' + res.status);
                 const data = await res.json();
                 workStatus = data;
