@@ -356,6 +356,11 @@ function buildWorkStatusFromFirebase(data) {
 // meter_*/comm_* 각각 독립 비교: 둘 중 더 최신 쪽 유지
 function mergeFirebaseData(firebaseData) {
     const converted = buildWorkStatusFromFirebase(firebaseData);
+    // 작업자 입력이 아직 큐에 남아 Firebase 미전송인 주소 — DB 덮어쓰기 예외
+    // (전송 완료되면 Firebase 에코로 자연히 일치. 그 전엔 로컬 입력 보호 — 깜빡임/revert 방지)
+    const pendingWriteAddrs = new Set(loadEventQueue()
+        .filter(e => e.type === 'state' || e.type === 'reset')
+        .map(e => e.address));
 
     Object.keys(converted).forEach(addr => {
         const fb    = converted[addr];
@@ -365,26 +370,20 @@ function mergeFirebaseData(firebaseData) {
             return;
         }
 
-        // meter prefix 병합
-        const fbMeterTs    = fb.meter_updatedAt    ? new Date(fb.meter_updatedAt).getTime()    : 0;
-        const localMeterTs = local.meter_updatedAt ? new Date(local.meter_updatedAt).getTime() : 0;
-        if (fbMeterTs > localMeterTs) {
+        // 주소상태 = Firebase 권위 (timestamp 게이트 제거)
+        // stale local(complete)이 fresh DB(pending)를 덮어 회색 잔존하던 근본 버그 차단.
+        // 단, 큐 미전송 작업자 입력 주소는 로컬 상태 유지(전송 후 일치).
+        if (!pendingWriteAddrs.has(addr)) {
             local.meter_state         = fb.meter_state;
             local.meter_reason        = fb.meter_reason;
             local.meter_updatedAt     = fb.meter_updatedAt;
             local.meter_updatedBy     = fb.meter_updatedBy;
             local.meter_updatedByName = fb.meter_updatedByName;
-        }
-
-        // comm prefix 병합
-        const fbCommTs    = fb.comm_updatedAt    ? new Date(fb.comm_updatedAt).getTime()    : 0;
-        const localCommTs = local.comm_updatedAt ? new Date(local.comm_updatedAt).getTime() : 0;
-        if (fbCommTs > localCommTs) {
-            local.comm_state         = fb.comm_state;
-            local.comm_reason        = fb.comm_reason;
-            local.comm_updatedAt     = fb.comm_updatedAt;
-            local.comm_updatedBy     = fb.comm_updatedBy;
-            local.comm_updatedByName = fb.comm_updatedByName;
+            local.comm_state          = fb.comm_state;
+            local.comm_reason         = fb.comm_reason;
+            local.comm_updatedAt      = fb.comm_updatedAt;
+            local.comm_updatedBy      = fb.comm_updatedBy;
+            local.comm_updatedByName  = fb.comm_updatedByName;
         }
 
         // checkedMeters/meterChecks — Firebase 쪽이 있으면 덮어쓰기 (체크는 공유)
@@ -449,25 +448,17 @@ async function initFirebase() {
         }
     }
 
-    // 2순위 (폴백): localStorage
+    // 2순위 (폴백): localStorage — 단, 이건 Firebase 스냅샷의 미러일 뿐(독립 데이터 아님)
+    // 주소상태는 무조건 Firebase에서만. 정적 JSON 폴백 제거(전부-완료 파일이 회색 오염시키던 원인).
+    // Firebase 실패 + 미러 없음(콜드스타트) = 빈 상태로 시작, 리스너 연결되면 즉시 채워짐.
     if (!firebaseLoaded) {
         const local = loadStatusLocal();
         if (local && Object.keys(local).length > 0) {
             workStatus = local;
-            console.log('[Local-Fallback] localStorage에서 로드, 주소수:', Object.keys(workStatus).length);
+            console.log('[Mirror] localStorage(마지막 DB 미러)에서 로드, 주소수:', Object.keys(workStatus).length);
         } else {
-            // 3순위 (폴백): 정적 JSON
-            try {
-                const res = await fetch('./data/jongno-work-status.json?v=20260608fix');
-                if (!res.ok) throw new Error('fetch 실패: ' + res.status);
-                const data = await res.json();
-                workStatus = data;
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-                console.log('[Local-Fallback] data/jongno-work-status.json 로드');
-            } catch (e) {
-                console.warn('[Local-Fallback] 정적 JSON 로드 실패:', e.message);
-                workStatus = {};
-            }
+            workStatus = {};
+            console.log('[Mirror] 미러 없음 — Firebase 연결 대기(빈 상태 시작)');
         }
     }
 
