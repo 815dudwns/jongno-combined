@@ -12,6 +12,8 @@ const RplModal = (() => {
   let keepRemovalPhotoUrls = {}; // { whme_day: 'https://...', ... }
   // 칸별 "원본"(압축 전) file 보관 — 저장 시 LCD 크롭본(고화질) 생성용. 검침값 검증/학습 데이터.
   let removalPhotoOriginals = {}; // { whme_day: File|Blob|null, ... }
+  // 칸별 LCD 영역 (작업자 지정). 정규화(0~1), 원본 이미지 기준.
+  let removalPhotoRegions = {};   // { whme_day: {x0,y0,x1,y1}, ... }
 
   // 추가 데이터 행 (DOM 요소 배열 — save 시 collectExtraRows로 수집)
   let extraRows = [];
@@ -58,6 +60,7 @@ const RplModal = (() => {
     removalPhotoBlobs = {};
     keepRemovalPhotoUrls = {};
     removalPhotoOriginals = {};
+    removalPhotoRegions = {};
 
     document.getElementById('rpl-modal').classList.add('active');
     document.getElementById('rpl-title-addr').textContent = address;
@@ -423,6 +426,265 @@ const RplModal = (() => {
       console.warn('압축 실패, 원본 사용', e);
       setPhoto(slotId, file);
     }
+    // 지침칸이면 LCD 영역 편집기 (원본 기준)
+    if (field && RV_FIELDS[field]) {
+      try { await openLcdEditor(field, file); } catch (e) { console.warn('LCD편집기', e); }
+    }
+  }
+
+  // ── LCD 영역 편집기 — 전체화면 오버레이 ──────────────────────────────
+  async function openLcdEditor(field, origFile) {
+    const bmp = await createImageBitmap(origFile);
+    const iw = bmp.width;
+    const ih = bmp.height;
+
+    // 오버레이 DOM 생성
+    const overlay = document.createElement('div');
+    overlay.className = 'lcd-editor-overlay';
+
+    const guide = document.createElement('div');
+    guide.className = 'lcd-editor-guide';
+    guide.textContent = '검침값 화면(LCD)을 드래그하거나, 두 모서리를 탭해서 감싸주세요. 모서리로 미세조정.';
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'lcd-editor-canvas';
+    canvas.style.touchAction = 'none';
+
+    const footer = document.createElement('div');
+    footer.className = 'lcd-editor-footer';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'lcd-editor-btn lcd-editor-btn-cancel';
+    cancelBtn.textContent = '취소';
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'lcd-editor-btn lcd-editor-btn-confirm';
+    confirmBtn.textContent = '확인';
+    footer.appendChild(cancelBtn);
+    footer.appendChild(confirmBtn);
+
+    overlay.appendChild(guide);
+    overlay.appendChild(canvas);
+    overlay.appendChild(footer);
+    document.body.appendChild(overlay);
+
+    // canvas CSS 크기 = 화면 가용 영역
+    const HEADER_H = 56; // 안내문
+    const FOOTER_H = 72; // 버튼 영역
+    const cssW = window.innerWidth;
+    const cssH = window.innerHeight - HEADER_H - FOOTER_H;
+    canvas.width  = cssW;
+    canvas.height = cssH;
+
+    const ctx = canvas.getContext('2d');
+
+    // letterbox 변환 계산 (이미지→canvas, 비율 유지)
+    function calcLetterbox() {
+      const scale = Math.min(cssW / iw, cssH / ih);
+      const drawW = iw * scale;
+      const drawH = ih * scale;
+      const offX = (cssW - drawW) / 2;
+      const offY = (cssH - drawH) / 2;
+      return { scale, offX, offY, drawW, drawH };
+    }
+    const lb = calcLetterbox();
+
+    // 정규화 ↔ canvas 픽셀 변환
+    function normToCanvas(norm) {
+      return {
+        x: norm.x0 * lb.drawW + lb.offX,
+        y: norm.y0 * lb.drawH + lb.offY,
+        x1: norm.x1 * lb.drawW + lb.offX,
+        y1: norm.y1 * lb.drawH + lb.offY,
+      };
+    }
+    function canvasToNorm(cx0, cy0, cx1, cy1) {
+      const x0 = Math.max(0, Math.min(1, (cx0 - lb.offX) / lb.drawW));
+      const y0 = Math.max(0, Math.min(1, (cy0 - lb.offY) / lb.drawH));
+      const x1 = Math.max(0, Math.min(1, (cx1 - lb.offX) / lb.drawW));
+      const y1 = Math.max(0, Math.min(1, (cy1 - lb.offY) / lb.drawH));
+      return { x0, y0, x1, y1 };
+    }
+
+    // 현재 박스 (정규화)
+    const DEF = (typeof LcdCrop !== 'undefined') ? LcdCrop.REGION : { x0: 0.15, x1: 0.85, y0: 0.35, y1: 0.55 };
+    let box = removalPhotoRegions[field]
+      ? Object.assign({}, removalPhotoRegions[field])
+      : Object.assign({}, DEF);
+
+    const HANDLE_PX = 24;   // 핸들 터치 여유(px)
+    const MIN_NORM  = 0.05; // 최소 박스 크기 (정규화)
+
+    // 핸들 판별 — canvas 좌표 기준
+    // 반환: 'nw'|'ne'|'sw'|'se'|'move'|'new'|null
+    function hitTest(cx, cy) {
+      const c = normToCanvas(box);
+      // 네 모서리
+      const corners = [
+        { name: 'nw', px: c.x,  py: c.y  },
+        { name: 'ne', px: c.x1, py: c.y  },
+        { name: 'sw', px: c.x,  py: c.y1 },
+        { name: 'se', px: c.x1, py: c.y1 },
+      ];
+      for (const co of corners) {
+        if (Math.abs(cx - co.px) < HANDLE_PX && Math.abs(cy - co.py) < HANDLE_PX) return co.name;
+      }
+      // 모서리 외에는 어디든 드래그 = 새 박스 그리기 (폰에서 가장 쉬움)
+      return 'new';
+    }
+
+    // 박스 이미지 경계 clamp + 최소 크기 보장
+    function clampBox(b) {
+      let { x0, y0, x1, y1 } = b;
+      x0 = Math.max(0, x0); y0 = Math.max(0, y0);
+      x1 = Math.min(1, x1); y1 = Math.min(1, y1);
+      if (x1 - x0 < MIN_NORM) x1 = Math.min(1, x0 + MIN_NORM);
+      if (y1 - y0 < MIN_NORM) y1 = Math.min(1, y0 + MIN_NORM);
+      return { x0, y0, x1, y1 };
+    }
+
+    function redraw() {
+      ctx.clearRect(0, 0, cssW, cssH);
+      // 이미지 (letterbox)
+      ctx.drawImage(bmp, lb.offX, lb.offY, lb.drawW, lb.drawH);
+      // 다크 오버레이 — 박스 밖 4개 사각형으로 분할 (cutout 방식 회피)
+      const c = normToCanvas(box);
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(0, 0, cssW, c.y);                         // 위
+      ctx.fillRect(0, c.y1, cssW, cssH - c.y1);              // 아래
+      ctx.fillRect(0, c.y, c.x, c.y1 - c.y);                // 왼쪽
+      ctx.fillRect(c.x1, c.y, cssW - c.x1, c.y1 - c.y);     // 오른쪽
+      // 박스 테두리
+      ctx.strokeStyle = '#34d399';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(c.x, c.y, c.x1 - c.x, c.y1 - c.y);
+      // 네 모서리 핸들
+      const hw = 10;
+      ctx.fillStyle = '#34d399';
+      const handles = [
+        [c.x,  c.y  ],
+        [c.x1, c.y  ],
+        [c.x,  c.y1 ],
+        [c.x1, c.y1 ],
+      ];
+      for (const [hx, hy] of handles) {
+        ctx.fillRect(hx - hw / 2, hy - hw / 2, hw, hw);
+      }
+      // 투클릭 첫 점 표시 (주황 원)
+      if (pendingClick) {
+        const px = pendingClick.x * lb.drawW + lb.offX;
+        const py = pendingClick.y * lb.drawH + lb.offY;
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    // Pointer 이벤트 상태
+    let drag = null; // { type, startNorm, startBox, startCx, startCy, moved }
+    let pendingClick = null; // 투클릭: 첫 탭 점 (정규화 {x,y})
+
+    function getCanvasXY(e) {
+      const rect = canvas.getBoundingClientRect();
+      return { cx: e.clientX - rect.left, cy: e.clientY - rect.top };
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      const { cx, cy } = getCanvasXY(e);
+      const hit = hitTest(cx, cy);
+      drag = {
+        type: hit,
+        startCx: cx, startCy: cy,
+        startBox: Object.assign({}, box),
+        moved: false,
+      };
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      e.preventDefault();
+      const { cx, cy } = getCanvasXY(e);
+      // 미세 떨림은 탭으로 유지 — 6px 넘게 움직여야 드래그
+      if (!drag.moved && (Math.abs(cx - drag.startCx) + Math.abs(cy - drag.startCy)) < 6) return;
+      drag.moved = true;
+      const dx = (cx - drag.startCx) / lb.drawW;
+      const dy = (cy - drag.startCy) / lb.drawH;
+      const sb = drag.startBox;
+
+      if (drag.type === 'move') {
+        const w = sb.x1 - sb.x0;
+        const h = sb.y1 - sb.y0;
+        let nx0 = sb.x0 + dx;
+        let ny0 = sb.y0 + dy;
+        nx0 = Math.max(0, Math.min(1 - w, nx0));
+        ny0 = Math.max(0, Math.min(1 - h, ny0));
+        box = { x0: nx0, y0: ny0, x1: nx0 + w, y1: ny0 + h };
+      } else if (drag.type === 'new') {
+        const norm0 = canvasToNorm(drag.startCx, drag.startCy, drag.startCx, drag.startCy);
+        const ax0 = norm0.x0, ay0 = norm0.y0;
+        const ax1 = Math.max(0, Math.min(1, ax0 + (cx - drag.startCx) / lb.drawW));
+        const ay1 = Math.max(0, Math.min(1, ay0 + (cy - drag.startCy) / lb.drawH));
+        box = clampBox({
+          x0: Math.min(ax0, ax1), y0: Math.min(ay0, ay1),
+          x1: Math.max(ax0, ax1), y1: Math.max(ay0, ay1),
+        });
+      } else {
+        // 리사이즈 — 모서리 이동
+        let nx0 = sb.x0, ny0 = sb.y0, nx1 = sb.x1, ny1 = sb.y1;
+        if (drag.type === 'nw' || drag.type === 'sw') nx0 = sb.x0 + dx;
+        if (drag.type === 'ne' || drag.type === 'se') nx1 = sb.x1 + dx;
+        if (drag.type === 'nw' || drag.type === 'ne') ny0 = sb.y0 + dy;
+        if (drag.type === 'sw' || drag.type === 'se') ny1 = sb.y1 + dy;
+        box = clampBox({
+          x0: Math.min(nx0, nx1), y0: Math.min(ny0, ny1),
+          x1: Math.max(nx0, nx1), y1: Math.max(ny0, ny1),
+        });
+      }
+      redraw();
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+      e.preventDefault();
+      if (drag && !drag.moved && drag.type === 'new') {
+        // 탭(안 움직임, 모서리 아님) = 투클릭 영역 지정
+        const p = canvasToNorm(drag.startCx, drag.startCy, drag.startCx, drag.startCy);
+        if (pendingClick) {
+          box = clampBox({
+            x0: Math.min(pendingClick.x, p.x0), y0: Math.min(pendingClick.y, p.y0),
+            x1: Math.max(pendingClick.x, p.x0), y1: Math.max(pendingClick.y, p.y0),
+          });
+          pendingClick = null;
+        } else {
+          pendingClick = { x: p.x0, y: p.y0 };
+        }
+        redraw();
+      }
+      drag = null;
+    });
+
+    redraw();
+
+    // 확인/취소 Promise
+    return new Promise((resolve) => {
+      function done(confirmed) {
+        bmp.close && bmp.close();
+        overlay.remove();
+        if (confirmed) {
+          const r = {
+            x0: Math.min(box.x0, box.x1),
+            y0: Math.min(box.y0, box.y1),
+            x1: Math.max(box.x0, box.x1),
+            y1: Math.max(box.y0, box.y1),
+          };
+          removalPhotoRegions[field] = r;
+          // 슬롯에 영역 지정 시각 표시
+          const slotEl = document.getElementById(RV_FIELDS[field].photo);
+          if (slotEl) slotEl.classList.add('lcd-region-set');
+        }
+        resolve();
+      }
+      confirmBtn.onclick = () => done(true);
+      cancelBtn.onclick  = () => done(false);
+    });
   }
 
   async function onQrScanClick() {
@@ -634,6 +896,9 @@ const RplModal = (() => {
 
       // 임시 저장 모드는 검증 스킵 — 부분 데이터만으로도 저장
       if (!isDraft) {
+        // 이번 세션에 새 원본이 들어온 활성칸(원본 있음)만 region 필수
+        const needRegion = activeFields.filter(fid => removalPhotoOriginals[fid] && !removalPhotoRegions[fid]);
+        if (needRegion.length) return toast('LCD 영역을 지정해주세요 (' + needRegion.length + '칸)');
         if (!hasFirstActivePhoto) return toast('주간(첫 활성칸) 계기판 사진 필요');
         if (!hasNewPhoto) return toast('새 계기 사진 필요');
         if (!newMeterId || newMeterId.length !== 11) return toast('새 계기번호 11자리 필요');
@@ -681,7 +946,7 @@ const RplModal = (() => {
             tag: `lcd_${fid}`,
             promise: (async () => {
               try {
-                const c = await LcdCrop.cropLcd(orig); // { blob, ok, reason, roi }
+                const c = await LcdCrop.cropLcd(orig, 0.95, removalPhotoRegions[fid] || null); // { blob, ok, reason, roi }
                 if (!c || !c.blob) return { url: '', ok: false };
                 const url = await PhotoUploader.upload(c.blob, `${baseDir}/${fid}_lcd.jpg`);
                 // ok=false면 LCD가 고정영역에 없는 "문제 사진" — URL은 올리되 플래그 전달
@@ -735,6 +1000,12 @@ const RplModal = (() => {
         if (r && url && r.ok === false) removal_lcd_flags[fid] = r.reason || 'lcd_not_found';
       }
 
+      // 작업자 지정 LCD 영역 좌표 수집 (YOLO 학습 라벨용)
+      const removal_lcd_regions = {};
+      for (const fid of activeFields) {
+        if (removalPhotoRegions[fid]) removal_lcd_regions[fid] = removalPhotoRegions[fid];
+      }
+
       // old_meter_photo = firstActive 칸 사진 (기존 소비자 호환, 절대 비우지 않음)
       const oldMeterPhoto = removal_photos[firstActive] || keepRemovalPhotoUrls[firstActive] || '';
 
@@ -770,6 +1041,10 @@ const RplModal = (() => {
       // LCD가 고정영역에 안 잡힌 문제 사진 플래그 (있을 때만)
       if (Object.keys(removal_lcd_flags).length) {
         replacement.removal_lcd_flags = removal_lcd_flags;
+      }
+      // 작업자 지정 LCD 영역 좌표 (YOLO 학습 라벨용, 있을 때만)
+      if (Object.keys(removal_lcd_regions).length) {
+        replacement.removal_lcd_regions = removal_lcd_regions;
       }
       if (editingData) {
         replacement.last_edited_at = ts;

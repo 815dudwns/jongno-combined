@@ -407,6 +407,75 @@
   color: #ffd36a;
 }
 
+/* ── LCD 영역 편집기 오버레이 ─────────────────────────────────── */
+.lcd-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  background: #111;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.lcd-editor-guide {
+  flex-shrink: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #e5e0d5;
+  background: rgba(30, 28, 25, 0.92);
+  text-align: center;
+  line-height: 1.4;
+}
+.lcd-editor-canvas {
+  flex: 1;
+  display: block;
+  width: 100%;
+  cursor: crosshair;
+}
+.lcd-editor-footer {
+  flex-shrink: 0;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 20px;
+  background: rgba(30, 28, 25, 0.92);
+}
+.lcd-editor-btn {
+  flex: 1;
+  max-width: 180px;
+  padding: 14px 10px;
+  border: none;
+  border-radius: 22px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.lcd-editor-btn-cancel {
+  background: #2c2a27;
+  color: #9b9488;
+  box-shadow: 3px 4px 10px rgba(0,0,0,0.5), inset 1px 1px 3px rgba(255,255,255,0.08);
+}
+.lcd-editor-btn-confirm {
+  background: linear-gradient(145deg, #5eead4, #34d399);
+  color: #064e3b;
+  box-shadow: 3px 4px 10px rgba(0,0,0,0.5), inset 1px 1px 3px rgba(255,255,255,0.25);
+}
+.lcd-editor-btn:active {
+  opacity: 0.8;
+  transform: translateY(1px);
+}
+/* 슬롯 — LCD 영역 지정 완료 표시 */
+.rpl-photo.lcd-region-set {
+  box-shadow: 0 0 0 2px #34d399, var(--clay-mint);
+}
+
 @media (max-width: 420px) {
   #rpl-removal-fields { gap: 10px; }
   #rpl-removal-fields .rpl-field { padding: 10px; border-radius: 18px; }

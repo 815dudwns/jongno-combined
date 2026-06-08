@@ -31,9 +31,10 @@ const LcdCrop = (() => {
   // 반환: { ok, darkRatio, reason }
   //   - 어두운 픽셀 비율이 적당(LCD 숫자/테두리 존재)하면 ok.
   //   - 너무 낮음(전부 흰 명판/하늘) 또는 너무 높음(전부 검정 단자대/그늘) = 문제.
-  function _sanity(data, w, h) {
-    const x0 = Math.floor(w * REGION.x0), x1 = Math.floor(w * REGION.x1);
-    const y0 = Math.floor(h * REGION.y0), y1 = Math.floor(h * REGION.y1);
+  function _sanity(data, w, h, region) {
+    const R = region || REGION;
+    const x0 = Math.floor(w * R.x0), x1 = Math.floor(w * R.x1);
+    const y0 = Math.floor(h * R.y0), y1 = Math.floor(h * R.y1);
     let sum = 0, n = 0;
     const vals = [];
     for (let y = y0; y < y1; y += 2) {
@@ -60,15 +61,17 @@ const LcdCrop = (() => {
   // 원본에서 고정 영역 LCD 크롭 → Blob (압축 최소: q0.95, 원본 해상도 유지)
   // 반환: { blob, ok, darkRatio, reason, roi }
   //   ok=false 여도 blob은 반환(원본 영역 크롭) — 호출측이 "문제 사진"으로 플래그 가능.
-  async function cropLcd(fileOrBlob, quality = 0.95) {
+  //   region: {x0,y0,x1,y1} 정규화(0~1). 작업자가 지정한 LCD 영역. 없으면 고정 REGION.
+  async function cropLcd(fileOrBlob, quality = 0.95, region = null) {
     try {
+      const R = region || REGION;
       const { img, w, h, data } = await _load(fileOrBlob);
-      const sanity = _sanity(data, w, h);
+      const sanity = _sanity(data, w, h, R);
 
-      const x = Math.floor(w * REGION.x0);
-      const y = Math.floor(h * REGION.y0);
-      const cw = Math.floor(w * (REGION.x1 - REGION.x0));
-      const ch = Math.floor(h * (REGION.y1 - REGION.y0));
+      const x = Math.floor(w * R.x0);
+      const y = Math.floor(h * R.y0);
+      const cw = Math.floor(w * (R.x1 - R.x0));
+      const ch = Math.floor(h * (R.y1 - R.y0));
 
       const out = document.createElement('canvas');
       out.width = cw; out.height = ch;
