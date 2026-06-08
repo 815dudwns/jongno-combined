@@ -63,6 +63,7 @@ const RplModal = (() => {
     removalPhotoRegions = {};
 
     document.getElementById('rpl-modal').classList.add('active');
+    _installBackGuard();   // 안드로이드 뒤로가기 가드 (QR/모달 단계적 닫기)
     document.getElementById('rpl-title-addr').textContent = address;
 
     // 모달 제목 — 추가 모드는 "계기 추가", 그 외는 "계기 교체 등록"
@@ -257,7 +258,42 @@ const RplModal = (() => {
   }
 
   function close() {
+    _teardownBackGuard(true);
     document.getElementById('rpl-modal').classList.remove('active');
+  }
+
+  // ── 안드로이드 뒤로가기 가드 (모달/QR 단계적 닫기) — 2026-06-09 ──
+  // 모달 열 때 history 한 칸 push → 뒤로가기(popstate)를 가로채:
+  //   QR 떠있으면 QR만 닫고 모달 유지(다시 push) / 아니면 모달 닫기.
+  // 미설치 시 안드로이드 뒤로가기가 교체 모달을 통째로 닫아 입력 전부 소실되던 버그 수정.
+  let _backGuarded = false;
+  function _qrIsOpen() {
+    const o = document.getElementById('qr-scan-overlay');
+    return !!o && getComputedStyle(o).display !== 'none';
+  }
+  function _onModalPop() {
+    if (_qrIsOpen()) {
+      try { QrScanner.stop(); } catch (e) {}
+      const o = document.getElementById('qr-scan-overlay'); if (o) o.style.display = 'none';
+      history.pushState({ rplModal: 1 }, '');   // 모달 레벨 history 복구 (모달·입력 유지)
+      return;
+    }
+    // QR 없음 → 모달 닫기 (우리 state는 이미 pop됨)
+    _backGuarded = false;
+    window.removeEventListener('popstate', _onModalPop);
+    document.getElementById('rpl-modal').classList.remove('active');
+  }
+  function _installBackGuard() {
+    if (_backGuarded) return;
+    _backGuarded = true;
+    history.pushState({ rplModal: 1 }, '');
+    window.addEventListener('popstate', _onModalPop);
+  }
+  function _teardownBackGuard(popSelf) {
+    if (!_backGuarded) return;
+    _backGuarded = false;
+    window.removeEventListener('popstate', _onModalPop);
+    if (popSelf && history.state && history.state.rplModal) history.back();
   }
 
   function resetPhoto(slotId) {
@@ -895,25 +931,24 @@ const RplModal = (() => {
       const hasFirstActivePhoto = removalPhotoBlobs[firstActive] || keepRemovalPhotoUrls[firstActive];
 
       // 임시 저장 모드는 검증 스킵 — 부분 데이터만으로도 저장
+      // [폴백] 완료(저장)인데 필수값이 하나라도 빠지면 → 완료 막고 '이어서'(draft)로 저장.
+      //   (영준님 2026-06-09: 전부 폴백. 입력 유실 0 — 부분작업도 draft로 영속화.)
       if (!isDraft) {
+        const missing = [];
         // 이번 세션에 새 원본이 들어온 활성칸(원본 있음)만 region 필수
         const needRegion = activeFields.filter(fid => removalPhotoOriginals[fid] && !removalPhotoRegions[fid]);
-        if (needRegion.length) return toast('LCD 영역을 지정해주세요 (' + needRegion.length + '칸)');
-        if (!hasFirstActivePhoto) return toast('주간(첫 활성칸) 계기판 사진 필요');
-        if (!hasNewPhoto) return toast('새 계기 사진 필요');
-        if (!newMeterId || newMeterId.length !== 11) return toast('새 계기번호 11자리 필요');
-        if (!y || !m) return toast('제조년월 필요');
-        // 지침값 빈칸 확인
+        if (needRegion.length) missing.push(`LCD영역 ${needRegion.length}칸`);
+        if (!hasFirstActivePhoto) missing.push('주간 계기판 사진');
+        if (!hasNewPhoto) missing.push('새 계기 사진');
+        if (!newMeterId || newMeterId.length !== 11) missing.push('새 계기번호 11자리');
+        if (!y || !m) missing.push('제조년월');
         const emptyCount = activeFields.filter(fid => removalValues[fid] == null).length;
-        if (emptyCount > 0) {
-          const go = confirm(`빈칸 ${emptyCount}개 있습니다. 그래도 완료할까요?`);
-          if (!go) return;
-        }
-        // 첫 활성칸 외 나머지 활성칸 사진 없는 칸 확인
+        if (emptyCount > 0) missing.push(`지침값 ${emptyCount}칸`);
         const missingPhotoCnt = activeFields.slice(1).filter(fid => !removalPhotoBlobs[fid] && !keepRemovalPhotoUrls[fid]).length;
-        if (missingPhotoCnt > 0) {
-          const go = confirm(`사진 없는 칸 ${missingPhotoCnt}개 있습니다. 그래도 완료할까요?`);
-          if (!go) return;
+        if (missingPhotoCnt > 0) missing.push(`칸사진 ${missingPhotoCnt}`);
+        if (missing.length) {
+          isDraft = true;   // 완료 불가 → 이어서(draft) 폴백
+          toast(`값 누락(${missing.join(', ')}) — 완료 대신 '이어서'로 저장합니다`);
         }
       }
 

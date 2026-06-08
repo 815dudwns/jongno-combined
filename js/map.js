@@ -591,9 +591,13 @@ function decideMarkerStyle(meters, status, session) {
         // 추가된 계기(added_meters)도 작업 대상에 포함
         const addedCount = Object.keys(status.added_meters || {}).length;
         const totalAll = total + addedCount;
-        const replacedCount = Object.keys(status.replacement_list || {}).length;
-        const isAllReplaced = (totalAll > 0 && replacedCount === totalAll);
-        const isPartialReplaced = (replacedCount > 0 && !isAllReplaced);
+        // replacement_list를 완료(done)/이어서(draft) 분리 — draft를 완료로 오인 방지 (영준님 2026-06-09)
+        const replEntries = Object.values(status.replacement_list || {});
+        const doneCount  = replEntries.filter(r => !r.draft).length;   // 완료(비-draft)
+        const draftCount = replEntries.filter(r =>  r.draft).length;   // 이어서(임시저장)
+        const isAllReplaced = (totalAll > 0 && doneCount === totalAll);
+        const isPartialReplaced = (doneCount > 0 && !isAllReplaced);
+        const hasDraft = draftCount > 0;
 
         const partial = (meter_state === 'pending') &&
                         (checkedCount + failedCount > 0) &&
@@ -605,9 +609,13 @@ function decideMarkerStyle(meters, status, session) {
             colorClass = 'blue';
         } else if (meter_state === 'fail') {
             colorClass = 'red';
+        } else if (hasDraft) {
+            // 이어서(draft) 작업 진행 중 → 노란색 (완료/보류/불가 아닐 때)
+            colorClass = 'yellow';
+            labelMain = `${doneCount + draftCount}/${totalAll}`;
         } else if (isPartialReplaced) {
             colorClass = 'blue';
-            labelMain = `${replacedCount}/${totalAll}`;
+            labelMain = `${doneCount}/${totalAll}`;
         } else if (partial) {
             colorClass = 'blue';
             labelMain = `${checkedCount + failedCount}/${total}`;
