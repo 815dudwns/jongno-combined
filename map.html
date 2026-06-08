@@ -9,7 +9,7 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260606theme2';
+        const APP_VERSION = '20260608cacheclear';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
           ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
@@ -151,6 +151,12 @@
                 </div>
             </div>
         </div>
+
+        <div class="am-sep"></div>
+        <button class="am-row" type="button" onclick="if(confirm('작업 캐시를 비우고 새로고침합니다.\n(서버 데이터는 안전 — 폰에 남은 임시 캐시만 삭제)')){localStorage.removeItem('jongno_work_status');location.reload();}">
+            <span class="am-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>
+            <span class="am-txt">캐시 비우기</span>
+        </button>
 
         <div class="am-sep"></div>
         <button class="am-row am-logout" onclick="authLogout()">
