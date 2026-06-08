@@ -577,9 +577,23 @@ function decideMarkerStyle(meters, status, session) {
             colorClass = 'comm-target';
             labelMain = `${activeCount}/${totalAll}`;
         } else {
-            // 계기팀 미작업 — 검침일 색 + 옅게 (비활성)
-            colorClass = checkDayClass(meters);
-            extraClass = 'comm-bg';
+            // 종로 교체기록(replacement_list) 없지만 계기번호 존재 (ami-work 대입/준공 전 자료)
+            // → 통신팀 작업대상으로 활성화. 통신완료는 comm_completed_list를 site-data 계기번호와 매칭해 카운트
+            const siteMeterNos = new Set(meters.map(m => String(m.계기번호)));
+            const commDoneSite = Object.keys(commCompletedList).filter(m => siteMeterNos.has(String(m))).length;
+            if (total > 0 && commDoneSite >= total) {
+                // 통신팀 전부 완료 → 회색
+                colorClass = 'comm-done';
+                labelMain = `${commDoneSite}/${total}`;
+            } else if (commDoneSite > 0) {
+                // 통신팀 부분 완료 → 보류색 + 분수
+                colorClass = 'blue';
+                labelMain = `${commDoneSite}/${total}`;
+            } else {
+                // 통신팀 미작업 → 활성 (초록), 라벨 0/N
+                colorClass = (status.address === meterLatestAddress) ? 'comm-last' : 'comm-target';
+                labelMain = `0/${total}`;
+            }
         }
     }
     // 2. 계기팀 / admin(meter) 시각
