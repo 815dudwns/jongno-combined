@@ -29,6 +29,8 @@
   gap: 14px;
   box-shadow: var(--clay);
 }
+/* flex column 자식이 flex-shrink로 압축되는 버그 방지 — 사진 박스가 내용대로 늘고 넘치면 카드가 스크롤 */
+.rpl-card > * { flex-shrink: 0; }
 .rpl-card::before {
   content: "";
   width: 42px;
