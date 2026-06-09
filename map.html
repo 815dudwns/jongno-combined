@@ -299,6 +299,14 @@
             <input type="text" id="rpl-new-meter-id" inputmode="numeric" maxlength="11" placeholder="QR 또는 직접 입력">
             <button class="rpl-qr-btn" id="rpl-qr-btn">QR</button>
           </div>
+          <!-- AMIGO 영문 prefix용 알파벳 보조 버튼 (numeric 키보드라 문자 직접입력 불가) -->
+          <div class="rpl-alpha-row" style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">
+            <button type="button" class="rpl-alpha-btn-new" data-ch="A">A</button>
+            <button type="button" class="rpl-alpha-btn-new" data-ch="B">B</button>
+            <button type="button" class="rpl-alpha-btn-new" data-ch="G">G</button>
+            <button type="button" class="rpl-alpha-btn-new" data-ch="L">L</button>
+            <button type="button" class="rpl-alpha-btn-new" data-ch="BS" style="margin-left:auto;background:#fee2e2;color:#dc2626;">⌫</button>
+          </div>
         </div>
 
         <div class="rpl-photo rpl-replace-only" id="rpl-new-photo">

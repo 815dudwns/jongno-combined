@@ -63,6 +63,7 @@ const RplModal = (() => {
     removalPhotoRegions = {};
 
     document.getElementById('rpl-modal').classList.add('active');
+    _setFormDisabled(false);  // 직전 제출로 잠긴 입력 해제 (재오픈)
     _installBackGuard();   // 안드로이드 뒤로가기 가드 (QR/모달 단계적 닫기)
     document.getElementById('rpl-title-addr').textContent = address;
 
@@ -128,6 +129,10 @@ const RplModal = (() => {
           : [];
       activeFields = ALL_KNOWN_FIELDS.filter(f => baseFields.includes(f) || savedKeys.includes(f));
 
+      // 검침값 입력 자릿수 고정: 단상 5자리 / 삼상 6자리 (계기번호 3~4자리로 판별, 삼상=45/46/47/55)
+      const _mno = String((meter && (meter.계기번호 || meter.meter_id)) || '').replace(/-/g, '').padStart(11, '0');
+      const _rvDigits = ['45', '46', '47', '55'].includes(_mno.slice(2, 4)) ? 6 : 5;
+
       for (const fid of ALL_KNOWN_FIELDS) {
         const els = RV_FIELDS[fid];
         const wrapEl = document.getElementById(els.wrap);
@@ -136,6 +141,7 @@ const RplModal = (() => {
         const isActive = activeFields.includes(fid);
         wrapEl.style.display = isActive ? '' : 'none';
         inpEl.value = '';
+        inpEl.maxLength = _rvDigits;  // 단상5/삼상6 자릿수 제한
         // 비활성 칸 사진 슬롯 초기화
         if (!isActive) {
           resetPhoto(els.photo);
@@ -852,6 +858,14 @@ const RplModal = (() => {
     return results;
   }
 
+  // 제출(저장/임시저장) 시 모달 입력 잠금 — 처리 중·완료 후 값 수정/재제출 방지
+  function _setFormDisabled(disabled) {
+    const modal = document.getElementById('rpl-modal');
+    if (!modal) return;
+    modal.querySelectorAll('input, select, .rpl-alpha-btn, .rpl-alpha-btn-new, .rpl-qr-btn, .rpl-photo, #rpl-seq-dec, #rpl-seq-inc, #rpl-extra-add')
+      .forEach(el => { try { el.disabled = disabled; } catch (e) {} el.style.pointerEvents = disabled ? 'none' : ''; });
+  }
+
   async function onSave(isDraft) {
     const isAddMode = !currentMeter;
     const oldMeterId = isAddMode
@@ -863,6 +877,8 @@ const RplModal = (() => {
     const saveBtn = isDraft ? document.getElementById('rpl-draft') : document.getElementById('rpl-save');
     saveBtn.disabled = true;
     saveBtn.textContent = isDraft ? '임시 저장 중...' : '저장 중...';
+    _setFormDisabled(true);   // 제출 시작 — 입력 잠금
+    let _committed = false;    // 성공 시 true → 자동 close 전까지 잠금 유지(재제출 차단)
 
     try {
       const session = (typeof authGetSession === 'function') ? authGetSession() : null;
@@ -894,6 +910,7 @@ const RplModal = (() => {
           toast(`계기 추가됨: ${oldMeterId}`);
         }
 
+        _committed = true;  // 추가 완료 — 잠금 유지
         setTimeout(close, 700);
         if (!dryRun && typeof renderMetersList === 'function') renderMetersList();
         return;
@@ -1090,6 +1107,7 @@ const RplModal = (() => {
         console.log('[DRY RUN] replacement_list', addrKey, oldMeterId, replacement);
         saveLastMfgYm(y, m);
         toast(editingData ? '[DRY RUN] 수정 모의' : `[DRY RUN] 저장 모의 (오늘 ${dailySeq}번째)`);
+        _committed = true;
         setTimeout(close, 800);
         return;
       }
@@ -1108,6 +1126,7 @@ const RplModal = (() => {
       } else {
         toast(editingData ? '수정 완료' : `저장 완료 (오늘 ${dailySeq}번째)`);
       }
+      _committed = true;  // 저장 완료 — 잠금 유지
       setTimeout(close, 800);
 
       if (typeof updateMarkerColor === 'function') updateMarkerColor(currentAddress);
@@ -1117,8 +1136,12 @@ const RplModal = (() => {
       console.error(e);
       toast(`저장 실패: ${e.message || e}`);
     } finally {
-      saveBtn.disabled = false;
-      saveBtn.textContent = isDraft ? '임시 저장' : (editingData ? '수정 저장' : '저장');
+      // 성공(_committed) 시엔 잠금 유지(자동 close 전까지 값수정/재제출 차단), 실패 시에만 복구
+      if (!_committed) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = isDraft ? '임시 저장' : (editingData ? '수정 저장' : '저장');
+        _setFormDisabled(false);
+      }
     }
   }
 
@@ -1207,6 +1230,20 @@ const RplModal = (() => {
     document.querySelectorAll('.rpl-alpha-btn').forEach(btn => {
       btn.onclick = () => {
         const inp = document.getElementById('rpl-old-meter-id');
+        const ch = btn.dataset.ch;
+        if (ch === 'BS') {
+          inp.value = inp.value.slice(0, -1);
+        } else if (inp.value.length < 11) {
+          inp.value = inp.value + ch;
+        }
+        inp.focus();
+      };
+    });
+
+    // 알파벳 입력 보조 버튼 (계기교체 모달의 새 계기번호 칸 — AMIGO 영문 prefix용)
+    document.querySelectorAll('.rpl-alpha-btn-new').forEach(btn => {
+      btn.onclick = () => {
+        const inp = document.getElementById('rpl-new-meter-id');
         const ch = btn.dataset.ch;
         if (ch === 'BS') {
           inp.value = inp.value.slice(0, -1);
