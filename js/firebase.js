@@ -467,11 +467,21 @@ async function initFirebase() {
         if (!firebaseLoaded) applyLocalChecked();
 
         // 실시간 리스너 — Firebase 변경 즉시 반영 (30초 polling 대신)
+        // 연속 발화(여러 작업자 동시 작업) 시 매번 전체 리렌더하면 지도가 멈춤 →
+        // 400ms debounce로 마지막 1회만 refreshAllMarkers (병합은 즉시).
+        let _refreshTimer = null;
+        const _scheduleRefresh = () => {
+            if (_refreshTimer) clearTimeout(_refreshTimer);
+            _refreshTimer = setTimeout(() => {
+                _refreshTimer = null;
+                if (typeof refreshAllMarkers === 'function') refreshAllMarkers();
+            }, 400);
+        };
         statusRef.on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 mergeFirebaseData(data);
-                if (typeof refreshAllMarkers === 'function') refreshAllMarkers();
+                _scheduleRefresh();
             }
         });
 

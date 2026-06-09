@@ -592,9 +592,11 @@ function decideMarkerStyle(meters, status, session) {
         const addedCount = Object.keys(status.added_meters || {}).length;
         const totalAll = total + addedCount;
         // replacement_list를 완료(done)/이어서(draft) 분리 — draft를 완료로 오인 방지 (영준님 2026-06-09)
-        const replEntries = Object.values(status.replacement_list || {});
-        const doneCount  = replEntries.filter(r => !r.draft).length;   // 완료(비-draft)
-        const draftCount = replEntries.filter(r =>  r.draft).length;   // 이어서(임시저장)
+        // 마커당 호출되므로 2회 filter 대신 1패스 카운트 (대규모 지도 누적비용 절감)
+        let doneCount = 0, draftCount = 0;
+        for (const r of Object.values(status.replacement_list || {})) {
+            if (r && r.draft) draftCount++; else doneCount++;
+        }
         const isAllReplaced = (totalAll > 0 && doneCount === totalAll);
         const isPartialReplaced = (doneCount > 0 && !isAllReplaced);
         const hasDraft = draftCount > 0;
@@ -825,11 +827,29 @@ function updateMarkerColor(address) {
 // ── 전체 마커 색상 일괄 갱신 (Firebase 동기화 후 호출) ──────────
 function refreshAllMarkers() {
     updateMeterLatestAddress();
-    // 주소 목록을 스냅샷으로 떠서 순회 — updateMarkerColor가 markers를 재생성(splice/push)하므로
-    // forEach로 직접 돌면 순회가 깨져 마커가 누락/중복된다.
-    const addrs = markers.map(m => m.address);
-    addrs.forEach(a => updateMarkerColor(a));
+    // 기존: updateMarkerColor(a)를 마커마다 호출 → findIndex(O(n))+splice(O(n))가 누적되어 O(마커²).
+    // 개선: 위치/meters만 스냅샷으로 떠서 전체를 비우고 한 번에 재생성 → O(마커).
+    const snapshot = markers.map(m => ({
+        pos: (m.overlay && m.overlay.getPosition) ? m.overlay.getPosition() : null,
+        address: m.address,
+        meters: m.meters
+    }));
+    markers.forEach(m => { if (m.overlay) m.overlay.setMap(null); });
+    markers = [];
+    snapshot.forEach(s => { if (s.pos) createMarker(s.pos, s.address, s.meters); });
     updateTopbarInfo();
+}
+
+// ── 계기번호 → 검침일 인덱스 (updateTopbarInfo의 sampleData.find O(12,745) 제거) ──
+let _checkdayByMeter = null;
+function _checkdayOf(meterNo) {
+    if (!_checkdayByMeter) {
+        _checkdayByMeter = new Map();
+        if (Array.isArray(sampleData)) {
+            for (const s of sampleData) { if (s && s.계기번호 != null) _checkdayByMeter.set(s.계기번호, s.검침일); }
+        }
+    }
+    return _checkdayByMeter.get(meterNo) || '';
 }
 
 // ── 우상단 작업정보: 다음에 쓸 daily_seq + 마지막 작업 계기 검침일 ──
@@ -847,11 +867,7 @@ function updateTopbarInfo() {
             if (typeof r.daily_seq === 'number' && r.daily_seq > maxSeq) { maxSeq = r.daily_seq; maxNo = no; }
         }
     });
-    let day = '';
-    if (maxNo) {
-        const m = sampleData.find(s => s.계기번호 === maxNo);
-        if (m && m.검침일) day = m.검침일;
-    }
+    const day = maxNo ? _checkdayOf(maxNo) : '';
     el.textContent = maxSeq ? `다음 No.${maxSeq + 1}${day ? ' · 검침일 ' + day : ''}` : '';
 }
 
