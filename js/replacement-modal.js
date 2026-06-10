@@ -455,11 +455,21 @@ const RplModal = (() => {
     return false;
   }
 
+  function _dbg(msg) {
+    try {
+      const log = JSON.parse(localStorage.getItem('lcd_dbg') || '[]');
+      log.push(new Date().toLocaleTimeString('ko-KR') + ' ' + msg);
+      localStorage.setItem('lcd_dbg', JSON.stringify(log.slice(-30)));
+    } catch (e) {}
+  }
+
   async function onPhotoSelect(slotId, file, square = false) {
+    _dbg('onPhotoSelect slot=' + slotId + ' file=' + (file ? file.size + 'b' : 'null'));
     if (!file) return;
     // 검침값(지침) 칸이면 압축 전 "원본"을 보관 → 저장 시 고화질 LCD 크롭본 생성용
     const slotEl = document.getElementById(slotId);
     const field = slotEl && slotEl.dataset && slotEl.dataset.field;
+    _dbg('field=' + field + ' isRV=' + (field ? !!RV_FIELDS[field] : 'no-field'));
     if (field && RV_FIELDS[field]) {
       removalPhotoOriginals[field] = file;
     }
@@ -472,19 +482,25 @@ const RplModal = (() => {
     }
     // 지침칸이면 LCD 영역 편집기 — 즉시 열고, YOLO 검출은 백그라운드로 (기다리지 않음)
     if (field && RV_FIELDS[field]) {
+      _dbg('편집기 블록 진입');
       // 검출 프로미스 — 편집기 열기를 막지 않음. 끝나면 박스 자동 스냅(유저 미조작 시)
       const detectPromise = (typeof LcdYolo !== 'undefined')
         ? LcdYolo.detect(file).catch(err => { console.warn('[LcdYolo] 검출 실패', err); return null; })
         : Promise.resolve(null);
       try {
         await openLcdEditor(field, file, detectPromise);
-      } catch (e) { console.warn('LCD편집기', e); }
+        _dbg('openLcdEditor 종료(정상)');
+      } catch (e) { _dbg('openLcdEditor 에러: ' + e.message); console.warn('LCD편집기', e); }
+    } else {
+      _dbg('편집기 블록 스킵 (field 없음/비RV)');
     }
   }
 
   // ── LCD 영역 편집기 — 전체화면 오버레이 ──────────────────────────────
   async function openLcdEditor(field, origFile, detectPromise = null) {
+    _dbg('openLcdEditor 진입 createImageBitmap 전');
     const bmp = await createImageBitmap(origFile);
+    _dbg('createImageBitmap OK ' + bmp.width + 'x' + bmp.height);
     const iw = bmp.width;
     const ih = bmp.height;
 
@@ -515,6 +531,7 @@ const RplModal = (() => {
     overlay.appendChild(canvas);
     overlay.appendChild(footer);
     document.body.appendChild(overlay);
+    _dbg('오버레이 DOM 추가됨');
 
     // canvas CSS 크기 = 화면 가용 영역
     const HEADER_H = 56; // 안내문
