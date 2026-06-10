@@ -9,6 +9,11 @@ const LcdYolo = (() => {
   let session = null;
   let loading = false;
 
+  // GitHub Pages는 crossOriginIsolated=false → SharedArrayBuffer 없음 → 단일 스레드 강제
+  if (typeof ort !== 'undefined') {
+    ort.env.wasm.numThreads = 1;
+  }
+
   async function load() {
     if (session) return session;
     if (loading) {

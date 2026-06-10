@@ -472,8 +472,10 @@ const RplModal = (() => {
     if (field && RV_FIELDS[field]) {
       try {
         if (typeof LcdYolo !== 'undefined') {
-          const bbox = await LcdYolo.detect(file);
-          if (bbox) removalPhotoRegions[field] = bbox;
+          try {
+            const bbox = await LcdYolo.detect(file);
+            if (bbox) removalPhotoRegions[field] = bbox;
+          } catch (yoloErr) { console.warn('[LcdYolo] 검출 실패, 편집기는 계속', yoloErr); }
         }
         await openLcdEditor(field, file);
       } catch (e) { console.warn('LCD편집기', e); }
