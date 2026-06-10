@@ -959,13 +959,31 @@ const RplModal = (() => {
         if (!hasNewPhoto) missing.push('새 계기 사진');
         if (!newMeterId || newMeterId.length !== 11) missing.push('새 계기번호 11자리');
         if (!y || !m) missing.push('제조년월');
-        const emptyCount = activeFields.filter(fid => removalValues[fid] == null).length;
-        if (emptyCount > 0) missing.push(`지침값 ${emptyCount}칸`);
-        const missingPhotoCnt = activeFields.slice(1).filter(fid => !removalPhotoBlobs[fid] && !keepRemovalPhotoUrls[fid]).length;
-        if (missingPhotoCnt > 0) missing.push(`칸사진 ${missingPhotoCnt}`);
+        // 값을 입력한 칸은 사진 필수. 값 없는 칸은 사진 불필요(부분완료 허용 — 검침값 1개만 완료 가능)
+        const valNoPhoto = activeFields.slice(1).filter(fid => removalValues[fid] != null && !removalPhotoBlobs[fid] && !keepRemovalPhotoUrls[fid]);
+        if (valNoPhoto.length) missing.push(`칸사진 ${valNoPhoto.length}`);
         if (missing.length) {
-          isDraft = true;   // 완료 불가 → 이어서(draft) 폴백
+          isDraft = true;   // 사진/계기번호/제조 등 필수 누락 → 이어서(draft) 폴백
           toast(`값 누락(${missing.join(', ')}) — 완료 대신 '이어서'로 저장합니다`);
+        } else {
+          // 다지침(2종·20kW 등) 계기인데 검침값 일부만 입력 → 경고 후 완료 허용 (영준님 2026-06-10)
+          const emptyCount = activeFields.filter(fid => removalValues[fid] == null).length;
+          if (emptyCount > 0 && activeFields.length > 1) {
+            const filledN = activeFields.length - emptyCount;
+            const ok = confirm(
+              `이 계기는 ${activeFields.length}지침(2종·20kW 등) 대상입니다.\n` +
+              `검침값을 ${filledN}칸만 입력했습니다 (${emptyCount}칸 비어 있음).\n\n` +
+              `나머지 칸 없이 이대로 완료할까요?`
+            );
+            if (!ok) {
+              // 아니오 → 완료 중단. 작업자가 추가 입력하도록 폼 잠금 해제
+              saveBtn.disabled = false;
+              saveBtn.textContent = '저장';
+              _setFormDisabled(false);
+              return;
+            }
+            // 예 → 빈 칸은 그대로 두고(null) 완료 진행
+          }
         }
       }
 
