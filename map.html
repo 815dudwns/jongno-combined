@@ -15,7 +15,7 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260610cull';
+        const APP_VERSION = '20260610yolo2';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
           ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
@@ -400,8 +400,8 @@
     <script src="js/photo-uploader.js?v=20260608square"></script>
     <script src="js/lcd-crop.js?v=20260608lcd3"></script>
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
-    <script src="js/lcd-yolo.js?v=20260610a"></script>
-    <script src="js/replacement-modal.js?v=20260610yolo"></script>
+    <script src="js/lcd-yolo.js?v=20260610b"></script>
+    <script src="js/replacement-modal.js?v=20260610yolo2"></script>
     <script src="js/simulate-helper.js?v=20260528a"></script>
     <script>
       // 앱 메뉴 토글 + 테마색 스와치
