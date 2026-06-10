@@ -2,12 +2,12 @@
 // YOLOv8n 모델, onnxruntime-web 사용, 서버 불필요
 
 const LcdYolo = (() => {
-  const MODEL_PATH = 'models/lcd_detector.onnx';
-  const INPUT_SIZE = 640;
+  const MODEL_PATH = 'models/lcd_detector_320.onnx';
+  const INPUT_SIZE = 320;  // 640→320: 추론 3~4배 빠름. LCD는 큰 객체라 정확도 유지
   const CONF_THRESH = 0.4;
 
   let session = null;
-  let loading = false;
+  let loadPromise = null;  // 공유 프로미스 — 동시 호출 경합/행 방지
 
   // GitHub Pages는 crossOriginIsolated=false → SharedArrayBuffer 없음 → 단일 스레드 강제
   if (typeof ort !== 'undefined') {
@@ -16,20 +16,13 @@ const LcdYolo = (() => {
 
   async function load() {
     if (session) return session;
-    if (loading) {
-      // 이미 로딩 중이면 완료까지 대기
-      await new Promise(r => { const t = setInterval(() => { if (session || !loading) { clearInterval(t); r(); } }, 50); });
-      return session;
-    }
-    loading = true;
-    try {
-      session = await ort.InferenceSession.create(MODEL_PATH, {
+    if (!loadPromise) {
+      loadPromise = ort.InferenceSession.create(MODEL_PATH, {
         executionProviders: ['wasm'],
-      });
-    } finally {
-      loading = false;
+      }).then(s => { session = s; return s; })
+        .catch(e => { loadPromise = null; throw e; });  // 실패 시 재시도 가능하게 리셋
     }
-    return session;
+    return loadPromise;
   }
 
   // 이미지 → 640x640 float32 텐서 (letterbox)
@@ -63,9 +56,9 @@ const LcdYolo = (() => {
 
   // YOLOv8 output [1,5,8400] → 정규화 bbox {x0,y0,x1,y1} (원본 이미지 기준)
   function postprocess(output, offX, offY, scale, origW, origH) {
-    // output shape: [1, 5, 8400]
+    // output shape: [1, 5, N] — N은 입력크기에 따라 다름(640→8400, 320→2100). dims에서 동적으로
     const data = output.data;
-    const numDet = 8400;
+    const numDet = output.dims ? output.dims[2] : (data.length / 5);
 
     let best = null;
     let bestScore = CONF_THRESH;

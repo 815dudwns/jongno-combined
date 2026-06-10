@@ -52,6 +52,8 @@ const RplModal = (() => {
   const ALL_KNOWN_FIELDS = ['whme_day', 'whme_mngt', 'dm_mt_day', 'var_day'];
 
   function open(address, meter, prefillOldId, editData) {
+    // 모달 열리는 즉시 YOLO 모델 워밍업 — 사진 선택 전에 미리 로드해 첫 검출도 빠르게
+    if (typeof LcdYolo !== 'undefined') LcdYolo.preload();
     currentAddress = address;
     currentMeter = meter || null;
     editingData = editData || null;
@@ -468,22 +470,20 @@ const RplModal = (() => {
       console.warn('압축 실패, 원본 사용', e);
       setPhoto(slotId, file);
     }
-    // 지침칸이면 LCD 영역 편집기 (원본 기준) — YOLO 자동 검출 후 편집기 열기
+    // 지침칸이면 LCD 영역 편집기 — 즉시 열고, YOLO 검출은 백그라운드로 (기다리지 않음)
     if (field && RV_FIELDS[field]) {
+      // 검출 프로미스 — 편집기 열기를 막지 않음. 끝나면 박스 자동 스냅(유저 미조작 시)
+      const detectPromise = (typeof LcdYolo !== 'undefined')
+        ? LcdYolo.detect(file).catch(err => { console.warn('[LcdYolo] 검출 실패', err); return null; })
+        : Promise.resolve(null);
       try {
-        if (typeof LcdYolo !== 'undefined') {
-          try {
-            const bbox = await LcdYolo.detect(file);
-            if (bbox) removalPhotoRegions[field] = bbox;
-          } catch (yoloErr) { console.warn('[LcdYolo] 검출 실패, 편집기는 계속', yoloErr); }
-        }
-        await openLcdEditor(field, file);
+        await openLcdEditor(field, file, detectPromise);
       } catch (e) { console.warn('LCD편집기', e); }
     }
   }
 
   // ── LCD 영역 편집기 — 전체화면 오버레이 ──────────────────────────────
-  async function openLcdEditor(field, origFile) {
+  async function openLcdEditor(field, origFile, detectPromise = null) {
     const bmp = await createImageBitmap(origFile);
     const iw = bmp.width;
     const ih = bmp.height;
@@ -563,6 +563,18 @@ const RplModal = (() => {
     const HANDLE_PX = 24;   // 핸들 터치 여유(px)
     const MIN_NORM  = 0.05; // 최소 박스 크기 (정규화)
 
+    let userTouched = false; // 유저가 손대면 YOLO 스냅 중단 (수동 우선)
+
+    // YOLO 검출이 백그라운드에서 끝나면 박스 자동 스냅 (유저 미조작 시에만)
+    if (detectPromise) {
+      detectPromise.then(bbox => {
+        if (bbox && !userTouched) {
+          box = clampBox({ x0: bbox.x0, y0: bbox.y0, x1: bbox.x1, y1: bbox.y1 });
+          redraw();
+        }
+      }).catch(() => {});
+    }
+
     // 핸들 판별 — canvas 좌표 기준
     // 반환: 'nw'|'ne'|'sw'|'se'|'move'|'new'|null
     function hitTest(cx, cy) {
@@ -638,6 +650,7 @@ const RplModal = (() => {
 
     canvas.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      userTouched = true; // 유저 조작 시작 → YOLO 스냅 무시
       canvas.setPointerCapture(e.pointerId);
       const { cx, cy } = getCanvasXY(e);
       const hit = hitTest(cx, cy);
