@@ -152,6 +152,8 @@ const CHECKDAY_GROUPS = {
 
 // 마커 모드: 'checkday' | 'priority' | 'both'
 let markerMode = localStorage.getItem('jongno_marker_mode') || 'checkday';
+let hideDone = localStorage.getItem('jongno_hide_done') === '1';   // '완료 마커 숨김' 토글
+let phaseFilter = localStorage.getItem('jongno_phase_filter') || 'normal';   // 계기 종류 필터: normal/dansang/samsang/both
 
 // admin 전용 시각 토글: 'meter' (계기팀 화면) | 'comm' (통신팀 화면)
 let adminViewRole = localStorage.getItem('jongno_admin_view_role') || 'meter';
@@ -228,6 +230,8 @@ async function initMap() {
     populateDongGroups();
     populateCheckdayFilter();
     initCommMissingFilter();
+    initHideDoneFilter();
+    initPhaseFilter();
     updateCheckdayFilterVisibility();
     // workStatus(완료 포함)를 Firebase에서 먼저 받은 뒤 마커 생성 → 완료가 첫 화면부터 표시
     // (이전: loadMarkers를 먼저 그려서 첫 로드 시 완료 미반영 → 필터를 한 번 거쳐야 보이던 버그)
@@ -577,6 +581,35 @@ function initCommMissingFilter() {
     });
 }
 
+// '완료 마커 숨김' 체크박스 — 완료(gray/comm-done) 마커를 렌더에서 제외
+function initHideDoneFilter() {
+    const cb = document.getElementById('hide-done-chk');
+    if (!cb) return;
+    cb.checked = hideDone;
+    cb.addEventListener('change', () => {
+        hideDone = cb.checked;
+        localStorage.setItem('jongno_hide_done', hideDone ? '1' : '0');
+        clearAllMarkers();
+        loadMarkers();
+    });
+}
+
+// 계기 종류 토글 (일반/단상/삼상/단·삼) — 해당 타입 마커만 렌더
+function initPhaseFilter() {
+    const toggle = document.getElementById('phase-filter-toggle');
+    if (!toggle) return;
+    toggle.querySelectorAll('button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.phase === phaseFilter);
+        btn.onclick = () => {
+            phaseFilter = btn.dataset.phase;
+            localStorage.setItem('jongno_phase_filter', phaseFilter);
+            toggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.phase === phaseFilter));
+            clearAllMarkers();
+            loadMarkers();
+        };
+    });
+}
+
 // 같은 좌표에 겹친 approximate 주소 그룹을 작은 원형으로 분산
 function spreadOverlappingMarkers(grouped) {
     const SPREAD_RADIUS = 0.0003;   // ≈ 33m
@@ -859,12 +892,24 @@ function getMarkerImage(style) {
 
 // ── 단일 마커 생성 및 지도에 추가 ────────────────────────────────
 function createMarker(position, address, meters) {
+    // 계기 종류 필터 (단상/삼상) — 주소 계기 중 해당 타입 있는지 (구계기번호 기준)
+    if (phaseFilter !== 'normal') {
+        let hasDan = false, hasSam = false;
+        for (const m of (meters || [])) {
+            const p = (typeof phaseOf === 'function') ? phaseOf(m && m.계기번호) : null;
+            if (p === '단상') hasDan = true; else if (p === '삼상') hasSam = true;
+        }
+        if (phaseFilter === 'dansang' && !hasDan) return null;
+        if (phaseFilter === 'samsang' && !hasSam) return null;
+        if (phaseFilter === 'both' && !(hasDan || hasSam)) return null;   // 미분류(기타)만 제외
+    }
     const status = workStatus[address] || makeEmptyEntry();
     const session = authGetSession();
     const style = decideMarkerStyle(meters, { ...status, address }, session);
 
     // 겹칠 때: 완료(gray/comm-done)는 맨 아래, 미완료(작업할 것)는 위로 + 순위 높을수록 더 위로
     const isDoneMarker = (style.colorClass === 'gray' || style.colorClass === 'comm-done');
+    if (hideDone && isDoneMarker) return null;   // '완료 마커 숨김' ON → 완료(gray/comm-done) 렌더 제외
     let _zi;
     if (isDoneMarker) {
         _zi = 10;

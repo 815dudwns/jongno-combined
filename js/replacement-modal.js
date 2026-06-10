@@ -244,10 +244,10 @@ const RplModal = (() => {
     }
     const sheet = document.createElement('div');
     sheet.style.cssText = 'position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;';
-    sheet.innerHTML = '<div style="width:100%;max-width:420px;margin:10px;display:flex;flex-direction:column;gap:8px;">'
-      + '<button data-act="cam" style="padding:16px;border:none;border-radius:14px;background:#fff;color:#1f2937;font-size:16px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.2);">카메라로 촬영</button>'
-      + '<button data-act="alb" style="padding:16px;border:none;border-radius:14px;background:#fff;color:#1f2937;font-size:16px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.2);">앨범에서 선택</button>'
-      + '<button data-act="cancel" style="padding:16px;border:none;border-radius:14px;background:#374151;color:#fff;font-size:16px;font-weight:800;">취소</button></div>';
+    sheet.innerHTML = '<div style="width:100%;max-width:420px;margin:10px;display:flex;flex-direction:column;gap:10px;">'
+      + '<button data-act="cam" style="padding:15px;border:none;border-radius:var(--radius-pill,999px);background:var(--surface,#f6f4ef);color:var(--ink,#2c2a27);font-size:16px;font-weight:800;font-family:var(--font);box-shadow:var(--clay-sm);">카메라로 촬영</button>'
+      + '<button data-act="alb" style="padding:15px;border:none;border-radius:var(--radius-pill,999px);background:linear-gradient(145deg,#bbe8d0,#93d2af);color:var(--mint-deep,#2c5e44);font-size:16px;font-weight:800;font-family:var(--font);box-shadow:var(--clay-mint);">앨범에서 선택</button>'
+      + '<button data-act="cancel" style="padding:15px;border:none;border-radius:var(--radius-pill,999px);background:var(--bg-deep,#ddd9d0);color:var(--ink-2,#6f6b62);font-size:16px;font-weight:800;font-family:var(--font);box-shadow:var(--clay-inset-sm);">취소</button></div>';
     document.body.appendChild(sheet);
     const close = () => sheet.remove();
     sheet.addEventListener('click', (e) => {

@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260610cull2';
+      const APP_VERSION = '20260610filter';
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
         ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
@@ -104,7 +104,8 @@
     .ana-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
     .ana-mode { padding: 9px 16px; border: none; background: var(--surface); border-radius: var(--radius-pill); font-weight: 800; font-size: 14px; cursor: pointer; color: var(--ink-2); box-shadow: var(--clay-sm); font-family: var(--font); }
     .ana-mode.active { background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); box-shadow: var(--clay-mint); }
-    #ana-prev, #ana-next { color: var(--mint-strong); font-weight: 900; }
+    .ana-nav { width: 40px; height: 40px; flex-shrink: 0; border: none; background: var(--surface); border-radius: var(--radius-pill); color: var(--mint-strong); font-weight: 900; font-size: 18px; cursor: pointer; box-shadow: var(--clay-sm); font-family: var(--font); display: inline-flex; align-items: center; justify-content: center; transition: box-shadow .14s, transform .12s; }
+    .ana-nav:active { box-shadow: var(--clay-inset-sm); transform: translateY(1px) scale(0.97); }
     .ana-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 14px; }
     .ana-table th, .ana-table td { border: 1px solid var(--bg-deep); padding: 8px 10px; text-align: center; color: var(--ink); }
     .ana-table th { background: var(--bg-deep); font-weight: 800; color: var(--ink-2); }
@@ -114,6 +115,7 @@
     .ana-h { font-size: 15px; font-weight: 800; margin: 6px 0 8px; color: var(--ink); }
     /* 임시저장 뱃지 */
     .draft-badge { display: inline-block; background: var(--amber-soft); color: #92400e; border: none; border-radius: 7px; padding: 2px 7px; font-size: 11px; font-weight: 800; margin-left: 6px; box-shadow: var(--clay-sm); }
+    .added-badge { display: inline-block; background: var(--mint-soft); color: var(--mint-strong); border: none; border-radius: 7px; padding: 2px 7px; font-size: 11px; font-weight: 800; margin-left: 6px; box-shadow: var(--clay-sm); }
 
     /* 다크 모드 보정 */
     [data-theme="dark"] body { background: var(--bg); color: var(--ink); }
@@ -182,10 +184,11 @@
       <div class="ana-bar">
         <button class="ana-mode active" id="ana-week" data-mode="week">주간</button>
         <button class="ana-mode" id="ana-month" data-mode="month">월간</button>
+        <button class="ana-mode" id="ana-all" data-mode="all">전체</button>
         <span style="flex:1;"></span>
-        <button class="sec" id="ana-prev">‹</button>
+        <button class="ana-nav" id="ana-prev">‹</button>
         <span id="ana-period" style="font-weight:700;min-width:140px;text-align:center;"></span>
-        <button class="sec" id="ana-next">›</button>
+        <button class="ana-nav" id="ana-next">›</button>
       </div>
       <div id="ana-content"></div>
     </div>
@@ -480,6 +483,7 @@ function renderList() {
   }
   // daily_seq 숫자 우선(오름차순), 없는 것(?)은 후순위
   const sorted = [...cachedData].sort((a, b) => (a.daily_seq ?? Infinity) - (b.daily_seq ?? Infinity));
+  const _addedIds = new Set((cachedAdded || []).map(a => String(a.meter_id || '').trim()).filter(Boolean));
   container.innerHTML = sorted.map(item => {
     const time = new Date(item.replaced_at).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' });
     const mfgYm = item.new_meter_mfg_ym || '';
@@ -511,7 +515,7 @@ function renderList() {
       <div class="list-item" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}">
         <div class="seq-badge">${item.daily_seq ?? '?'}</div>
         <div class="li-body">
-          <div class="addr">${item.address} ${editedTag}${item.draft ? '<span class="draft-badge">임시저장</span>' : ''}</div>
+          <div class="addr">${item.address} ${editedTag}${item.draft ? '<span class="draft-badge">임시저장</span>' : ''}${_addedIds.has(String(item.old_meter_id || '').trim()) ? '<span class="added-badge">추가계기</span>' : ''}</div>
           <div><b>${item.old_meter_id}</b>${_cpBtn(item.old_meter_id)} <span class="arrow">→</span> <b>${item.new_meter_id}</b>${_cpBtn(item.new_meter_id)}</div>
           <div class="meta">${rvStr} · 제조 ${mfgYm} · ${time}</div>
           ${exStr}
@@ -556,22 +560,34 @@ function renderList() {
 function renderSummary() {
   const summary = document.getElementById('summary');
   const arr = cachedData || [];
-  const n = arr.length;
-  const addedN = (cachedAdded || []).length;  // 추가계기 — site-data 없어 phaseOf 불가, 카운트만
-  let dansang = 0, samsang = 0, draftN = 0;
+
+  // 총작업 = daily_seq 개수 그 자체 (그날 배정+추가 전체). 추가계기도 주소모달에서 daily_seq 받아 포함됨.
+  //   같은 daily_seq 중복은 1건으로.
+  const seqs = new Set();
+  arr.forEach(i => { const s = i.daily_seq; if (s != null && s !== '') seqs.add(String(s)); });
+  const n = seqs.size;
+
+  // 단상/삼상 = 신설계기(new_meter_id) 기준 — 우리가 단 표준계기(AE/G/Amigo)라 분류 완전.
+  //   구계기 기준은 한전 옛 타입 중 코드 외(E/EA/G/Amigo 아님)가 미분류로 빠져 단+삼≠총 (2026-06-09 검증).
+  //   신설계기 없는 건(아직 안 바꾼 이어서/임시저장) = 미완. → 단상 + 삼상 + 미완 = 총작업.
+  let dansang = 0, samsang = 0, incomplete = 0;
   arr.forEach(i => {
-    const ph = (typeof phaseOf === 'function') ? phaseOf(i.old_meter_id) : null;
+    const nm = String(i.new_meter_id || '').trim();
+    if (!nm) { incomplete++; return; }   // 신설계기 없음 = 미완(이어서)
+    const ph = (typeof phaseOf === 'function') ? phaseOf(nm) : null;
     if (ph === '단상') dansang++;
     else if (ph === '삼상') samsang++;
-    if (i.draft) draftN++;
   });
-  // 총 작업 = 교체 + 추가계기(완료수 포함). 단상/삼상은 교체분만.
+
+  // 추가계기 = 주소모달에서 추가(added_meters)한 건 (리스트에도 배지로 표시)
+  const addedIds = new Set((cachedAdded || []).map(a => String(a.meter_id || '').trim()).filter(Boolean));
+  const addedN = arr.filter(i => addedIds.has(String(i.old_meter_id || '').trim())).length;
+
   summary.innerHTML = `
-    <div class="summary-item"><div class="label">총 작업</div><div class="value">${n + addedN}</div></div>
+    <div class="summary-item"><div class="label">총 작업</div><div class="value">${n}${incomplete ? ` <span style="font-size:13px;color:var(--ink-3);font-weight:700;">(미완 ${incomplete})</span>` : ''}</div></div>
     <div class="summary-item"><div class="label">단상</div><div class="value">${dansang}</div></div>
     <div class="summary-item"><div class="label">삼상</div><div class="value">${samsang}</div></div>
     <div class="summary-item"><div class="label">추가계기</div><div class="value">${addedN}</div></div>
-    <div class="summary-item"><div class="label">임시저장</div><div class="value">${draftN}</div></div>
   `;
 }
 
@@ -729,6 +745,9 @@ async function getAllWs() {
 
 // 기간(KST) 계산 — week=월~일, month=해당 월
 function anaPeriod() {
+  if (_anaMode === 'all') {
+    return { start: 0, end: Date.now(), label: '전체 기간' };   // 기간 무관 전체 집계
+  }
   const anchor = _anaAnchor || new Date();
   if (_anaMode === 'month') {
     const y = anchor.getFullYear(), m = anchor.getMonth();
@@ -748,6 +767,7 @@ function anaPeriod() {
 }
 
 function stepAna(delta) {
+  if (_anaMode === 'all') return;   // 전체는 기간 이동 없음
   const base = _anaAnchor || new Date();
   const d = new Date(base);
   if (_anaMode === 'month') d.setMonth(d.getMonth() + delta);
@@ -782,6 +802,10 @@ async function renderAnalysis() {
   const [ws, sd] = await Promise.all([getAllWs(), loadSiteData()]);
   const { start, end, label } = anaPeriod();
   document.getElementById('ana-period').textContent = label;
+  // 전체 모드는 기간 이동(< >) 숨김
+  const navDisp = (_anaMode === 'all') ? 'none' : '';
+  document.getElementById('ana-prev').style.display = navDisp;
+  document.getElementById('ana-next').style.display = navDisp;
 
   const replacedOld = new Set();   // 전체 교체된 구계기 (잔여 계산용)
   const repCnt = {};               // 기간 내 교체분 type5 카운트 (신계기 기준)
