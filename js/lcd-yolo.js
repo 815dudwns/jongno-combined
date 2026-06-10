@@ -2,8 +2,8 @@
 // YOLOv8n 모델, onnxruntime-web 사용, 서버 불필요
 
 const LcdYolo = (() => {
-  const MODEL_PATH = 'models/lcd_detector_320.onnx';
-  const INPUT_SIZE = 320;  // 640→320: 추론 3~4배 빠름. LCD는 큰 객체라 정확도 유지
+  const MODEL_PATH = 'models/lcd_detector_512.onnx';
+  const INPUT_SIZE = 512;  // 640→512: 추론 ~0.6초로 빠르면서 검출 64/64 유지(320은 58/64로 손실)
   const CONF_THRESH = 0.4;
 
   let session = null;
