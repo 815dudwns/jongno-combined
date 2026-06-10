@@ -468,9 +468,15 @@ const RplModal = (() => {
       console.warn('압축 실패, 원본 사용', e);
       setPhoto(slotId, file);
     }
-    // 지침칸이면 LCD 영역 편집기 (원본 기준)
+    // 지침칸이면 LCD 영역 편집기 (원본 기준) — YOLO 자동 검출 후 편집기 열기
     if (field && RV_FIELDS[field]) {
-      try { await openLcdEditor(field, file); } catch (e) { console.warn('LCD편집기', e); }
+      try {
+        if (typeof LcdYolo !== 'undefined') {
+          const bbox = await LcdYolo.detect(file);
+          if (bbox) removalPhotoRegions[field] = bbox;
+        }
+        await openLcdEditor(field, file);
+      } catch (e) { console.warn('LCD편집기', e); }
     }
   }
 
