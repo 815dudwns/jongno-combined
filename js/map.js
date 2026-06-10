@@ -1,9 +1,16 @@
 // map.js — 지도 및 마커 로직
 
 let map;
-let markers = [];
+let markers = [];               // 현재 화면에 그려진 마커 [{overlay, address, meters}]
 let sampleData = [];
 let _naverMapsLoading = null;
+
+// ── 뷰포트 컬링 ─────────────────────────────────────────────────
+// _addrData: 필터(동그룹/검침일/미연계) 통과한 전체 후보 (주소→{lat,lng,meters}). 필터 변경 시만 재계산.
+// _markerByAddr: 현재 화면에 떠 있는 마커 (주소→markers 항목). renderViewport가 bounds로 증분 관리.
+let _addrData = new Map();
+let _markerByAddr = new Map();
+let _renderTimer = null;
 
 function getNaverMapsKey() {
     const key = (typeof NAVER_MAPS_NCP_KEY_ID !== 'undefined') ? NAVER_MAPS_NCP_KEY_ID : '';
@@ -60,6 +67,7 @@ function attachMapViewSaveListener() {
     naver.maps.Event.addListener(map, 'idle', () => {
         const c = map.getCenter();
         localStorage.setItem('jongno_map_view', JSON.stringify({ lat: c.lat(), lng: c.lng(), zoom: map.getZoom() }));
+        scheduleRenderViewport();   // 지도 이동/줌 후 화면 안 마커 증분 갱신 (뷰포트 컬링)
     });
 }
 
@@ -179,8 +187,8 @@ function setupNaverMapThemeSync() {
             // 라이트/시스템 라이트로 돌아갈 때는 지도 인스턴스를 새로 만들어 기본 타일을 확실히 복원한다.
             map = new naver.maps.Map(container, getNaverMapOptions(viewOptions));
             attachMapViewSaveListener();
-            markers.forEach(m => m.overlay.setMap(map));  // 기존 마커를 새 map으로 이동 (완료 상태 보존)
-            refreshAllMarkers();  // 이미지 아이콘을 새 테마(다크/라이트)로 재생성 — workStatus 기반이라 완료 보존
+            clearAllMarkers();   // 옛 map 인스턴스 마커 제거 (새 map으로 교체됨)
+            renderViewport();    // 새 테마로 화면 안 마커 재생성 (_addrData 유지, 색은 createMarker 최신 반영)
         } catch (e) {
             console.warn('[naverMap] 스타일 전환 실패, 새로고침 후 적용됩니다:', e);
         }
@@ -224,8 +232,9 @@ async function initMap() {
     // workStatus(완료 포함)를 Firebase에서 먼저 받은 뒤 마커 생성 → 완료가 첫 화면부터 표시
     // (이전: loadMarkers를 먼저 그려서 첫 로드 시 완료 미반영 → 필터를 한 번 거쳐야 보이던 버그)
     await initFirebase();
-    loadMarkers();
-    refreshAllMarkers();
+    buildAddrCandidates();
+    // bounds 준비됐으면 즉시, 아니면 첫 idle(attachMapViewSaveListener)이 렌더 — 새로고침 직후 빈 지도 방지
+    renderViewport();
 
     // 마커 모드 — admin이 변경 시 Firebase 통해 모든 사용자에게 동기화
     if (typeof subscribeMarkerMode === 'function') {
@@ -271,11 +280,9 @@ async function initMap() {
                     localStorage.setItem('jongno_admin_view_role', adminViewRole);
                     viewToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.view === adminViewRole));
                     updateCheckdayFilterVisibility();
-                    // 검침일 필터 적용/해제 → 마커 재생성
-                    markers.forEach(m => m.overlay.setMap(null));
-                    markers = [];
+                    // 검침일 필터 적용/해제 → 후보 재계산 + 화면 렌더
+                    clearAllMarkers();
                     loadMarkers();
-                    refreshAllMarkers();
                     // 디테일 열려있으면 현재 역할로 재렌더 (토글 즉시 반영)
                     if (typeof window.rerenderDetailIfOpen === 'function') window.rerenderDetailIfOpen();
                 });
@@ -364,10 +371,8 @@ function onDongGroupChange() {
     saveSelectedGroups(checked);
     _dongToggleLabel([...checked][0] || '');
     panel.classList.remove('open');   // 선택 후 패널 닫기
-    markers.forEach(m => m.overlay.setMap(null));
-    markers = [];
-    loadMarkers();
-    refreshAllMarkers();
+    clearAllMarkers();
+    loadMarkers();   // 후보 재계산(buildAddrCandidates) + 화면 렌더(renderViewport)
 }
 
 // ── 검침일 필터 (계기팀 시각 전용) ──────────────────────────────
@@ -421,10 +426,8 @@ function onCheckdayChange() {
         if (cb.checked) checked.add(cb.value);
     });
     saveSelectedCheckdays(checked);
-    markers.forEach(m => m.overlay.setMap(null));
-    markers = [];
+    clearAllMarkers();
     loadMarkers();
-    refreshAllMarkers();
 }
 
 // 계기팀 시각일 때만 검침일 필터 UI 표시
@@ -462,7 +465,8 @@ function hasCommPartialMissing(addr) {
     return done > 0 && miss > 0;
 }
 
-function loadMarkers() {
+// 필터(동그룹/검침일/미연계) 통과한 전체 후보를 _addrData에 캐시 (마커 생성 X — renderViewport가 함)
+function buildAddrCandidates() {
     const selectedGroups = loadSelectedGroups();
     const selectedCheckdays = loadSelectedCheckdays();
     const role = getEffectiveRole();
@@ -501,10 +505,64 @@ function loadMarkers() {
     // 같은 좌표에 겹친 approximate 마커들 — 작은 원으로 분산 (안 겹치게)
     spreadOverlappingMarkers(grouped);
 
+    _addrData = new Map();
     Object.entries(grouped).forEach(([addr, data]) => {
-        const coords = makeLatLng(data.lat, data.lng);
-        createMarker(coords, addr, data.meters);
+        _addrData.set(addr, { lat: data.lat, lng: data.lng, meters: data.meters });
     });
+}
+
+// 화면에 그려진 마커 전부 제거 (markers + _markerByAddr 동시)
+function clearAllMarkers() {
+    markers.forEach(m => { if (m.overlay) m.overlay.setMap(null); });
+    markers = [];
+    _markerByAddr.clear();
+}
+
+// 뷰포트 컬링 — 화면(+여유 20%) 안 후보만 마커 유지, 밖은 제거
+function renderViewport() {
+    if (!map) return;
+    const b = map.getBounds();
+    if (!b) return;   // bounds 미준비(초기) — 다음 idle에서 재시도
+    const sw = b.getSW(), ne = b.getNE();
+    const latPad = (ne.lat() - sw.lat()) * 0.2;
+    const lngPad = (ne.lng() - sw.lng()) * 0.2;
+    const minLat = sw.lat() - latPad, maxLat = ne.lat() + latPad;
+    const minLng = sw.lng() - lngPad, maxLng = ne.lng() + lngPad;
+    const inView = (d) => d.lat >= minLat && d.lat <= maxLat && d.lng >= minLng && d.lng <= maxLng;
+
+    // 화면에 새로 들어온 후보 → 마커 생성
+    _addrData.forEach((data, addr) => {
+        if (inView(data) && !_markerByAddr.has(addr)) {
+            createMarker(makeLatLng(data.lat, data.lng), addr, data.meters);
+        }
+    });
+    // 화면 밖으로 나갔거나 후보에서 사라진 마커 → 제거
+    const toRemove = [];
+    _markerByAddr.forEach((m, addr) => {
+        const data = _addrData.get(addr);
+        if (!data || !inView(data)) toRemove.push(addr);
+    });
+    if (toRemove.length) {
+        toRemove.forEach(addr => {
+            const m = _markerByAddr.get(addr);
+            if (m && m.overlay) m.overlay.setMap(null);
+            _markerByAddr.delete(addr);
+        });
+        const rm = new Set(toRemove);
+        markers = markers.filter(m => !rm.has(m.address));
+    }
+}
+
+// idle 디바운스 렌더
+function scheduleRenderViewport() {
+    if (_renderTimer) clearTimeout(_renderTimer);
+    _renderTimer = setTimeout(() => { _renderTimer = null; renderViewport(); }, 120);
+}
+
+// 호환 래퍼: 필터 변경 시 후보 재계산 + 화면 렌더
+function loadMarkers() {
+    buildAddrCandidates();
+    renderViewport();
 }
 
 // 통신팀 누락만 체크박스 초기화
@@ -514,10 +572,8 @@ function initCommMissingFilter() {
     cb.checked = loadCommMissingOnly();
     cb.addEventListener('change', () => {
         saveCommMissingOnly(cb.checked);
-        markers.forEach(m => m.overlay.setMap(null));
-        markers = [];
+        clearAllMarkers();
         loadMarkers();
-        refreshAllMarkers();
     });
 }
 
@@ -824,7 +880,9 @@ function createMarker(position, address, meters) {
     });
     naver.maps.Event.addListener(customOverlay, 'click', () => showDetail(address, meters));
 
-    markers.push({ overlay: customOverlay, address, meters });
+    const _m = { overlay: customOverlay, address, meters };
+    markers.push(_m);
+    _markerByAddr.set(address, _m);   // 뷰포트 컬링 추적
 }
 
 // ── 마커 색상 갱신 (상태 변경 시 호출) ──────────────────────────
@@ -846,16 +904,10 @@ function updateMarkerColor(address) {
 // ── 전체 마커 색상 일괄 갱신 (Firebase 동기화 후 호출) ──────────
 function refreshAllMarkers() {
     updateMeterLatestAddress();
-    // 기존: updateMarkerColor(a)를 마커마다 호출 → findIndex(O(n))+splice(O(n))가 누적되어 O(마커²).
-    // 개선: 위치/meters만 스냅샷으로 떠서 전체를 비우고 한 번에 재생성 → O(마커).
-    const snapshot = markers.map(m => ({
-        pos: (m.overlay && m.overlay.getPosition) ? m.overlay.getPosition() : null,
-        address: m.address,
-        meters: m.meters
-    }));
-    markers.forEach(m => { if (m.overlay) m.overlay.setMap(null); });
-    markers = [];
-    snapshot.forEach(s => { if (s.pos) createMarker(s.pos, s.address, s.meters); });
+    // 뷰포트 컬링: 화면 안 마커만 비우고 재생성(workStatus/테마 색 갱신) → O(화면 마커).
+    // _addrData(필터 후보)는 그대로, 색은 createMarker가 workStatus 최신 조회로 반영.
+    clearAllMarkers();
+    renderViewport();
     updateTopbarInfo();
 }
 
