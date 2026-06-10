@@ -320,6 +320,7 @@ window.statsAfterModalChange = function () { loadData(); };
 let map = null;
 let markers = [];
 let cachedData = null;  // 그날 replacement 목록
+let cachedAdded = null;  // 그날 추가계기(added_meters) — site-data 없는 계기. 통계/엑셀만, 큐/awms 제외
 let _naverMapsLoading = null;
 
 function getNaverMapsKey() {
@@ -491,6 +492,17 @@ function renderList() {
     }
     if (!rvParts.length && item.removal_value != null && item.removal_value !== '') rvParts.push(`주간 <b>${item.removal_value}</b>${_cpBtn(item.removal_value)}`);
     const rvStr = rvParts.length ? rvParts.join(' · ') : '<span style="color:#9ca3af;">지침 없음</span>';
+    // 추가데이터(extra_data) — 1종2종/20kW↑ 자유입력 검침값. 큐/awms엔 안 감, 표시·엑셀만.
+    const exParts = [];
+    if (Array.isArray(item.extra_data)) {
+      item.extra_data.forEach((x, i) => {
+        if (x && x.value != null && String(x.value) !== '') {
+          const lbl = (x.label && String(x.label).trim()) ? x.label : `추가${i + 1}`;
+          exParts.push(`${lbl} <b>${x.value}</b>${_cpBtn(x.value)}`);
+        }
+      });
+    }
+    const exStr = exParts.length ? `<div class="meta" style="color:#7c3aed;">추가데이터: ${exParts.join(' · ')}</div>` : '';
     const hasPhoto = item.old_meter_photo || item.new_meter_photo;
     const dlBtn = hasPhoto
       ? `<button class="li-dl-btn" data-old="${item.old_meter_photo || ''}" data-new="${item.new_meter_photo || ''}" data-base="${item.old_meter_id}" style="margin-top:6px;margin-left:6px;padding:6px 10px;background:#059669;color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">사진 받기</button>`
@@ -502,6 +514,7 @@ function renderList() {
           <div class="addr">${item.address} ${editedTag}${item.draft ? '<span class="draft-badge">임시저장</span>' : ''}</div>
           <div><b>${item.old_meter_id}</b>${_cpBtn(item.old_meter_id)} <span class="arrow">→</span> <b>${item.new_meter_id}</b>${_cpBtn(item.new_meter_id)}</div>
           <div class="meta">${rvStr} · 제조 ${mfgYm} · ${time}</div>
+          ${exStr}
           <div>
             <button class="li-edit-btn" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}" style="margin-top:6px;padding:7px 13px;background:var(--surface);color:var(--ink-2);border:none;border-radius:999px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:var(--clay-sm);">수정/삭제</button>
             ${dlBtn}
@@ -544,6 +557,7 @@ function renderSummary() {
   const summary = document.getElementById('summary');
   const arr = cachedData || [];
   const n = arr.length;
+  const addedN = (cachedAdded || []).length;  // 추가계기 — site-data 없어 phaseOf 불가, 카운트만
   let dansang = 0, samsang = 0, draftN = 0;
   arr.forEach(i => {
     const ph = (typeof phaseOf === 'function') ? phaseOf(i.old_meter_id) : null;
@@ -551,10 +565,12 @@ function renderSummary() {
     else if (ph === '삼상') samsang++;
     if (i.draft) draftN++;
   });
+  // 총 작업 = 교체 + 추가계기(완료수 포함). 단상/삼상은 교체분만.
   summary.innerHTML = `
-    <div class="summary-item"><div class="label">총 작업</div><div class="value">${n}</div></div>
+    <div class="summary-item"><div class="label">총 작업</div><div class="value">${n + addedN}</div></div>
     <div class="summary-item"><div class="label">단상</div><div class="value">${dansang}</div></div>
     <div class="summary-item"><div class="label">삼상</div><div class="value">${samsang}</div></div>
+    <div class="summary-item"><div class="label">추가계기</div><div class="value">${addedN}</div></div>
     <div class="summary-item"><div class="label">임시저장</div><div class="value">${draftN}</div></div>
   `;
 }
@@ -607,6 +623,19 @@ async function loadData() {
   });
 
   cachedData = items;
+
+  // 추가계기(added_meters) 그날 수집 — site-data 없는 계기. 통계/엑셀 표시용(큐/awms 제외)
+  const addedItems = [];
+  Object.entries(ws).forEach(([addrKey, val]) => {
+    const am = val && val.added_meters;
+    if (!am) return;
+    Object.values(am).forEach(a => {
+      const ts = a && a.added_at;
+      if (typeof ts !== 'number' || ts < start || ts > end) return;
+      addedItems.push({ ...a, address: decodeKey(addrKey) });
+    });
+  });
+  cachedAdded = addedItems;
 
   // RplModal이 쓰는 글로벌 workStatus 채우기 (decoded 주소 = 키)
   window.workStatus = {};
@@ -794,9 +823,22 @@ document.getElementById('ana-next').onclick = () => stepAna(1);
 
 // 엑셀 내보내기 (선택 날짜 작업) — site-data 결합, 철거지침 칸별, 사진 URL
 function exportExcel() {
-  if (!cachedData || !cachedData.length) { alert('내보낼 작업이 없습니다.'); return; }
+  const hasData = (cachedData && cachedData.length) || (cachedAdded && cachedAdded.length);
+  if (!hasData) { alert('내보낼 작업이 없습니다.'); return; }
   const sd = siteDataByMeterId || {};
-  const rows = [...cachedData].sort((a, b) => (a.daily_seq ?? Infinity) - (b.daily_seq ?? Infinity)).map(item => {
+  const base = [...(cachedData || [])].sort((a, b) => (a.daily_seq ?? Infinity) - (b.daily_seq ?? Infinity));
+  // 추가데이터(extra_data) 값 있는 항목 추출 헬퍼 + 전체 최대 개수(동적 컬럼 수)
+  const exOf = (it) => (Array.isArray(it && it.extra_data) ? it.extra_data.filter(x => x && x.value != null && String(x.value) !== '') : []);
+  const maxEx = base.reduce((m, it) => Math.max(m, exOf(it).length), 0);
+  const exCols = (ex) => {
+    const o = {};
+    for (let i = 0; i < maxEx; i++) {
+      o[`추가${i + 1}_제목`] = ex[i] ? ((ex[i].label && String(ex[i].label).trim()) ? ex[i].label : `추가${i + 1}`) : '';
+      o[`추가${i + 1}_값`] = ex[i] ? ex[i].value : '';
+    }
+    return o;
+  };
+  const rows = base.map(item => {
     const s = sd[String(item.old_meter_id)] || {};
     const rv = item.removal_values || {};
     return {
@@ -814,9 +856,26 @@ function exportExcel() {
       '철거지침_최대': rv.dm_mt_day ?? '',
       '철거지침_무효': rv.var_day ?? '',
       '제조년월': item.new_meter_mfg_ym || '',
+      '추가계기': '',
+      ...exCols(exOf(item)),
       '철거전사진': item.old_meter_photo || '',
       '철거후사진': item.new_meter_photo || '',
     };
+  });
+  // 추가계기(added_meters) 행 append — site-data 없는 계기. awms 등록 불가, "추가계기"로 구분
+  (cachedAdded || []).forEach(a => {
+    rows.push({
+      '순번': '',
+      '주소': a.address || '',
+      '도로명주소': '', '고객번호': '', '상호': '', '호수(공동주택)': '', '고객명': '',
+      '철거계기번호': a.meter_id || '',
+      '신설계기번호': '',
+      '철거지침_주간': '', '철거지침_야간': '', '철거지침_최대': '', '철거지침_무효': '',
+      '제조년월': '',
+      '추가계기': '추가계기',
+      ...exCols([]),
+      '철거전사진': '', '철거후사진': '',
+    });
   });
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();

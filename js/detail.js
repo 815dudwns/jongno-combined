@@ -610,6 +610,19 @@ function renderMetersList() {
             let _h = '<div class="m-repl">';
             _h += `<div class="m-repl-new"><span class="m-repl-arrow">→</span><b>${_newNo ? e(_newNo) : '입력 대기'}</b>${_newNo ? cpBtn(_newNo, '교체계기번호 복사') : ''}</div>`;
             if (rvItems.length) _h += `<div class="m-repl-rv">${rvItems.join('')}</div>`;
+            // 추가데이터(extra_data) — 1종2종/20kW↑ 등 site-data로 미리 알 수 없어 작업자가 자유입력한 검침값
+            if (Array.isArray(replInfo.extra_data) && replInfo.extra_data.length) {
+                const exItems = replInfo.extra_data
+                    .filter(x => x && x.value != null && String(x.value) !== '')
+                    .map((x, i) => {
+                        const lbl = (x.label && String(x.label).trim()) ? e(x.label) : `추가${i + 1}`;
+                        const photo = x.photo_url
+                            ? `<a class="sw-extra-photo" href="${e(x.photo_url)}" target="_blank" rel="noopener" title="추가데이터 사진">사진</a>`
+                            : '';
+                        return `<span class="sw-rv-item">${lbl} <b>${e(x.value)}</b>${cpBtn(x.value, `${lbl} 복사`)}${photo}</span>`;
+                    });
+                if (exItems.length) _h += `<div class="m-repl-rv m-repl-extra"><span class="sw-extra-tag">추가</span>${exItems.join('')}</div>`;
+            }
             if (replInfo.old_meter_photo || replInfo.new_meter_photo) {
                 _h += `<a class="repl-dl-all" data-old="${e(replInfo.old_meter_photo || '')}" data-new="${e(replInfo.new_meter_photo || '')}" data-base="${e(meter.계기번호)}">사진 받기 ↓</a>`;
             }
