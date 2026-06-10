@@ -480,7 +480,7 @@ const RplModal = (() => {
           } catch (yoloErr) { console.warn('[LcdYolo] 검출 실패, 편집기는 계속', yoloErr); }
         }
         await openLcdEditor(field, file);
-      } catch (e) { console.warn('LCD편집기', e); }
+      } catch (e) { alert('[DBG] 편집기 에러: ' + e.message + '\n' + e.stack); }
     }
   }
 
