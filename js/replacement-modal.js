@@ -469,7 +469,9 @@ const RplModal = (() => {
       setPhoto(slotId, file);
     }
     // 지침칸이면 LCD 영역 편집기 (원본 기준) — YOLO 자동 검출 후 편집기 열기
+    alert('[DBG] field=' + field + ' RV=' + (field ? !!RV_FIELDS[field] : 'N/A'));
     if (field && RV_FIELDS[field]) {
+      alert('[DBG] 편집기 진입');
       try {
         if (typeof LcdYolo !== 'undefined') {
           try {
