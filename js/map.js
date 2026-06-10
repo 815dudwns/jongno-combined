@@ -301,19 +301,35 @@ function saveSelectedGroups(groupSet) {
     localStorage.setItem('jongno_selected_groups', JSON.stringify([...groupSet]));
 }
 
-// ── 동그룹 체크박스 패널 생성 ────────────────────────────────────
+// ── 동그룹 라디오 패널 생성 (단일선택 — 마커 과다 방지, ami맵 방식) ──
+function _dongToggleLabel(groupName) {
+    const btn = document.getElementById('dong-group-toggle');
+    if (btn) btn.textContent = (groupName ? groupName : '동그룹') + ' ▾';
+}
 function populateDongGroups() {
     const panel = document.getElementById('dong-group-panel');
     const toggleBtn = document.getElementById('dong-group-toggle');
     if (!panel || !toggleBtn) return;
 
-    const selectedGroups = loadSelectedGroups();
+    let selectedGroups = loadSelectedGroups();
+    const groupNames = Object.keys(DONG_GROUPS);
+    // 단일선택: 저장값 없거나 비었으면 첫 동그룹 기본 선택 (마커 0 방지)
+    if (selectedGroups.size === 0 && groupNames.length) {
+        selectedGroups = new Set([groupNames[0]]);
+        saveSelectedGroups(selectedGroups);
+    } else if (selectedGroups.size > 1) {
+        // 구버전 다중선택 저장값 → 첫 1개만 유지
+        const first = [...selectedGroups][0];
+        selectedGroups = new Set([first]);
+        saveSelectedGroups(selectedGroups);
+    }
 
-    // 체크박스 8개 동적 생성
-    Object.keys(DONG_GROUPS).forEach(groupName => {
+    // 라디오 8개 동적 생성 (하나만 선택)
+    groupNames.forEach(groupName => {
         const label = document.createElement('label');
         const cb = document.createElement('input');
-        cb.type = 'checkbox';
+        cb.type = 'radio';
+        cb.name = 'dong-group-radio';
         cb.value = groupName;
         cb.checked = selectedGroups.has(groupName);
         cb.addEventListener('change', onDongGroupChange);
@@ -321,6 +337,7 @@ function populateDongGroups() {
         label.appendChild(document.createTextNode(groupName));
         panel.appendChild(label);
     });
+    _dongToggleLabel([...selectedGroups][0] || '');
 
     // 토글 버튼 — 패널 열기/닫기
     toggleBtn.addEventListener('click', () => {
@@ -336,15 +353,17 @@ function populateDongGroups() {
     });
 }
 
-// 동그룹 체크박스 변경 시 마커 재생성
+// 동그룹 라디오 변경 시 마커 재생성 (단일선택 — 1개만 체크됨)
 function onDongGroupChange() {
     const panel = document.getElementById('dong-group-panel');
     if (!panel) return;
     const checked = new Set();
-    panel.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    panel.querySelectorAll('input[type="radio"]').forEach(cb => {
         if (cb.checked) checked.add(cb.value);
     });
     saveSelectedGroups(checked);
+    _dongToggleLabel([...checked][0] || '');
+    panel.classList.remove('open');   // 선택 후 패널 닫기
     markers.forEach(m => m.overlay.setMap(null));
     markers = [];
     loadMarkers();
