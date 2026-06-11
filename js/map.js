@@ -938,6 +938,15 @@ function createMarker(position, address, meters) {
         styleStatus = sc.vStatus;
     }
     const style = decideMarkerStyle(styleMeters, { ...styleStatus, address }, session);
+    // 단·삼(both): 마커 숫자를 "단상수/삼상수"로 표시 (색·완료판정은 전체 유지)
+    if (phaseFilter === 'both') {
+        let dan = 0, sam = 0;
+        for (const m of (meters || [])) {
+            const p = phaseOf(m && m.계기번호);
+            if (p === '단상') dan++; else if (p === '삼상') sam++;
+        }
+        style.labelMain = `${dan}/${sam}`;
+    }
 
     // 겹칠 때: 완료(gray/comm-done)는 맨 아래, 미완료(작업할 것)는 위로 + 순위 높을수록 더 위로
     const isDoneMarker = (style.colorClass === 'gray' || style.colorClass === 'comm-done');
