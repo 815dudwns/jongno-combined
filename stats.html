@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260611lazyimg';
+      const APP_VERSION = '20260611optnode';
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
         ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
@@ -629,15 +629,11 @@ async function loadAwmsDone() {
   const set = new Set();
   try {
     const WDB = 'https://ami-work-1c49a-default-rtdb.asia-southeast1.firebasedatabase.app';
-    const r = await fetch(`${WDB}/awmscomplete.json?orderBy=%22%24key%22&limitToLast=1`);
-    const j = await r.json();
-    for (const k in (j || {})) {
-      (j[k].rows || []).forEach(row => {
-        if (row.WHM_NO) set.add(String(row.WHM_NO).trim());
-        if (row.CREMO_WHM_NO) set.add(String(row.CREMO_WHM_NO).trim());
-      });
-    }
-  } catch (e) { console.warn('[awmscomplete] 로드 실패', e); }
+    // 가벼운 노드(계기번호 배열 ~37KB) — 계기큐 syncCompleted가 awmscomplete와 함께 갱신
+    const r = await fetch(`${WDB}/awmsDoneMeters.json`);
+    const arr = await r.json();
+    if (Array.isArray(arr)) arr.forEach(m => { const s = String(m).trim(); if (s) set.add(s); });
+  } catch (e) { console.warn('[awmsDoneMeters] 로드 실패', e); }
   _awmsDoneCache = set;
   return set;
 }
