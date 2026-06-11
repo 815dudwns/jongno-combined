@@ -15,7 +15,7 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260611deploy';
+        const APP_VERSION = '20260611adminsync';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
           ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
@@ -404,9 +404,9 @@
     </script>
     <script src="js/config.js?v=20260606darkmap"></script>
     <script src="js/utils.js?v=20260528a"></script>
-    <script src="js/firebase.js?v=20260608authority"></script>
+    <script src="js/firebase.js?v=20260611adminsync"></script>
     <script src="js/detail.js?v=20260610extra"></script>
-    <script src="js/map.js?v=20260611deploy"></script>
+    <script src="js/map.js?v=20260611adminsync"></script>
     <script src="js/awms-parseValue.js?v=20260602a"></script>
     <script src="js/qr-scanner.js?v=20260608ios"></script>
     <script src="js/photo-uploader.js?v=20260608square"></script>

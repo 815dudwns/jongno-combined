@@ -162,6 +162,16 @@ function subscribeMarkerMode(callback) {
     });
 }
 
+// 범용 표시설정 동기화 (admin이 변경 → 모든 사용자) — hideDone(완료숨김) / phaseFilter(단상삼상)
+function saveSettingRemote(key, val) {
+    if (!settingsRef) return;
+    settingsRef.child(key).set(val).catch(e => console.warn('[Settings] ' + key + ' 저장 실패:', e.message));
+}
+function subscribeSetting(key, callback) {
+    if (!settingsRef) return;
+    settingsRef.child(key).on('value', (snap) => callback(snap.val()));
+}
+
 // ── localStorage 접근 ─────────────────────────────────────────
 function loadStatusLocal() {
     const saved = localStorage.getItem(STORAGE_KEY);

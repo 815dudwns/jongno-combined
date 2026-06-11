@@ -255,6 +255,28 @@ async function initMap() {
         });
     }
 
+    // 완료숨김 / 단상삼상 필터 — admin이 변경 시 Firebase 통해 모든 사용자에게 동기화
+    if (typeof subscribeSetting === 'function') {
+        subscribeSetting('hideDone', (v) => {
+            const nv = (v === true || v === '1');
+            if (nv === hideDone) return;
+            hideDone = nv;
+            localStorage.setItem('jongno_hide_done', hideDone ? '1' : '0');
+            const cb = document.getElementById('hide-done-chk');
+            if (cb) cb.checked = hideDone;
+            refreshAllMarkers();
+        });
+        subscribeSetting('phaseFilter', (v) => {
+            const nv = v || 'normal';
+            if (nv === phaseFilter) return;
+            phaseFilter = nv;
+            localStorage.setItem('jongno_phase_filter', phaseFilter);
+            const t = document.getElementById('phase-filter-toggle');
+            if (t) t.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.phase === phaseFilter));
+            refreshAllMarkers();
+        });
+    }
+
     // 마커 모드 토글 — admin 전용
     const session = authGetSession();
     if (session?.role === 'admin') {
@@ -581,28 +603,35 @@ function initCommMissingFilter() {
     });
 }
 
-// '완료 마커 숨김' 체크박스 — 완료(gray/comm-done) 마커를 렌더에서 제외
+// '완료 마커 숨김' 체크박스 — admin만 변경(모든 사용자에게 동기화), 일반은 표시만
 function initHideDoneFilter() {
     const cb = document.getElementById('hide-done-chk');
     if (!cb) return;
+    const isAdmin = (typeof authGetSession === 'function' && authGetSession()?.role === 'admin');
     cb.checked = hideDone;
+    cb.disabled = !isAdmin;
     cb.addEventListener('change', () => {
+        if (!isAdmin) return;
         hideDone = cb.checked;
         localStorage.setItem('jongno_hide_done', hideDone ? '1' : '0');
+        if (typeof saveSettingRemote === 'function') saveSettingRemote('hideDone', hideDone);
         clearAllMarkers();
         loadMarkers();
     });
 }
 
-// 계기 종류 토글 (일반/단상/삼상/단·삼) — 해당 타입 마커만 렌더
+// 계기 종류 토글 (일반/단상/삼상/단·삼) — admin만 변경(모든 사용자에게 동기화), 일반은 표시만
 function initPhaseFilter() {
     const toggle = document.getElementById('phase-filter-toggle');
     if (!toggle) return;
+    const isAdmin = (typeof authGetSession === 'function' && authGetSession()?.role === 'admin');
     toggle.querySelectorAll('button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.phase === phaseFilter);
+        if (!isAdmin) { btn.disabled = true; return; }
         btn.onclick = () => {
             phaseFilter = btn.dataset.phase;
             localStorage.setItem('jongno_phase_filter', phaseFilter);
+            if (typeof saveSettingRemote === 'function') saveSettingRemote('phaseFilter', phaseFilter);
             toggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.phase === phaseFilter));
             clearAllMarkers();
             loadMarkers();
