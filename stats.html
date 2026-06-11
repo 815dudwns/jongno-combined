@@ -14,7 +14,8 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260611optnode';
+      const APP_VERSION = '20260611verbadge';
+      window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
         ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
@@ -152,9 +153,10 @@
 <body>
   <div class="header">
     <a href="map.html">← 지도</a>
-    <h1>작업 통계</h1>
+    <h1>작업 통계 <span id="app-ver" style="font-size:10px;font-weight:700;color:var(--ink-3);opacity:0.55;letter-spacing:0.02em;"></span></h1>
     <button data-theme-toggle onclick="jongnoCycleTheme()" style="padding:6px 10px;border:none;border-radius:999px;background:rgba(255,255,255,0.18);color:inherit;font-size:12px;font-weight:700;cursor:pointer;">시스템</button>
   </div>
+  <script>(function(){var e=document.getElementById('app-ver');if(e&&window.__statsVer)e.textContent=window.__statsVer;})();</script>
 
   <div class="container">
     <div class="tabs">
