@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260611draftseq';
+      const APP_VERSION = '20260611appdone';
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
         ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
@@ -82,6 +82,7 @@
     .list-item { background: var(--surface); border-radius: 18px; padding: 13px; margin-bottom: 10px; box-shadow: var(--clay-sm); display: flex; gap: 12px; }
     .seq-badge { width: 42px; height: 42px; flex-shrink: 0; background: linear-gradient(145deg,#9ee0bd,#5fbb8c); color: #1c4733; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; box-shadow: var(--clay-mint); }
     .seq-badge.draft { background: linear-gradient(145deg,#f3e3b0,#e0b85a); color: #6b4e00; box-shadow: var(--clay-sm); }  /* 임시저장 = 노란색 */
+    .seq-badge.app-done { background: linear-gradient(145deg,#555,#222); color: #fff; box-shadow: var(--clay-sm); }  /* 앱작성완료(계기큐 awms등록) = 검정 */
     .li-body { flex: 1; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--ink); }
     .li-body .addr { font-weight: 800; color: var(--ink); margin-bottom: 4px; }
     .li-body .arrow { color: var(--violet); font-weight: 800; }
@@ -178,6 +179,7 @@
         <button class="ana-mode active" data-lf="all">전체</button>
         <button class="ana-mode" data-lf="incomplete">미완료</button>
         <button class="ana-mode" data-lf="added">추가계기</button>
+        <button class="ana-mode" data-lf="appdone">앱작성완료</button>
       </div>
       <div id="list-container"></div>
     </div>
@@ -494,6 +496,7 @@ function renderList() {
   // 필터: 미완료(신설계기 없음) / 추가계기(주소모달 추가분)
   if (_listFilter === 'incomplete') sorted = sorted.filter(i => !String(i.new_meter_id || '').trim());
   else if (_listFilter === 'added') sorted = sorted.filter(i => _addedIds.has(String(i.old_meter_id || '').trim()));
+  else if (_listFilter === 'appdone') sorted = sorted.filter(i => i.appDone);
   if (!sorted.length) { container.innerHTML = '<div class="empty">해당 항목 없음</div>'; return; }
   container.innerHTML = sorted.map(item => {
     const time = new Date(item.replaced_at).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' });
@@ -524,7 +527,7 @@ function renderList() {
       : '';
     return `
       <div class="list-item" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}">
-        <div class="seq-badge${item.draft ? ' draft' : ''}">${item.daily_seq ?? '?'}</div>
+        <div class="seq-badge${item.appDone ? ' app-done' : (item.draft ? ' draft' : '')}">${item.daily_seq ?? '?'}</div>
         <div class="li-body">
           <div class="addr">${item.address} ${editedTag}${item.draft ? '<span class="draft-badge">임시저장</span>' : ''}${_addedIds.has(String(item.old_meter_id || '').trim()) ? '<span class="added-badge">추가계기</span>' : ''}</div>
           <div><b>${item.old_meter_id}</b>${_cpBtn(item.old_meter_id)} <span class="arrow">→</span> <b>${item.new_meter_id}</b>${_cpBtn(item.new_meter_id)}</div>
@@ -594,11 +597,14 @@ function renderSummary() {
   const addedIds = new Set((cachedAdded || []).map(a => String(a.meter_id || '').trim()).filter(Boolean));
   const addedN = arr.filter(i => addedIds.has(String(i.old_meter_id || '').trim())).length;
 
+  const appDoneN = arr.filter(i => i.appDone).length;   // 계기큐로 awms 등록완료
+
   summary.innerHTML = `
     <div class="summary-item"><div class="label">총 작업</div><div class="value">${n}${incomplete ? ` <span style="font-size:13px;color:var(--ink-3);font-weight:700;">(미완 ${incomplete})</span>` : ''}</div></div>
     <div class="summary-item"><div class="label">단상</div><div class="value">${dansang}</div></div>
     <div class="summary-item"><div class="label">삼상</div><div class="value">${samsang}</div></div>
     <div class="summary-item"><div class="label">추가계기</div><div class="value">${addedN}</div></div>
+    <div class="summary-item"><div class="label">앱작성 완료</div><div class="value">${appDoneN}</div></div>
   `;
 }
 
@@ -615,15 +621,37 @@ async function loadSiteData() {
   return siteDataByMeterId;
 }
 
+// ami-work awmscomplete (계기큐가 awms 완료=workStep28 저장) 최신 스냅샷 → 신구계기 set
+// = "앱작성 완료"(계기큐로 awms 등록됨) 판별용. 과거분 다 포함. (앞으로는 계기큐 동기화로 갱신)
+let _awmsDoneCache = null;
+async function loadAwmsDone() {
+  if (_awmsDoneCache) return _awmsDoneCache;
+  const set = new Set();
+  try {
+    const WDB = 'https://ami-work-1c49a-default-rtdb.asia-southeast1.firebasedatabase.app';
+    const r = await fetch(`${WDB}/awmscomplete.json?orderBy=%22%24key%22&limitToLast=1`);
+    const j = await r.json();
+    for (const k in (j || {})) {
+      (j[k].rows || []).forEach(row => {
+        if (row.WHM_NO) set.add(String(row.WHM_NO).trim());
+        if (row.CREMO_WHM_NO) set.add(String(row.CREMO_WHM_NO).trim());
+      });
+    }
+  } catch (e) { console.warn('[awmscomplete] 로드 실패', e); }
+  _awmsDoneCache = set;
+  return set;
+}
+
 async function loadData() {
   const dateVal = document.getElementById('date-input').value;
   if (!dateVal) return;
   try { localStorage.setItem('jongno_stats_date', dateVal); } catch (e) {}
   const { start, end } = dayRange(dateVal);
 
-  const [wsSnap, sdMap] = await Promise.all([
+  const [wsSnap, sdMap, awmsDone] = await Promise.all([
     db.ref('workStatus/jongno').once('value'),
     loadSiteData(),
+    loadAwmsDone(),
   ]);
   const ws = wsSnap.val() || {};
 
@@ -640,6 +668,7 @@ async function loadData() {
       const matched = sdMap[String(r.old_meter_id)] || {};
       items.push({
         ...r,
+        appDone: awmsDone.has(String(r.new_meter_id || '').trim()) || awmsDone.has(String(r.old_meter_id || '').trim()),  // 계기큐로 awms 등록완료
         address: decoded,
         lat: matched.lat,
         lng: matched.lng,
