@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260611menu';
+      const APP_VERSION = '20260611apptoggle';
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -498,6 +498,7 @@ function renderList() {
   if (_listFilter === 'incomplete') sorted = sorted.filter(i => !String(i.new_meter_id || '').trim());
   else if (_listFilter === 'added') sorted = sorted.filter(i => _addedIds.has(String(i.old_meter_id || '').trim()));
   else if (_listFilter === 'appdone') sorted = sorted.filter(i => i.appDone);
+  else if (_listFilter === 'appdone_not') sorted = sorted.filter(i => !i.appDone);
   if (!sorted.length) { container.innerHTML = '<div class="empty">해당 항목 없음</div>'; return; }
   container.innerHTML = sorted.map(item => {
     const time = new Date(item.replaced_at).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' });
@@ -882,9 +883,18 @@ document.querySelectorAll('#tab-analysis .ana-mode').forEach(b => {
 // 통계 리스트 필터 (전체/미완료/추가계기)
 document.querySelectorAll('#list-filter .ana-mode').forEach(b => {
   b.onclick = () => {
+    const lf = b.dataset.lf;
+    const appBtn = document.querySelector('#list-filter [data-lf="appdone"]');
+    if (lf === 'appdone') {
+      // 앱작성완료 버튼 토글: 완료 ↔ 미완료
+      if (_listFilter === 'appdone') { _listFilter = 'appdone_not'; if (appBtn) appBtn.textContent = '앱작성 미완료'; }
+      else { _listFilter = 'appdone'; if (appBtn) appBtn.textContent = '앱작성완료'; }
+    } else {
+      _listFilter = lf;
+      if (appBtn) appBtn.textContent = '앱작성완료';   // 다른 필터 선택 시 라벨 복귀
+    }
     document.querySelectorAll('#list-filter .ana-mode').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
-    _listFilter = b.dataset.lf;
     renderList();
   };
 });
