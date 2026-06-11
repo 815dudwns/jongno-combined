@@ -890,6 +890,31 @@ function getMarkerImage(style) {
     return img;
 }
 
+// 단상/삼상 필터 시 마커 숫자·색을 해당 상(相) 계기만으로 계산하도록
+// meters와 status(계기번호 키 목록)를 그 상으로만 좁힌 뷰를 반환.
+// status의 list 키(replacement_list/comm_completed_list/added_meters/failedMeters)와
+// checkedMeters 원소는 전부 계기번호이므로 phaseOf로 직접 판정.
+function scopeStatusToPhase(meters, status, phase) {
+    const want = phase === 'dansang' ? '단상' : '삼상';
+    const keep = no => phaseOf(no) === want;
+    const filterObj = obj => {
+        const out = {};
+        for (const k in (obj || {})) if (keep(k)) out[k] = obj[k];
+        return out;
+    };
+    return {
+        vMeters: (meters || []).filter(m => phaseOf(m && m.계기번호) === want),
+        vStatus: {
+            ...status,
+            replacement_list: filterObj(status.replacement_list),
+            comm_completed_list: filterObj(status.comm_completed_list),
+            added_meters: filterObj(status.added_meters),
+            failedMeters: filterObj(status.failedMeters),
+            checkedMeters: (status.checkedMeters || []).filter(keep),
+        },
+    };
+}
+
 // ── 단일 마커 생성 및 지도에 추가 ────────────────────────────────
 function createMarker(position, address, meters) {
     // 계기 종류 필터 (단상/삼상) — 주소 계기 중 해당 타입 있는지 (구계기번호 기준)
@@ -905,7 +930,14 @@ function createMarker(position, address, meters) {
     }
     const status = workStatus[address] || makeEmptyEntry();
     const session = authGetSession();
-    const style = decideMarkerStyle(meters, { ...status, address }, session);
+    // 단상/삼상 필터: 라벨 숫자·완료 판정을 해당 상 계기만으로 (normal/both는 전체)
+    let styleMeters = meters, styleStatus = status;
+    if (phaseFilter === 'dansang' || phaseFilter === 'samsang') {
+        const sc = scopeStatusToPhase(meters, status, phaseFilter);
+        styleMeters = sc.vMeters;
+        styleStatus = sc.vStatus;
+    }
+    const style = decideMarkerStyle(styleMeters, { ...styleStatus, address }, session);
 
     // 겹칠 때: 완료(gray/comm-done)는 맨 아래, 미완료(작업할 것)는 위로 + 순위 높을수록 더 위로
     const isDoneMarker = (style.colorClass === 'gray' || style.colorClass === 'comm-done');

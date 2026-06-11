@@ -15,7 +15,7 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260611move';
+        const APP_VERSION = '20260612phasecount';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
           ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
@@ -194,7 +194,7 @@
             <span class="am-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M9 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/></svg></span>
             <span class="am-txt">로그아웃</span>
         </button>
-        <div style="padding:8px 16px 12px;text-align:right;font-size:10px;color:var(--text-muted,#888);opacity:0.6;letter-spacing:0.03em;">20260611 표시옵션 분리·통계연동</div>
+        <div style="padding:8px 16px 12px;text-align:right;font-size:10px;color:var(--text-muted,#888);opacity:0.6;letter-spacing:0.03em;">20260612 단상삼상 마커개수</div>
     </div>
 
     <!-- 검색 모달 -->
@@ -417,7 +417,7 @@
     <script src="js/utils.js?v=20260528a"></script>
     <script src="js/firebase.js?v=20260611appdone"></script>
     <script src="js/detail.js?v=20260610extra"></script>
-    <script src="js/map.js?v=20260611appdone"></script>
+    <script src="js/map.js?v=20260612phasecount"></script>
     <script src="js/awms-parseValue.js?v=20260602a"></script>
     <script src="js/qr-scanner.js?v=20260608ios"></script>
     <script src="js/photo-uploader.js?v=20260608square"></script>
