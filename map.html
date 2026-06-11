@@ -15,7 +15,7 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260611menu';
+        const APP_VERSION = '20260611move';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
           ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
@@ -129,6 +129,29 @@
             <span class="am-go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
         </a>
 
+        <!-- 지도 표시 옵션 (모든 사용자, 개인 기기 설정) -->
+        <div class="am-tree open" data-tree>
+            <button class="am-row am-head" type="button">
+                <span class="am-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
+                <span class="am-txt">지도 표시</span>
+                <span class="am-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+            </button>
+            <div class="am-body">
+                <div class="am-sub">
+                    <label class="am-check" style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--ink-2);cursor:pointer;padding:2px 0;"><input type="checkbox" id="hide-done-chk" style="width:18px;height:18px;accent-color:var(--mint);flex-shrink:0;"> 완료 마커 숨김</label>
+                </div>
+                <div class="am-sub">
+                    <span class="am-sub-label">계기 종류</span>
+                    <div class="marker-mode-toggle" id="phase-filter-toggle">
+                        <button data-phase="normal" class="active">일반</button>
+                        <button data-phase="dansang">단상</button>
+                        <button data-phase="samsang">삼상</button>
+                        <button data-phase="both">단/삼</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 관리자 (트리, admin 전용) -->
         <div class="am-tree am-admin" id="am-admin" data-tree style="display:none;">
             <button class="am-row am-head" type="button">
@@ -157,18 +180,6 @@
                         <button data-mode="both">둘다</button>
                     </div>
                 </div>
-                <div class="am-sub">
-                    <label class="am-check" style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--ink-2);cursor:pointer;padding:2px 0;"><input type="checkbox" id="hide-done-chk" style="width:18px;height:18px;accent-color:var(--mint);flex-shrink:0;"> 완료 마커 숨김</label>
-                </div>
-                <div class="am-sub">
-                    <span class="am-sub-label">계기 종류</span>
-                    <div class="marker-mode-toggle" id="phase-filter-toggle">
-                        <button data-phase="normal" class="active">일반</button>
-                        <button data-phase="dansang">단상</button>
-                        <button data-phase="samsang">삼상</button>
-                        <button data-phase="both">단/삼</button>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -183,7 +194,7 @@
             <span class="am-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M9 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/></svg></span>
             <span class="am-txt">로그아웃</span>
         </button>
-        <div style="padding:8px 16px 12px;text-align:right;font-size:10px;color:var(--text-muted,#888);opacity:0.6;letter-spacing:0.03em;">20260611 통계연동·앱완료</div>
+        <div style="padding:8px 16px 12px;text-align:right;font-size:10px;color:var(--text-muted,#888);opacity:0.6;letter-spacing:0.03em;">20260611 표시옵션 분리·통계연동</div>
     </div>
 
     <!-- 검색 모달 -->
