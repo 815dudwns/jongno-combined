@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260611apptoggle';
+      const APP_VERSION = '20260612draftfix';
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -495,7 +495,7 @@ function renderList() {
   const _addedIds = new Set((cachedAdded || []).map(a => String(a.meter_id || '').trim()).filter(Boolean));
   let sorted = [...cachedData].sort((a, b) => (a.daily_seq ?? Infinity) - (b.daily_seq ?? Infinity));
   // 필터: 미완료(신설계기 없음) / 추가계기(주소모달 추가분)
-  if (_listFilter === 'incomplete') sorted = sorted.filter(i => !String(i.new_meter_id || '').trim());
+  if (_listFilter === 'incomplete') sorted = sorted.filter(i => !String(i.new_meter_id || '').trim() || i.draft === true);
   else if (_listFilter === 'added') sorted = sorted.filter(i => _addedIds.has(String(i.old_meter_id || '').trim()));
   else if (_listFilter === 'appdone') sorted = sorted.filter(i => i.appDone);
   else if (_listFilter === 'appdone_not') sorted = sorted.filter(i => !i.appDone);
@@ -589,7 +589,7 @@ function renderSummary() {
   let dansang = 0, samsang = 0, incomplete = 0;
   arr.forEach(i => {
     const nm = String(i.new_meter_id || '').trim();
-    if (!nm) { incomplete++; return; }   // 신설계기 없음 = 미완(이어서)
+    if (!nm || i.draft === true) { incomplete++; return; }   // 신설계기 없음 또는 임시저장(draft) = 미완(이어서)
     const ph = (typeof phaseOf === 'function') ? phaseOf(nm) : null;
     if (ph === '단상') dansang++;
     else if (ph === '삼상') samsang++;
