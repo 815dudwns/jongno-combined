@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260612draftfix';
+      const APP_VERSION = '20260612draftfix2';
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -529,7 +529,7 @@ function renderList() {
       : '';
     return `
       <div class="list-item" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}">
-        <div class="seq-badge${item.appDone ? ' app-done' : (item.draft ? ' draft' : '')}">${item.daily_seq ?? '?'}</div>
+        <div class="seq-badge${item.draft ? ' draft' : (item.appDone ? ' app-done' : '')}">${item.daily_seq ?? '?'}</div>
         <div class="li-body">
           <div class="addr">${item.address} ${editedTag}${item.draft ? '<span class="draft-badge">임시저장</span>' : ''}${_addedIds.has(String(item.old_meter_id || '').trim()) ? '<span class="added-badge">추가계기</span>' : ''}</div>
           <div><b>${item.old_meter_id}</b>${_cpBtn(item.old_meter_id)} <span class="arrow">→</span> <b>${item.new_meter_id}</b>${_cpBtn(item.new_meter_id)}</div>
