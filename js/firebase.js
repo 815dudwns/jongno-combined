@@ -428,73 +428,74 @@ async function initFirebase() {
 
     const firebaseOk = initFirebaseApp();
 
-    // === 새 정책 (코덱스 권고): Firebase = source of truth, localStorage = 폴백 ===
+    // === Firebase = source of truth, localStorage = 마지막 DB 미러(폴백·즉시표시) ===
+    // 미러로 우선 채움 → on('value') 첫 콜백 전에도 빈 상태 아님.
+    const mirror = loadStatusLocal();
+    workStatus = (mirror && Object.keys(mirror).length > 0) ? mirror : {};
 
-    // 1순위: Firebase
-    let firebaseLoaded = false;
-    if (firebaseOk) {
-        await flushEventQueue();
-        try {
-            const snapshot = await statusRef.get();
-            if (snapshot.exists()) {
-                const data = snapshot.val();
+    if (!firebaseOk) {
+        if (Object.keys(workStatus).length === 0) applyLocalChecked();
+        console.log('[Mirror] Firebase 미연결 — 미러/로컬 기준 시작, 주소수:', Object.keys(workStatus).length);
+        return;
+    }
+
+    await flushEventQueue();
+
+    // ★ 초기 1회 다운로드 = on('value') 첫 콜백으로 통일.
+    //   기존 get()+on() = 같은 노드 전체 2회 다운로드(3MB×2). on() 1회로 절감.
+    //   mergeFirebaseData는 빈 workStatus엔 전체구성처럼, 미러 위엔 보호병합(pendingWrite/failedMeters)으로 동작 →
+    //   별도 get()+build 없이도 동일 정합. 첫 콜백을 init-완료 신호로 await(빈 렌더 방지).
+    let _initialDone = false;
+    let _resolveInitial;
+    const initialPromise = new Promise(r => { _resolveInitial = r; });
+
+    // 연속 발화(동시 작업) 시 400ms debounce로 마지막 1회만 refreshAllMarkers (병합은 즉시).
+    let _refreshTimer = null;
+    const _scheduleRefresh = () => {
+        if (_refreshTimer) clearTimeout(_refreshTimer);
+        _refreshTimer = setTimeout(() => {
+            _refreshTimer = null;
+            if (typeof refreshAllMarkers === 'function') refreshAllMarkers();
+        }, 400);
+    };
+
+    statusRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!_initialDone) {
+            _initialDone = true;
+            // ★ 초기 1회 = build(전체 교체) — 원본 get()→build와 동일 정합:
+            //   workStatus = 정확히 FB 주소집합. 미러에만 있고 FB에서 삭제된 stale 주소 제거(self-heal 유지).
+            //   (merge는 add-only라 삭제 반영 못함 → 초기엔 build, 이후 변경만 merge)
+            //   pendingWrite 손실 없음: flushEventQueue가 리스너 부착 전 await됨(미전송분은 스냅샷에 포함).
+            if (data) {
                 workStatus = buildWorkStatusFromFirebase(data);
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
-                firebaseLoaded = true;
-                console.log('[Firebase] 초기 로드 완료, 주소수:', Object.keys(workStatus).length);
             }
-        } catch (e) {
-            console.warn('[Firebase] 초기 로드 실패, 폴백:', e.message);
+            console.log('[Firebase] 초기 로드 완료(on 첫 콜백), 주소수:', Object.keys(workStatus).length);
+            _resolveInitial();   // 첫 렌더는 initMap()이 await 후 renderViewport로 수행
+        } else if (data) {
+            mergeFirebaseData(data);   // 이후 변경 = 보호병합(pendingWrite/failedMeters)
+            _scheduleRefresh();
         }
-    }
+    });
 
-    // 2순위 (폴백): localStorage — 단, 이건 Firebase 스냅샷의 미러일 뿐(독립 데이터 아님)
-    // 주소상태는 무조건 Firebase에서만. 정적 JSON 폴백 제거(전부-완료 파일이 회색 오염시키던 원인).
-    // Firebase 실패 + 미러 없음(콜드스타트) = 빈 상태로 시작, 리스너 연결되면 즉시 채워짐.
-    if (!firebaseLoaded) {
-        const local = loadStatusLocal();
-        if (local && Object.keys(local).length > 0) {
-            workStatus = local;
-            console.log('[Mirror] localStorage(마지막 DB 미러)에서 로드, 주소수:', Object.keys(workStatus).length);
-        } else {
-            workStatus = {};
-            console.log('[Mirror] 미러 없음 — Firebase 연결 대기(빈 상태 시작)');
-        }
-    }
+    // 10초 간격 큐 재시도 (오프라인 → 온라인 복귀 시 미전송 이벤트 처리)
+    setInterval(async () => {
+        await flushEventQueue();
+    }, 10000);
 
-    if (firebaseOk) {
-        // applyLocalChecked는 Firebase가 비어 폴백한 경우에만 (코덱스 #2)
-        if (!firebaseLoaded) applyLocalChecked();
-
-        // 실시간 리스너 — Firebase 변경 즉시 반영 (30초 polling 대신)
-        // 연속 발화(여러 작업자 동시 작업) 시 매번 전체 리렌더하면 지도가 멈춤 →
-        // 400ms debounce로 마지막 1회만 refreshAllMarkers (병합은 즉시).
-        let _refreshTimer = null;
-        const _scheduleRefresh = () => {
-            if (_refreshTimer) clearTimeout(_refreshTimer);
-            _refreshTimer = setTimeout(() => {
-                _refreshTimer = null;
-                if (typeof refreshAllMarkers === 'function') refreshAllMarkers();
-            }, 400);
-        };
-        statusRef.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                mergeFirebaseData(data);
-                _scheduleRefresh();
-            }
-        });
-
-        // 10초 간격 큐 재시도 (오프라인 → 온라인 복귀 시 미전송 이벤트 처리)
-        setInterval(async () => {
+    // 창/탭이 다시 활성화될 때 미전송 큐 플러시
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible') {
             await flushEventQueue();
-        }, 10000);
+        }
+    });
 
-        // 창/탭이 다시 활성화될 때 미전송 큐 플러시
-        document.addEventListener('visibilitychange', async () => {
-            if (document.visibilityState === 'visible') {
-                await flushEventQueue();
-            }
-        });
+    // 첫 데이터(또는 8초 타임아웃) 대기 — initMap()의 await initFirebase()가 데이터 보장(빈 렌더 방지)
+    await Promise.race([initialPromise, new Promise(r => setTimeout(r, 8000))]);
+    if (!_initialDone && Object.keys(workStatus).length === 0) {
+        // Firebase 첫 응답 지연 + 미러 없음 — 로컬 체크라도 반영 후 시작(리스너 붙으면 곧 채워짐)
+        applyLocalChecked();
+        console.log('[Firebase] 첫 응답 지연 — 로컬 폴백으로 시작');
     }
 }
