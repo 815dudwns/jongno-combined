@@ -219,7 +219,7 @@ async function initMap() {
 
     // 로컬 JSON에서 현장 데이터 로드
     try {
-        const res = await fetch('./data/jongno-site-data.json');
+        const res = await fetch('./data/jongno-site-data.json', { cache: 'force-cache' });  // 페이지 네비(map↔stats) 재다운로드 방지
         sampleData = await res.json();
     } catch (e) {
         console.error('[siteData] 로드 실패:', e);

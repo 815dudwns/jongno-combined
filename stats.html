@@ -614,7 +614,7 @@ function renderSummary() {
 let siteDataByMeterId = null;
 async function loadSiteData() {
   if (siteDataByMeterId) return siteDataByMeterId;
-  const res = await fetch('./data/jongno-site-data.json');
+  const res = await fetch('./data/jongno-site-data.json', { cache: 'force-cache' });  // 페이지 네비(map↔stats) 재다운로드 방지
   const arr = await res.json();
   siteDataByMeterId = {};
   arr.forEach(m => {
