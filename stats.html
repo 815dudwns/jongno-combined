@@ -646,12 +646,11 @@ async function loadData() {
   try { localStorage.setItem('jongno_stats_date', dateVal); } catch (e) {}
   const { start, end } = dayRange(dateVal);
 
-  const [wsSnap, sdMap, awmsDone] = await Promise.all([
-    db.ref('workStatus/jongno').once('value'),
+  const [ws, sdMap, awmsDone] = await Promise.all([
+    getAllWs(),   // ★캐시 공유 — 날짜 변경마다 workStatus 3MB 재다운로드하던 것 제거(0). 분석탭(getAllWs)과 같은 캐시. 최신 반영은 페이지 새로고침.
     loadSiteData(),
     loadAwmsDone(),
   ]);
-  const ws = wsSnap.val() || {};
 
   // workStatus 순회하며 그날 replacement_list 추출
   // 좌표·주소 = 기존 계기번호로 site-data 매칭
