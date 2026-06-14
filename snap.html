@@ -163,7 +163,7 @@
     <input class="hidden-input" type="file" accept="image/*" capture="environment" id="in-cam">
     <input class="hidden-input" type="file" accept="image/*" id="in-alb">
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.1</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.2</div>
 
     <div class="toast" id="toast"></div>
 
@@ -331,12 +331,14 @@
         const { url } = await PhotoUploader.compressAndUpload(file, path, { square:false });
         const hit = seqIndex[s];
         if (hit){
-          // 시나리오 A: 이미 할당된 계기에 직접. 빈칸만 채움(덮어쓰기 금지)
+          // 시나리오 A: 이미 할당된 계기에 직접. 사진은 시공자(보조앱) 담당이라 덮어쓰기 허용.
           const node = statusRef.child(hit.addr).child('replacement_list').child(hit.meterId);
           if (slot === 'old'){
-            if (!hit.entry.old_meter_photo) await node.child('old_meter_photo').set(url);
+            // ★종로 모달은 removal_photos[칸] 우선 표시 → 대표를 whme_day 칸에 (old_meter_photo는 호환용)
+            await node.child('removal_photos').child('whme_day').set(url);
+            await node.child('old_meter_photo').set(url);
           } else {
-            if (!hit.entry.new_meter_photo) await node.child('new_meter_photo').set(url);
+            await node.child('new_meter_photo').set(url);
           }
         } else {
           // 시나리오 B: 임시보관함. 나중에 메인앱이 같은 번호에 계기 할당 시 결합
