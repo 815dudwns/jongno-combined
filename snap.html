@@ -287,7 +287,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.8</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.9</div>
 
     <!-- 숫자 키패드 (검침값 입력) -->
     <div class="kp-bg" id="kp">
@@ -604,25 +604,33 @@
       });
 
       // QR 스캔 → 신계기번호 + 제조월 → temp
+      //   ★헬퍼앱과 동일하게 네이티브 구글 스캐너(GmsBarcodeScanner) 사용 = window.AndroidScanner.scan()
+      //    결과는 네이티브가 window.__onNativeScan(rawValue) 호출(취소/실패=빈문자열). 브라우저는 웹 폴백.
+      async function handleScanResult(raw, localSeq){
+        if (!raw){ return; }  // 취소/실패
+        const parsed = (typeof parseValue === 'function') ? parseValue(String(raw).replace(/\*/g,'')) : { value: raw, value2: '' };
+        const meterId = String(parsed.value || '').slice(0,11);
+        let mfg = ''; const v2 = String(parsed.value2 || '');
+        if (/^\d{6}$/.test(v2)) mfg = v2.slice(0,4)+'-'+v2.slice(4,6);
+        if (!meterId){ toast('QR 인식 실패'); return; }
+        try {
+          const f = { new_meter_id: meterId };
+          if (mfg) f.new_meter_mfg_ym = mfg;
+          await saveTempExtra(localSeq, f);
+          $('qr-result').textContent = '새 계기 '+meterId+(mfg?(' / '+mfg):'');
+          toast('계기번호 저장됨 ('+localSeq+'번)');
+        } catch(e){ console.error('[QR저장]', e); toast('QR 저장 실패'); }
+      }
       $('qr-btn').onclick = ()=>{
-        if (typeof QrScanner === 'undefined'){ toast('QR 모듈 없음'); return; }
         const localSeq = seq;
-        QrScanner.show(async (raw)=>{
-          try { QrScanner.stop(); } catch(e){}
-          $('qr-scan-overlay').style.display = 'none';
-          const parsed = (typeof parseValue === 'function') ? parseValue(String(raw).replace(/\*/g,'')) : { value: raw, value2: '' };
-          const meterId = String(parsed.value || '').slice(0,11);
-          let mfg = ''; const v2 = String(parsed.value2 || '');
-          if (/^\d{6}$/.test(v2)) mfg = v2.slice(0,4)+'-'+v2.slice(4,6);
-          if (!meterId){ toast('QR 인식 실패'); return; }
-          try {
-            const f = { new_meter_id: meterId };
-            if (mfg) f.new_meter_mfg_ym = mfg;
-            await saveTempExtra(localSeq, f);
-            $('qr-result').textContent = '새 계기 '+meterId+(mfg?(' / '+mfg):'');
-            toast('계기번호 저장됨 ('+localSeq+'번)');
-          } catch(e){ console.error('[QR저장]', e); toast('QR 저장 실패'); }
-        });
+        if (window.AndroidScanner && window.AndroidScanner.scan){
+          // 네이티브 구글 스캐너(헬퍼와 동일)
+          window.__onNativeScan = (raw)=>{ window.__onNativeScan = null; handleScanResult(raw, localSeq); };
+          window.AndroidScanner.scan();
+        } else if (typeof QrScanner !== 'undefined'){
+          // 폴백(브라우저/개발) — 웹 스캐너
+          QrScanner.show((raw)=>{ try{ QrScanner.stop(); }catch(e){} $('qr-scan-overlay').style.display='none'; handleScanResult(raw, localSeq); });
+        } else { toast('스캐너 없음'); }
       };
       $('qr-close-btn').onclick = ()=>{ try{ QrScanner.stop(); }catch(e){} $('qr-scan-overlay').style.display='none'; };
 
