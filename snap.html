@@ -287,7 +287,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.10</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.11</div>
 
     <!-- 숫자 키패드 (검침값 입력) -->
     <div class="kp-bg" id="kp">
@@ -452,14 +452,19 @@
         if (!file) return;
         const box = $('box-'+slot), img = $('img-'+slot), st = $('st-'+slot);
         const localSeq = seq;
-        img.src = URL.createObjectURL(file);
+        // ★삼성 파일피커 content:// 파일은 createImageBitmap 여러 번 호출 시 디코드 실패(종로맵과 동일).
+        //   메모리 Blob으로 1회 materialize → compress·detect·박스그리기 모두 이 mem 재사용(YOLO 못찾던 원인).
+        let mem = file;
+        try { mem = new Blob([await file.arrayBuffer()], { type: file.type || 'image/jpeg' }); }
+        catch(e){ console.warn('[materialize 실패, 원본 사용]', e); }
+        img.src = URL.createObjectURL(mem);
         box.classList.add('has','busy');
         st.textContent = '저장 중'; st.className = 'shot-status saving';
         try {
-          await autoSave(slot, file, localSeq);
+          await autoSave(slot, mem, localSeq);
           st.textContent = '저장됨'; st.className = 'shot-status saved';
           $('bd-'+slot).textContent = localSeq + '번';
-          if (slot === 'old' && _opt.yolo) runYoloOnOld(file, localSeq);  // 철거 LCD 자동검출(옵션, 비동기)
+          if (slot === 'old' && _opt.yolo) runYoloOnOld(mem, localSeq);  // 철거 LCD 자동검출(옵션, 비동기)
           await loadToday();   // 방금 저장분 반영(번호 점유/표시)
         } catch (e) {
           console.error('[autoSave]', e);
