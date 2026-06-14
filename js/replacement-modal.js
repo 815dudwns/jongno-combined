@@ -63,6 +63,7 @@ const RplModal = (() => {
     keepRemovalPhotoUrls = {};
     removalPhotoOriginals = {};
     removalPhotoRegions = {};
+    _tempPrefilled = { new: false, rv: null };  // 보조앱 temp 미리보기 추적 초기화(재오픈 누수 방지)
 
     document.getElementById('rpl-modal').classList.add('active');
     _setFormDisabled(false);  // 직전 제출로 잠긴 입력 해제 (재오픈)
@@ -321,8 +322,10 @@ const RplModal = (() => {
     if (field && RV_FIELDS[field]) {
       // 지침칸 사진 — 칸별 blob 저장
       removalPhotoBlobs[field] = blob;
+      if (_tempPrefilled && _tempPrefilled.rv === field) _tempPrefilled.rv = null;  // 사용자 직접 촬영 → temp 추적 해제(보존)
     } else if (slotId === 'rpl-new-photo') {
       newPhotoBlob = blob;
+      if (_tempPrefilled) _tempPrefilled.new = false;
     }
   }
 
@@ -408,6 +411,48 @@ const RplModal = (() => {
     }
     if (dec) dec.disabled = !canDec;
     if (inc) inc.disabled = false; // 위로는 항상 가능 (상한 없음)
+    prefillTempForSeq(val);  // 보조앱(snap) 임시저장 사진을 이 작업번호에 맞춰 미리보기(신규 모드만)
+  }
+
+  // 보조앱(snap)이 미할당으로 올린 temp 사진을 작업번호에 맞춰 빈 슬롯에 미리보기.
+  // 신규 모드만(수정은 기존 우선). 사용자가 직접 넣은 칸·이미 keep된 칸은 건드리지 않음(멱등).
+  // 저장 시 흡수 로직(onSave)이 동일 규칙으로 record에 기록 — 여기는 보이기만.
+  // _tempPrefilled = 이번 미리보기로 채운 슬롯 추적 (작업번호 바뀌면 비우기 위함).
+  //   { new:bool, rv:fid|null }. 사용자가 직접 찍으면 setPhoto에서 해당 추적 해제.
+  let _tempPrefillToken = 0;
+  let _tempPrefilled = { new: false, rv: null };
+  function _clearTempPrefilled() {
+    if (_tempPrefilled.new) { keepNewPhotoUrl = null; resetPhoto('rpl-new-photo'); _tempPrefilled.new = false; }
+    if (_tempPrefilled.rv) { delete keepRemovalPhotoUrls[_tempPrefilled.rv]; resetPhoto(RV_FIELDS[_tempPrefilled.rv].photo); _tempPrefilled.rv = null; }
+  }
+  async function prefillTempForSeq(seq) {
+    // edit 모드여도 막지 않음 — 빈 칸만 흡수(채워진 칸은 editData prefill이 keep*를 먼저 채워 가드가 보호).
+    //   영준님 케이스: 사진없이 저장→draft 레코드 생성 후 재오픈(edit) 시에도 temp가 빈 칸을 채워야 함.
+    const myToken = ++_tempPrefillToken;
+    _clearTempPrefilled();  // 직전 작업번호의 temp 미리보기 제거(사용자 입력분은 setPhoto가 추적해제해 보존)
+    try {
+      if (typeof db === 'undefined' || !db) return;
+      const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+      const tmp = (await db.ref(`tempPhotos/jongno/${day}/${seq}`).once('value')).val();
+      if (myToken !== _tempPrefillToken) return;  // 그 사이 작업번호 또 바뀜 → 무시
+      if (!tmp) return;
+      if (tmp.new_meter_photo && !newPhotoBlob && !keepNewPhotoUrl) {
+        showPhotoUrl('rpl-new-photo', tmp.new_meter_photo);
+        keepNewPhotoUrl = tmp.new_meter_photo;
+        _tempPrefilled.new = true;
+      }
+      if (tmp.removal_photo) {
+        const clas = currentMeter ? (currentMeter.계약종별 || currentMeter.CNTR_CLAS_CD || '') : '';
+        const pwr = currentMeter ? (currentMeter.계약전력 || 0) : 0;
+        const bf = (typeof readingFieldsFor === 'function') ? readingFieldsFor(clas, pwr) : ['whme_day'];
+        const firstActive = (ALL_KNOWN_FIELDS.filter(f => bf.includes(f))[0]) || 'whme_day';
+        if (!removalPhotoBlobs[firstActive] && !keepRemovalPhotoUrls[firstActive]) {
+          showPhotoUrl(RV_FIELDS[firstActive].photo, tmp.removal_photo);
+          keepRemovalPhotoUrls[firstActive] = tmp.removal_photo;
+          _tempPrefilled.rv = firstActive;
+        }
+      }
+    } catch (e) { console.warn('[보조앱 temp 미리보기] 실패(무시)', e); }
   }
 
   // 이전/다음 빈 자리(미할당)를 찾아 이동 — used 자리는 스킵
@@ -971,6 +1016,27 @@ const RplModal = (() => {
       // 하위호환: whme_day 값을 removal_value(단일)에도 저장
       const removalValue = removalValues['whme_day'] != null ? String(removalValues['whme_day']) : '';
 
+      // ── 보조앱(snap) 임시저장 사진 흡수 (시나리오 B) ──
+      // snap이 계기 미할당 상태로 tempPhotos/jongno/{KST일자}/{작업번호}에 올린 사진을,
+      // 메인앱이 같은 daily_seq로 계기 저장할 때 빈 칸만 끌어옴(멱등). 흡수분을 keep*에 주입하면
+      // 아래 검증·업로드 흐름을 그대로 타서 record에 기록됨. 저장 성공 후 temp 노드 삭제.
+      // edit 모드 포함 — 빈 칸만 흡수(채워진 칸은 위 검증 전 keep*에 이미 있어 가드가 보호).
+      //   draft 레코드(사진없이 저장됨) 재오픈 시에도 temp가 붙어야 하므로 editingData로 막지 않음.
+      let _absorbedTempPath = null;
+      if (!dryRun) {
+        try {
+          const _seq = getDailySeq();
+          const _day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+          const _tpath = `tempPhotos/jongno/${_day}/${_seq}`;
+          const _tmp = (await db.ref(_tpath).once('value')).val();
+          if (_tmp) {
+            if (!newPhotoBlob && !keepNewPhotoUrl && _tmp.new_meter_photo) keepNewPhotoUrl = _tmp.new_meter_photo;
+            if (!removalPhotoBlobs[firstActive] && !keepRemovalPhotoUrls[firstActive] && _tmp.removal_photo) keepRemovalPhotoUrls[firstActive] = _tmp.removal_photo;
+            _absorbedTempPath = _tpath;
+          }
+        } catch (e) { console.warn('[보조앱 temp 흡수] 실패(무시)', e); }
+      }
+
       // 사진 검증
       const hasNewPhoto = newPhotoBlob || keepNewPhotoUrl;
       const hasFirstActivePhoto = removalPhotoBlobs[firstActive] || keepRemovalPhotoUrls[firstActive];
@@ -1160,6 +1226,9 @@ const RplModal = (() => {
 
       const node = statusRef.child(addrKey).child('replacement_list').child(String(oldMeterId));
       await node.set(replacement);
+
+      // 흡수한 보조앱 temp 노드 정리 (저장 성공 후에만 — 사진 URL은 이미 record에 복사됨)
+      if (_absorbedTempPath) { db.ref(_absorbedTempPath).remove().catch(() => {}); }
 
       // 로컬 반영
       if (!workStatus[currentAddress]) workStatus[currentAddress] = makeEmptyEntry();

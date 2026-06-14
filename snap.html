@@ -163,7 +163,7 @@
     <input class="hidden-input" type="file" accept="image/*" capture="environment" id="in-cam">
     <input class="hidden-input" type="file" accept="image/*" id="in-alb">
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.2</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.6</div>
 
     <div class="toast" id="toast"></div>
 
@@ -315,8 +315,8 @@
           await loadToday();   // 방금 저장분 반영(번호 점유/표시)
         } catch (e) {
           console.error('[autoSave]', e);
-          st.textContent = '저장 실패 (다시)'; st.className = 'shot-status err';
-          toast('저장 실패 — 다시 눌러 주세요');
+          st.textContent = '저장 실패'; st.className = 'shot-status err';
+          alert('저장 실패 원인:\n' + ((e && e.code) ? e.code + '\n' : '') + ((e && e.message) ? e.message : String(e)));
         } finally {
           box.classList.remove('busy');
         }
@@ -324,12 +324,37 @@
       $('in-cam').onchange = e => { const f=e.target.files[0]; e.target.value=''; if(sheetSlot) onPick(sheetSlot, f); };
       $('in-alb').onchange = e => { const f=e.target.files[0]; e.target.value=''; if(sheetSlot) onPick(sheetSlot, f); };
 
-      // ── 자동 저장: 계기 할당됐으면 그 계기에 직접(빈칸만), 아니면 임시보관함 ──
+      // ── Storage 업로드: Capacitor의 XHR shim이 Firebase SDK put()을 깨뜨림(storage/unknown 400).
+      //   압축은 SDK(canvas, XHR 무관)로, 업로드는 raw REST로 우회(CDP에서 200 검증됨).
+      async function restUpload(blob, path){
+        const bucket = firebaseConfig.storageBucket;
+        const up = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodeURIComponent(path)}`;
+        // ★Capacitor native-bridge convertBody는 Blob/ArrayBuffer를 어느 분기에도 못 잡아
+        //   { data: body, type:'json' }로 떨어뜨림 → 네이티브가 JSON.stringify(Blob)='{}' 전송 →
+        //   서버엔 2바이트 '{}'가 image/jpeg로 저장돼 종로 모달서 깨진 사진('?')으로 뜸.
+        //   convertBody가 바이너리를 무손실(readFileAsBase64) 처리하는 유일한 타입 = File. 그래서 File로 감쌈.
+        const fileBody = (blob instanceof File) ? blob : new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+        const res = await fetch(up, { method:'POST', headers:{'Content-Type':'image/jpeg'}, body: fileBody });
+        if (!res.ok) throw new Error('storage ' + res.status);
+        const d = await res.json();
+        // 업로드 검증(fail-loud): 저장 크기가 보낸 크기와 다르면(예: '{}' 2바이트) 실패로 처리.
+        //   조용히 깨진 URL을 저장해 며칠 뒤 '?'로 발견되는 일 방지.
+        if (d.size != null && fileBody.size && Math.abs(Number(d.size) - fileBody.size) > 16) {
+          throw new Error('업로드 손상: 보낸 ' + fileBody.size + 'B → 저장 ' + d.size + 'B');
+        }
+        const tok = d.downloadTokens ? String(d.downloadTokens).split(',')[0] : '';
+        return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media&token=${tok}`;
+      }
+
+      // ── 자동 저장: 계기 할당됐으면 그 계기에 직접, 아니면 임시보관함 ──
       async function autoSave(slot, file, s){
         const day = dayKST();
-        const path = `replacements/_temp/${day}/${s}/${slot}.jpg`;
-        const { url } = await PhotoUploader.compressAndUpload(file, path, { square:false });
         const hit = seqIndex[s];
+        const path = hit
+          ? `replacements/${hit.addr}/${hit.meterId}_${Date.now()}/${slot}.jpg`
+          : `replacements/_temp/${day}/${s}/${slot}.jpg`;
+        const blob = await PhotoUploader.compress(file, { square:false });
+        const url = await restUpload(blob, path);
         if (hit){
           // 시나리오 A: 이미 할당된 계기에 직접. 사진은 시공자(보조앱) 담당이라 덮어쓰기 허용.
           const node = statusRef.child(hit.addr).child('replacement_list').child(hit.meterId);
