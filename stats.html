@@ -561,11 +561,19 @@ function renderList() {
     btn.onclick = (e) => { e.stopPropagation(); sharePhotos(btn.dataset.old, btn.dataset.new, btn.dataset.base); };
   });
   container.querySelectorAll('.li-edit-btn').forEach(btn => {
-    btn.onclick = (e) => {
+    btn.onclick = async (e) => {
       e.stopPropagation();
       const addr = btn.dataset.addr;
       const oldId = btn.dataset.old;
-      const existing = (window.workStatus[addr] && window.workStatus[addr].replacement_list || {})[oldId];
+      // ★모달 열 때 그 계기 1건만 RTDB에서 fresh 읽기 — 보조앱이 방금 올린 사진 즉시 반영.
+      //   전체 재로드(3MB) 안 하고 클릭당 수 KB라 경량화 유지. 목록·통계는 캐시 그대로.
+      //   workStatus는 디코드 주소 보관 → RTDB 키는 인코드형이라 encodeKey 필수(안 하면 null).
+      let existing = null;
+      try {
+        const snap = await db.ref('workStatus/jongno/' + encodeKey(addr) + '/replacement_list/' + oldId).once('value');
+        existing = snap.val();
+      } catch (err) { console.error('[모달 1건 fetch]', err); }
+      if (!existing) existing = (window.workStatus[addr] && window.workStatus[addr].replacement_list || {})[oldId]; // 폴백(캐시)
       if (!existing) { alert('데이터 없음 (새로고침 후 재시도)'); return; }
       const fakeMeter = { 계기번호: oldId, 계기타입: '', 상호: '', 변대주: '' };
       if (typeof RplModal !== 'undefined') RplModal.open(addr, fakeMeter, null, existing);
