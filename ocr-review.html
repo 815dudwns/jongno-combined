@@ -1,0 +1,116 @@
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>검침값 검증</title>
+<style>
+*{box-sizing:border-box;font-family:-apple-system,sans-serif}
+body{margin:0;background:#111;color:#eee;display:flex;flex-direction:column;align-items:center;padding:16px}
+#bar{width:100%;max-width:680px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+#prog{font-size:15px;color:#aaa}#meta{font-size:13px;color:#7ab8ff}
+#card{width:100%;max-width:680px;background:#1c1c1e;border-radius:14px;padding:16px}
+#img{width:100%;border-radius:10px;background:#222;display:block;min-height:120px}
+#worker{font-size:18px;font-weight:700;letter-spacing:1px;margin:10px 0 4px;padding:14px 16px;border-radius:10px;border:2px solid #2563eb;background:#1a2a4a;color:#7ab8ff;cursor:pointer;width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center}
+#worker:active{background:#2563eb;color:#fff}
+#lab{font-size:13px;color:#888;margin:4px 0 8px}
+.valbtn{width:100%;padding:15px;margin-bottom:8px;font-size:20px;font-weight:700;letter-spacing:1px;border:2px solid #3a3a3e;border-radius:10px;background:#26262a;color:#fff;text-align:left;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.valbtn .src{font-size:12px;font-weight:500;color:#888}
+.valbtn:active{border-color:#16a34a;background:#16432a}
+#customrow{display:flex;gap:8px;margin:6px 0}
+#custom{flex:1;padding:13px;font-size:16px;border-radius:10px;border:1px solid #444;background:#26262a;color:#fff}
+#custom-submit{padding:13px 18px;font-size:15px;font-weight:700;border:0;border-radius:10px;background:#2563eb;color:#fff;cursor:pointer}
+#reason{width:100%;padding:13px;font-size:15px;border-radius:10px;border:1px solid #5a3030;background:#2a1f1f;color:#fff;margin-bottom:10px}
+#nav{display:flex;gap:10px;margin-top:6px}
+#nav button{flex:1;padding:14px;font-size:16px;border:0;border-radius:10px;background:#333;color:#fff;cursor:pointer}
+#hint{font-size:13px;color:#888;margin-top:6px;text-align:center}
+#loading{text-align:center;padding:60px;font-size:16px;color:#888}
+</style></head><body>
+<div id="bar"><span id="prog"></span><span id="meta"></span></div>
+<div id="card"><div id="loading">케이스 로딩 중...</div></div>
+<div id="hint">자동저장 · 판정한 것은 다시 안 나옴 · 작업자값 클릭=즉시 다음</div>
+<script>
+const DBURL="https://ami-jongno-default-rtdb.asia-southeast1.firebasedatabase.app";
+const STORE_KEY="cycle_review";
+const $=id=>document.getElementById(id);
+let CASES=[],VMAP={},order=[],i=0;
+
+async function init(){
+  // 케이스 + 판정 병렬 로드
+  const [cr,vr]=await Promise.all([
+    fetch(`${DBURL}/ocr_review_cases/${STORE_KEY}.json`).then(r=>r.json()),
+    fetch(`${DBURL}/ocr_review/${STORE_KEY}.json`).then(r=>r.json())
+  ]);
+  VMAP=vr&&typeof vr==='object'?vr:{};
+  if(!cr){$('loading').textContent='케이스 없음 (사이클 먼저 실행)';return;}
+  // G타입 우선, 나머지 랜덤
+  const arr=Object.entries(cr).map(([id,v])=>({id,...v}));
+  const g=arr.filter(c=>c.type==='G').sort(()=>Math.random()-.5);
+  const rest=arr.filter(c=>c.type!=='G').sort(()=>Math.random()-.5);
+  CASES=[...g,...rest];
+  buildOrder();
+  renderCard();
+}
+
+function buildOrder(){
+  order=CASES.filter(c=>!VMAP[c.id]).map(c=>c.id);
+  if(i>=order.length)i=Math.max(0,order.length-1);
+}
+
+async function saveOne(id,verdict){
+  VMAP[id]=verdict;
+  try{await fetch(`${DBURL}/ocr_review/${STORE_KEY}/${encodeURIComponent(id)}.json`,
+    {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(verdict)});}catch(e){}
+}
+
+function decide(id,verdict){
+  saveOne(id,verdict);
+  order=order.filter(x=>x!==id);
+  if(i>=order.length)i=order.length-1;
+  renderCard();
+}
+
+function renderCard(){
+  const total=CASES.length,done=total-order.length;
+  $('prog').textContent=`남은 ${order.length} · 완료 ${done}/${total}`;
+  if(order.length===0){
+    $('card').innerHTML=`<div style="text-align:center;padding:40px;font-size:18px">전부 완료 (${done}/${total})</div>`;
+    $('meta').textContent='';return;
+  }
+  if(i<0)i=0;if(i>=order.length)i=order.length-1;
+  const c=CASES.find(x=>x.id===order[i]);
+  $('meta').textContent=c.meta||'';
+  const cands=c.cands||[];
+  const worker=cands.find(o=>o.src==='작업자');
+  const others=cands.filter(o=>o.src!=='작업자');
+  const seen={};others.forEach(o=>{if(!seen[o.val])seen[o.val]=[];seen[o.val].push(o.src);});
+  const btnsHtml=Object.entries(seen).map(([val,srcs])=>
+    `<button class="valbtn" onclick="decide('${c.id}',{type:'value',text:'${val}'})"><span>${val}</span><span class="src">${srcs.join('=')}</span></button>`
+  ).join('');
+  $('card').innerHTML=`
+    <img id="img" src="${c.img||''}" onerror="this.style.background='#333'">
+    <button id="worker" onclick="decideWorker('${c.id}','${worker?worker.val:''}')">${worker?`작업자: <span>${worker.val}</span>`:'작업자 없음'}</button>
+    <div id="lab">맞는 값 클릭 (없으면 직접입력 / 못읽으면 불가이유)</div>
+    <div id="btns">${btnsHtml}</div>
+    <div id="customrow">
+      <input id="custom" type="number" inputmode="numeric" placeholder="직접 입력">
+      <button id="custom-submit" onclick="submitCustom('${c.id}')">제출</button>
+    </div>
+    <input id="reason" placeholder="불가 이유 (반사/블랭크/잘림 등)">
+    <div id="nav"><button onclick="prev()">← 이전</button><button onclick="next()">다음 →</button></div>`;
+  $('img').onfocus=()=>setTimeout(()=>$('img').scrollIntoView({behavior:'smooth',block:'start'}),200);
+  $('custom').onfocus=()=>setTimeout(()=>$('img').scrollIntoView({behavior:'smooth',block:'start'}),200);
+  $('custom').onkeydown=e=>{if(e.key==='Enter')submitCustom(c.id);};
+  $('reason').onchange=()=>{const t=$('reason').value.trim();if(t)decide(c.id,{type:'reason',text:t});};
+  $('reason').onkeydown=e=>{if(e.key==='Enter')e.target.blur();};
+}
+
+function decideWorker(id,val){if(val)decide(id,{type:'value',text:val});}
+function submitCustom(id){const t=($('custom')||{}).value?.trim();if(t)decide(id,{type:'custom',text:t});}
+function next(){if(i<order.length-1){i++;renderCard();}}
+function prev(){if(i>0){i--;renderCard();}}
+document.onkeydown=e=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.key==='ArrowRight')next();
+  if(e.key==='ArrowLeft')prev();
+};
+init();
+</script></body></html>
