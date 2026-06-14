@@ -382,9 +382,9 @@ function fitToCandidates() {
         new naver.maps.LatLng(minLat, minLng),
         new naver.maps.LatLng(maxLat, maxLng)
     );
-    map.fitBounds(bounds, 60);   // 60px 여백
-    // 단일/소수 좌표면 과확대 — 적당 줌으로 보정
-    if (map.getZoom() > 17) map.setZoom(17);
+    // ★Naver fitBounds 두번째 인자는 객체(Kakao처럼 숫자 주면 무시됨).
+    //   maxZoom으로 단일/소수 좌표 과확대까지 한 번에 처리(fitBounds는 비동기라 직후 setZoom 보정 불가).
+    map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60, maxZoom: 17 });
 }
 
 // 동그룹 라디오 변경 시 마커 재생성 (단일선택 — 1개만 체크됨)
