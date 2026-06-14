@@ -364,6 +364,29 @@ function populateDongGroups() {
     });
 }
 
+// 현재 필터 후보(_addrData) 전체가 보이도록 지도 맞춤.
+//   ★뷰포트 컬링이라 markers엔 화면 안 마커만 있음 → 전체 후보 _addrData로 bounds 계산.
+//   사용자가 동그룹을 바꿀 때만 호출 — init/loadMarkers 경로에서 부르면 '마지막 위치 유지'가 깨진다.
+function fitToCandidates() {
+    if (!_addrData || _addrData.size === 0) return;
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    _addrData.forEach(d => {
+        if (d.lat < minLat) minLat = d.lat;
+        if (d.lat > maxLat) maxLat = d.lat;
+        if (d.lng < minLng) minLng = d.lng;
+        if (d.lng > maxLng) maxLng = d.lng;
+    });
+    if (!isFinite(minLat)) return;
+    // Naver LatLngBounds — min/max 명시 생성(빈 생성자+extend는 불확실)
+    const bounds = new naver.maps.LatLngBounds(
+        new naver.maps.LatLng(minLat, minLng),
+        new naver.maps.LatLng(maxLat, maxLng)
+    );
+    map.fitBounds(bounds, 60);   // 60px 여백
+    // 단일/소수 좌표면 과확대 — 적당 줌으로 보정
+    if (map.getZoom() > 17) map.setZoom(17);
+}
+
 // 동그룹 라디오 변경 시 마커 재생성 (단일선택 — 1개만 체크됨)
 function onDongGroupChange() {
     const panel = document.getElementById('dong-group-panel');
@@ -377,6 +400,7 @@ function onDongGroupChange() {
     panel.classList.remove('open');   // 선택 후 패널 닫기
     clearAllMarkers();
     loadMarkers();   // 후보 재계산(buildAddrCandidates) + 화면 렌더(renderViewport)
+    fitToCandidates();   // 선택 동그룹 영역으로 지도 이동(이동 시 idle→renderViewport 재렌더)
 }
 
 // ── 검침일 필터 (계기팀 시각 전용) ──────────────────────────────
