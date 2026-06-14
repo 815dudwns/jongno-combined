@@ -146,6 +146,24 @@
         background:var(--btn); color:var(--ink); border:2px solid var(--mint-d); border-radius:16px;}
       .qr-btn:active{transform:scale(.98);}
       .qr-result{text-align:center; font-size:17px; font-weight:800; color:var(--mint); margin-top:8px; min-height:20px;}
+
+      /* 숫자 키패드 모달 (삼성 WebView가 inputmode 무시 → 자체 키패드, 어르신 큰 UI) */
+      .kp-bg{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
+        align-items:flex-end; justify-content:center; z-index:80;}
+      .kp-bg.open{display:flex;}
+      .kp{width:100%; max-width:520px; background:var(--card);
+        border-radius:22px 22px 0 0; border-top:1px solid var(--line);
+        padding:16px 14px calc(16px + env(safe-area-inset-bottom));}
+      .kp-title{text-align:center; font-size:18px; font-weight:800; color:var(--ink-2); margin-bottom:10px;}
+      .kp-display{min-height:66px; font-size:38px; font-weight:900; text-align:center; letter-spacing:.05em;
+        background:#0d141d; border:2px solid var(--line); border-radius:14px; color:var(--ink);
+        display:flex; align-items:center; justify-content:center; margin-bottom:12px;}
+      .kp-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+      .kp-key{min-height:70px; font-size:30px; font-weight:900; background:var(--btn); color:var(--ink);
+        border:2px solid var(--line); border-radius:14px; cursor:pointer; user-select:none;}
+      .kp-key:active{background:var(--btn-press); transform:scale(.97);}
+      .kp-key.ok{background:var(--mint-d); color:#04130d; border-color:var(--mint-d);}
+      .kp-key.del{background:#3a2630; color:var(--red); border-color:#5a3340;}
     </style>
 </head>
 <body>
@@ -269,7 +287,29 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.7</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.8</div>
+
+    <!-- 숫자 키패드 (검침값 입력) -->
+    <div class="kp-bg" id="kp">
+        <div class="kp">
+            <div class="kp-title">철거 검침값 (kWh)</div>
+            <div class="kp-display" id="kp-display">0</div>
+            <div class="kp-grid">
+                <button class="kp-key" data-k="1">1</button>
+                <button class="kp-key" data-k="2">2</button>
+                <button class="kp-key" data-k="3">3</button>
+                <button class="kp-key" data-k="4">4</button>
+                <button class="kp-key" data-k="5">5</button>
+                <button class="kp-key" data-k="6">6</button>
+                <button class="kp-key" data-k="7">7</button>
+                <button class="kp-key" data-k="8">8</button>
+                <button class="kp-key" data-k="9">9</button>
+                <button class="kp-key del" data-k="del">지움</button>
+                <button class="kp-key" data-k="0">0</button>
+                <button class="kp-key ok" data-k="ok">확인</button>
+            </div>
+        </div>
+    </div>
 
     <div class="toast" id="toast"></div>
 
@@ -538,6 +578,29 @@
         const localSeq = seq;
         try { await saveTempExtra(localSeq, { removal_value: Number(v) }); toast('검침값 저장됨 ('+localSeq+'번)'); }
         catch(e){ console.error('[검침값]', e); toast('검침값 저장 실패'); }
+      });
+
+      // 검침값 입력 = 자체 숫자 키패드 (삼성 WebView inputmode 무시 회피 + 어르신 큰 UI)
+      $('reading-val').setAttribute('readonly', 'readonly');
+      let _kpVal = '';
+      function openKeypad(){
+        _kpVal = String($('reading-val').value || '').replace(/[^0-9]/g, '');
+        $('kp-display').textContent = _kpVal || '0';
+        $('kp').classList.add('open');
+      }
+      function closeKeypad(save){
+        $('kp').classList.remove('open');
+        if (save){ $('reading-val').value = _kpVal; $('reading-val').dispatchEvent(new Event('change')); }
+      }
+      $('reading-val').onclick = openKeypad;
+      $('kp').addEventListener('click', (e)=>{
+        if (e.target === $('kp')){ closeKeypad(false); return; }   // 배경 탭 = 취소
+        const k = e.target && e.target.dataset ? e.target.dataset.k : null;
+        if (k == null) return;
+        if (k === 'del') _kpVal = _kpVal.slice(0, -1);
+        else if (k === 'ok'){ closeKeypad(true); return; }
+        else if (_kpVal.length < 9) _kpVal += k;
+        $('kp-display').textContent = _kpVal || '0';
       });
 
       // QR 스캔 → 신계기번호 + 제조월 → temp

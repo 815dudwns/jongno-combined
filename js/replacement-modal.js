@@ -487,8 +487,12 @@ const RplModal = (() => {
       // 수락 → 빈 칸만 채우기 + 저장 시 삭제 예약
       if (canNewPhoto) { showPhotoUrl('rpl-new-photo', tmp.new_meter_photo); keepNewPhotoUrl = tmp.new_meter_photo; _tempPrefilled.new = true; }
       if (canRvPhoto)  { showPhotoUrl(RV_FIELDS[firstActive].photo, tmp.removal_photo); keepRemovalPhotoUrls[firstActive] = tmp.removal_photo; _tempPrefilled.rv = firstActive; }
-      if (canReading)  { rdEl.value = String(tmp.removal_value); _tempPrefilledData.readingId = readingId; }
-      if (canMeterId)  { meterIdEl.value = String(tmp.new_meter_id); _tempPrefilledData.meterId = true; }
+      // 흡수값을 사용자가 직접 고치면 추적 해제 → 작업번호 변경 시 _clearTempPrefilled가 안 지움(수정 보존).
+      //   메인앱 입력칸은 readonly 아님 → 종로앱에서 자유롭게 수정 가능(영준님 지시).
+      if (canReading)  { rdEl.value = String(tmp.removal_value); _tempPrefilledData.readingId = readingId;
+        if (!rdEl._absorbGuard) { rdEl._absorbGuard = true; rdEl.addEventListener('input', () => { if (_tempPrefilledData.readingId === readingId) _tempPrefilledData.readingId = null; }); } }
+      if (canMeterId)  { meterIdEl.value = String(tmp.new_meter_id); _tempPrefilledData.meterId = true;
+        if (!meterIdEl._absorbGuard) { meterIdEl._absorbGuard = true; meterIdEl.addEventListener('input', () => { _tempPrefilledData.meterId = false; }); } }
       if (canMfg) {
         const [yy, mm] = String(tmp.new_meter_mfg_ym).split('-');
         const ysel = document.getElementById('rpl-mfg-y'), msel = document.getElementById('rpl-mfg-m');
