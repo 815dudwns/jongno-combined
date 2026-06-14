@@ -3,21 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1e40af">
+    <meta name="theme-color" content="#0f1720">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="종로 사진">
     <title>종로 사진 - 보조앱</title>
-    <!-- 즉시 인증 체크: 로그인 안돼있으면 로그인 화면으로 (같은 origin이라 jongno_auth 공유) -->
-    <script src="js/auth.js"></script>
-    <script>
-      if (!authGetSession()) { window.location.replace('login.html'); }
-    </script>
+    <!-- 종로 자산 재사용 (같은 ami-jongno Firebase) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <script src="js/config.js?v=snap1"></script>
+    <script src="js/auth.js?v=snap1"></script>
+    <script src="js/photo-uploader.js?v=snap1"></script>
     <style>
       :root{
         --bg:#0f1720; --card:#172230; --ink:#f2f6fb; --ink-2:#aab8c8;
-        --line:#28384a; --mint:#34d399; --mint-d:#10b981; --amber:#f59e0b;
+        --line:#28384a; --mint:#34d399; --mint-d:#10b981; --amber:#f59e0b; --red:#f87171;
         --btn:#1f2d3d; --btn-press:#2a3d52;
       }
       *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -31,27 +34,31 @@
         font-size:16px; color:var(--ink-2); padding:4px 2px 12px;}
       .top .who{font-weight:800; color:var(--ink);}
 
-      /* 시퀀스 */
+      /* 저장 위치(시퀀스) */
       .seq-wrap{background:var(--card); border:1px solid var(--line); border-radius:18px;
         padding:16px 14px 18px; margin-bottom:14px;}
-      .seq-label{text-align:center; font-size:18px; font-weight:800; color:var(--ink-2);
+      .seq-label{text-align:center; font-size:17px; font-weight:800; color:var(--ink-2);
         letter-spacing:.04em; margin-bottom:10px;}
       .seq-row{display:flex; align-items:stretch; gap:12px;}
-      .seq-btn{flex:1; min-height:84px; font-size:26px; font-weight:900; color:var(--ink);
+      .seq-btn{flex:1; min-height:88px; font-size:26px; font-weight:900; color:var(--ink);
         background:var(--btn); border:2px solid var(--line); border-radius:16px;
-        display:flex; align-items:center; justify-content:center; cursor:pointer;}
+        display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none;}
       .seq-btn:active{background:var(--btn-press); transform:scale(.98);}
-      .seq-num{flex:0 0 96px; min-height:84px; border-radius:16px;
-        background:var(--mint-d); color:#04130d; font-size:46px; font-weight:900;
+      .seq-num{flex:0 0 110px; min-height:88px; border-radius:16px;
+        background:var(--mint-d); color:#04130d; font-size:52px; font-weight:900;
         display:flex; align-items:center; justify-content:center;}
-      .seq-meter{text-align:center; margin-top:12px; font-size:19px; font-weight:700;}
-      .seq-meter .no{color:var(--mint); letter-spacing:.02em;}
+      .seq-meter{text-align:center; margin-top:12px; font-size:18px; font-weight:700;}
+      .seq-meter .no{color:var(--mint);}
       .seq-meter .none{color:var(--amber);}
 
       /* 사진 박스 */
       .shot{background:var(--card); border:1px solid var(--line); border-radius:18px;
         padding:14px; margin-bottom:14px;}
-      .shot-title{font-size:20px; font-weight:800; margin:0 2px 10px;}
+      .shot-title{font-size:20px; font-weight:800; margin:0 2px 10px; display:flex; justify-content:space-between; align-items:center;}
+      .shot-status{font-size:15px; font-weight:700;}
+      .shot-status.saving{color:var(--amber);}
+      .shot-status.saved{color:var(--mint);}
+      .shot-status.err{color:var(--red);}
       .shot-box{position:relative; width:100%; height:210px; border-radius:14px;
         border:2px dashed var(--line); background:#0d141d;
         display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer;}
@@ -60,11 +67,14 @@
       .shot-box img{width:100%; height:100%; object-fit:cover; display:none;}
       .shot-box.has img{display:block;}
       .shot-box.has .hint{display:none;}
-      .shot-box .redo{position:absolute; right:10px; bottom:10px; background:rgba(0,0,0,.6);
-        color:#fff; font-size:15px; font-weight:700; padding:8px 14px; border-radius:10px; display:none;}
-      .shot-box.has .redo{display:block;}
+      .shot-box .badge{position:absolute; right:10px; bottom:10px; background:rgba(0,0,0,.62);
+        color:#fff; font-size:15px; font-weight:800; padding:8px 14px; border-radius:10px; display:none;}
+      .shot-box.has .badge{display:block;}
+      .shot-box .spin{position:absolute; inset:0; background:rgba(0,0,0,.45);
+        display:none; align-items:center; justify-content:center; font-size:18px; font-weight:800; color:#fff;}
+      .shot-box.busy .spin{display:flex;}
 
-      /* 팝업 (촬영/앨범 선택) */
+      /* 팝업 (촬영/앨범) */
       .sheet-bg{position:fixed; inset:0; background:rgba(0,0,0,.55); display:none;
         align-items:flex-end; justify-content:center; z-index:50;}
       .sheet-bg.open{display:flex;}
@@ -72,62 +82,78 @@
         border-radius:22px 22px 0 0; border-top:1px solid var(--line);
         padding:18px 16px calc(18px + env(safe-area-inset-bottom));}
       .sheet h3{margin:4px 0 16px; text-align:center; font-size:20px; font-weight:800;}
-      .sheet-btn{width:100%; min-height:72px; font-size:23px; font-weight:800;
+      .sheet-btn{width:100%; min-height:74px; font-size:23px; font-weight:800;
         border:none; border-radius:16px; margin-bottom:12px; cursor:pointer;}
       .sheet-cam{background:var(--mint); color:#04130d;}
       .sheet-alb{background:var(--btn); color:var(--ink); border:2px solid var(--line);}
       .sheet-cancel{background:transparent; color:var(--ink-2); min-height:56px; font-size:18px;}
       .sheet-btn:active{transform:scale(.98);}
-
       .hidden-input{position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;}
 
-      /* 저장 바 */
-      .savebar{position:sticky; bottom:0; padding-top:6px;}
-      .save-btn{width:100%; min-height:78px; font-size:24px; font-weight:900;
-        background:var(--mint-d); color:#04130d; border:none; border-radius:18px; cursor:pointer;}
-      .save-btn:active{transform:scale(.99);}
-      .save-btn:disabled{background:#2a3a4a; color:#6b7c8e;}
+      /* 로그인 오버레이 (자체 — login.html 안 거침, 지도로 안 샘) */
+      .login-bg{position:fixed; inset:0; background:var(--bg); z-index:100;
+        display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px;}
+      .login-bg.hide{display:none;}
+      .login-bg h2{font-size:24px; font-weight:900; margin:0 0 24px;}
+      .login-bg input{width:100%; max-width:360px; min-height:62px; font-size:20px;
+        background:var(--card); border:2px solid var(--line); border-radius:14px;
+        color:var(--ink); padding:0 16px; margin-bottom:14px;}
+      .login-bg button{width:100%; max-width:360px; min-height:66px; font-size:22px; font-weight:800;
+        background:var(--mint-d); color:#04130d; border:none; border-radius:14px; cursor:pointer;}
+      .login-err{color:var(--red); font-size:16px; font-weight:700; min-height:22px; margin-bottom:10px;}
+
+      .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+        background:#000c; color:#fff; font-size:17px; font-weight:700; padding:12px 20px;
+        border-radius:12px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:60;}
+      .toast.show{opacity:1;}
     </style>
 </head>
 <body>
+    <!-- 자체 로그인 오버레이 -->
+    <div class="login-bg" id="login">
+        <h2>종로 사진 보조</h2>
+        <input type="text" id="lg-id" placeholder="아이디" autocomplete="username" autocapitalize="none">
+        <input type="password" id="lg-pw" placeholder="비밀번호" autocomplete="current-password">
+        <div class="login-err" id="lg-err"></div>
+        <button id="lg-btn">로그인</button>
+    </div>
+
     <div class="top">
         <span>종로 사진 보조</span>
         <span class="who" id="who">-</span>
     </div>
 
-    <!-- 데일리 시퀀스 -->
+    <!-- 저장 위치 (데일리 시퀀스) -->
     <div class="seq-wrap">
-        <div class="seq-label">데일리 시퀀스</div>
+        <div class="seq-label">저장 위치 (데일리 시퀀스)</div>
         <div class="seq-row">
             <div class="seq-btn" id="seq-prev">이전</div>
             <div class="seq-num" id="seq-num">1</div>
             <div class="seq-btn" id="seq-next">다음</div>
         </div>
-        <div class="seq-meter" id="seq-meter"><span class="none">계기 미할당</span></div>
+        <div class="seq-meter" id="seq-meter"><span class="none">계기 미할당 (보관 후 자동 연결)</span></div>
     </div>
 
     <!-- 철거 사진 -->
     <div class="shot">
-        <div class="shot-title">철거 사진</div>
+        <div class="shot-title">철거 사진 <span class="shot-status" id="st-old"></span></div>
         <div class="shot-box" id="box-old" data-slot="old">
             <span class="hint">탭해서 사진 넣기</span>
             <img id="img-old" alt="철거 사진">
-            <span class="redo">다시</span>
+            <span class="badge" id="bd-old"></span>
+            <div class="spin">저장 중...</div>
         </div>
     </div>
 
     <!-- 신설 사진 -->
     <div class="shot">
-        <div class="shot-title">신설 사진</div>
+        <div class="shot-title">신설 사진 <span class="shot-status" id="st-new"></span></div>
         <div class="shot-box" id="box-new" data-slot="new">
             <span class="hint">탭해서 사진 넣기</span>
             <img id="img-new" alt="신설 사진">
-            <span class="redo">다시</span>
+            <span class="badge" id="bd-new"></span>
+            <div class="spin">저장 중...</div>
         </div>
-    </div>
-
-    <div class="savebar">
-        <button class="save-btn" id="save-btn">저장</button>
     </div>
 
     <!-- 사진 선택 팝업 -->
@@ -140,64 +166,113 @@
         </div>
     </div>
 
-    <!-- 숨은 파일 입력 (촬영=capture / 앨범=일반) -->
     <input class="hidden-input" type="file" accept="image/*" capture="environment" id="in-cam">
     <input class="hidden-input" type="file" accept="image/*" id="in-alb">
 
+    <div class="toast" id="toast"></div>
+
     <script>
-      // ── 골격 단계: 화면 동작만 (Firebase 연동은 다음 단계) ──
-      const session = authGetSession();
-      document.getElementById('who').textContent = session ? (session.name || session.id) : '-';
-
-      // 상태 (골격: 로컬만)
-      let seq = 1;
-      const photos = { old: null, new: null };   // { blob, url }
-      let sheetSlot = null;                        // 현재 팝업 대상 슬롯
-
       const $ = id => document.getElementById(id);
 
-      // ── 시퀀스 이전/다음 (골격: 단순 증감, 연동 단계에서 빈번호/역검색 연결) ──
+      // ── Firebase init (ami-jongno 공유) ──
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.database();
+      const tempRef = db.ref('tempPhotos/jongno');
+
+      // 오늘(KST) YYYY-MM-DD
+      function dayKST(){
+        return new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Seoul',
+          year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
+      }
+
+      let session = null;
+      let seq = 1;
+
+      // ── 자체 로그인 (login.html 안 거침 → 지도로 안 샘) ──
+      function showLogin(){ $('login').classList.remove('hide'); }
+      function hideLogin(){ $('login').classList.add('hide'); }
+      function doLogin(){
+        const id = $('lg-id').value.trim();
+        const pw = $('lg-pw').value;
+        const r = authLogin(id, pw);
+        if (r.ok){ startApp(); }
+        else { $('lg-err').textContent = r.error || '로그인 실패'; $('lg-pw').value=''; $('lg-pw').focus(); }
+      }
+      $('lg-btn').onclick = doLogin;
+      $('lg-pw').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+
+      function startApp(){
+        session = authGetSession();
+        $('who').textContent = session ? (session.name || session.id) : '-';
+        hideLogin();
+        renderSeq();
+      }
+
+      // ── 시퀀스 = 저장 위치 ──
       function renderSeq(){ $('seq-num').textContent = seq; }
       $('seq-prev').onclick = () => { if (seq > 1) seq--; renderSeq(); };
       $('seq-next').onclick = () => { seq++; renderSeq(); };
-      renderSeq();
 
       // ── 사진 박스 탭 → 팝업 ──
+      let sheetSlot = null;
       function openSheet(slot){
         sheetSlot = slot;
-        $('sheet-title').textContent = (slot === 'old' ? '철거' : '신설') + ' 사진';
+        $('sheet-title').textContent = (slot==='old' ? '철거' : '신설') + ' 사진';
         $('sheet').classList.add('open');
       }
-      function closeSheet(){ $('sheet').classList.remove('open'); sheetSlot = null; }
+      function closeSheet(){ $('sheet').classList.remove('open'); }
       $('box-old').onclick = () => openSheet('old');
       $('box-new').onclick = () => openSheet('new');
       $('sheet-cancel').onclick = closeSheet;
-      $('sheet').onclick = (e) => { if (e.target === $('sheet')) closeSheet(); };
+      $('sheet').onclick = e => { if (e.target === $('sheet')) closeSheet(); };
+      $('sheet-cam').onclick = () => { closeSheet(); $('in-cam').click(); };
+      $('sheet-alb').onclick = () => { closeSheet(); $('in-alb').click(); };
 
-      // 촬영/앨범 버튼 → 해당 파일입력 트리거
-      $('sheet-cam').onclick = () => { $('in-cam').click(); };
-      $('sheet-alb').onclick = () => { $('in-alb').click(); };
+      function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show');
+        clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), 1800); }
 
-      // 파일 선택됨 → 미리보기 (업로드는 연동 단계)
-      function onPick(file){
-        if (!file || !sheetSlot) { closeSheet(); return; }
-        const slot = sheetSlot;
-        photos[slot] = { blob: file, url: null };
-        const url = URL.createObjectURL(file);
-        const img = $('img-' + slot);
-        img.src = url;
-        $('box-' + slot).classList.add('has');
-        closeSheet();
-        // TODO(연동): PhotoUploader 압축+업로드 → temp 저장 / 계기 결합 / YOLO
+      // ── 사진 선택 → 미리보기 + 자동 저장 ──
+      async function onPick(slot, file){
+        if (!file) return;
+        const box = $('box-'+slot), img = $('img-'+slot), st = $('st-'+slot);
+        img.src = URL.createObjectURL(file);
+        box.classList.add('has', 'busy');
+        st.textContent = '저장 중'; st.className = 'shot-status saving';
+        try {
+          await autoSave(slot, file);
+          st.textContent = '저장됨'; st.className = 'shot-status saved';
+          $('bd-'+slot).textContent = seq + '번 보관';
+        } catch (e) {
+          console.error('[autoSave]', e);
+          st.textContent = '저장 실패 (다시 시도)'; st.className = 'shot-status err';
+          toast('저장 실패 — 다시 눌러 주세요');
+        } finally {
+          box.classList.remove('busy');
+        }
       }
-      $('in-cam').onchange = (e) => { onPick(e.target.files[0]); e.target.value = ''; };
-      $('in-alb').onchange = (e) => { onPick(e.target.files[0]); e.target.value = ''; };
+      $('in-cam').onchange = e => { const f=e.target.files[0]; e.target.value=''; if(sheetSlot) onPick(sheetSlot, f); };
+      $('in-alb').onchange = e => { const f=e.target.files[0]; e.target.value=''; if(sheetSlot) onPick(sheetSlot, f); };
 
-      // 저장 (골격: 자리만)
-      $('save-btn').onclick = () => {
-        // TODO(연동): temp 저장 또는 계기 결합 실행
-        alert('골격 단계입니다. 다음 단계에서 저장·연동을 붙입니다.\n시퀀스 ' + seq + ' / 철거 ' + (photos.old?'O':'X') + ' / 신설 ' + (photos.new?'O':'X'));
-      };
+      // ── 자동 저장: 압축+업로드 → tempPhotos/jongno/{날짜}/{seq} ──
+      //   계기 미할당이라 임시 보관함에. 나중에 메인앱이 같은 seq에 계기 할당하면 자동 결합.
+      async function autoSave(slot, file){
+        const day = dayKST();
+        const s = String(seq);
+        const path = `replacements/_temp/${day}/${s}/${slot}.jpg`;
+        const { url } = await PhotoUploader.compressAndUpload(file, path, { square:false });
+        const field = (slot==='old') ? 'removal_photo' : 'new_meter_photo';
+        await tempRef.child(day).child(s).update({
+          [field]: url,
+          daily_seq: seq,
+          worker: session ? session.id : '',
+          worker_name: session ? (session.name||'') : '',
+          updated_at: firebase.database.ServerValue.TIMESTAMP
+        });
+      }
+
+      // ── 시작 ──
+      if (authGetSession()) startApp();
+      else showLogin();
     </script>
 </body>
 </html>
