@@ -197,6 +197,39 @@ function setupNaverMapThemeSync() {
     });
 }
 
+// siteData 캐시-우선 로더(stale-while-revalidate 단순화):
+//   버전 fetch(작음, no-cache) → IDB 캐시와 비교 → 같으면 IDB raw 재사용(11MB 재다운로드 0),
+//   다르면(또는 캐시 없음/IDB 불가) 풀 fetch + IDB 갱신. 어떤 실패도 풀 fetch로 폴백(누락 금지).
+//   ★버전 = jongno-site-data.json의 sha256(콘텐츠 해시) → 데이터 바뀌면 자동 무효화.
+//     데이터 변경 후 반드시 `python3 scripts/gen_jongno_site_version.py` 실행.
+async function loadSiteDataCached(file) {
+    let ver = null;
+    try {
+        const vr = await fetch('./data/jongno-site-data.version.json', { cache: 'no-cache' });
+        if (vr.ok) ver = (await vr.json()).version;
+    } catch (e) { /* 버전 못 받으면 캐시 못 쓰고 풀 fetch */ }
+
+    if (ver) {
+        try {
+            const cached = await idbGet('jongno-site-data');
+            if (cached && cached.version === ver && typeof cached.text === 'string') {
+                console.log('[siteData] 캐시 히트(IDB) — 재다운로드 0, ver', ver);
+                return JSON.parse(cached.text);
+            }
+        } catch (e) { /* IDB 실패 → 풀 fetch */ }
+    }
+
+    const r = await fetch(file, { cache: 'no-cache' });
+    const text = r.ok ? await r.text() : '[]';
+    if (ver) {
+        try {
+            await idbSet('jongno-site-data', { version: ver, text });
+            console.log('[siteData] 풀 fetch + IDB 캐시 갱신, ver', ver);
+        } catch (e) { console.warn('[siteData] IDB 저장 실패(무시, 동작엔 영향 없음):', e); }
+    }
+    return JSON.parse(text);
+}
+
 // ── 지도 초기화 ──────────────────────────────────────────────────
 async function initMap() {
     try {
@@ -217,10 +250,9 @@ async function initMap() {
     // 지도 이동/줌 변경 시 현재 뷰 저장
     attachMapViewSaveListener();
 
-    // 로컬 JSON에서 현장 데이터 로드
+    // 현장 데이터 로드 — IndexedDB 캐시-우선(아이폰 사파리 PWA 재진입 시 11MB 재다운로드 방지)
     try {
-        const res = await fetch('./data/jongno-site-data.json', { cache: 'force-cache' });  // 페이지 네비(map↔stats) 재다운로드 방지
-        sampleData = await res.json();
+        sampleData = await loadSiteDataCached('./data/jongno-site-data.json');
     } catch (e) {
         console.error('[siteData] 로드 실패:', e);
         sampleData = [];
@@ -233,12 +265,16 @@ async function initMap() {
     initHideDoneFilter();
     initPhaseFilter();
     updateCheckdayFilterVisibility();
-    // workStatus(완료 포함)를 Firebase에서 먼저 받은 뒤 마커 생성 → 완료가 첫 화면부터 표시
-    // (이전: loadMarkers를 먼저 그려서 첫 로드 시 완료 미반영 → 필터를 한 번 거쳐야 보이던 버그)
+    // ★즉시 렌더(렌더-우선): siteData(IDB) + workStatus 미러(loadStatusLocal, 완료 포함)로 마커를 먼저 그림.
+    //   아이폰 PWA 재진입 시 "빈 화면→Firebase 응답 후 마커"의 빈 화면 구간 제거.
+    //   미러는 마지막 FB 동기화 스냅샷 → 완료 첫 화면 표시(빈 렌더 아님). Firebase가 권위로 곧 갱신.
+    buildAddrCandidates();
+    renderViewport();
+    // Firebase = 권위. 첫 콜백이 workStatus를 정확한 FB 집합으로 교체 → 재색칠로 미러 보정.
     await initFirebase();
     buildAddrCandidates();
     // bounds 준비됐으면 즉시, 아니면 첫 idle(attachMapViewSaveListener)이 렌더 — 새로고침 직후 빈 지도 방지
-    renderViewport();
+    refreshAllMarkers();
 
     // 마커 모드 — admin이 변경 시 Firebase 통해 모든 사용자에게 동기화
     if (typeof subscribeMarkerMode === 'function') {
