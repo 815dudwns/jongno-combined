@@ -287,7 +287,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.9</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.10</div>
 
     <!-- 숫자 키패드 (검침값 입력) -->
     <div class="kp-bg" id="kp">
@@ -608,7 +608,8 @@
       //    결과는 네이티브가 window.__onNativeScan(rawValue) 호출(취소/실패=빈문자열). 브라우저는 웹 폴백.
       async function handleScanResult(raw, localSeq){
         if (!raw){ return; }  // 취소/실패
-        const parsed = (typeof parseValue === 'function') ? parseValue(String(raw).replace(/\*/g,'')) : { value: raw, value2: '' };
+        // 메인앱과 동일: raw 그대로 parseValue (내부에서 * / 다중포맷 처리 — 임의 가공 금지)
+        const parsed = (typeof parseValue === 'function') ? parseValue(String(raw)) : { value: raw, value2: '' };
         const meterId = String(parsed.value || '').slice(0,11);
         let mfg = ''; const v2 = String(parsed.value2 || '');
         if (/^\d{6}$/.test(v2)) mfg = v2.slice(0,4)+'-'+v2.slice(4,6);
@@ -642,9 +643,18 @@
           const bbox = await LcdYolo.detect(file);
           if (bbox && bbox.x0 != null){
             await saveTempExtra(s, { removal_lcd_region: { x0:bbox.x0, y0:bbox.y0, x1:bbox.x1, y1:bbox.y1 } });
-            $('yolo-tag').textContent = 'LCD 위치 자동검출됨';
+            // 검출 박스를 철거 사진 미리보기에 그려서 "어디 잡혔는지" 보이게(원본은 그대로 업로드됨)
+            try {
+              const bmp = await createImageBitmap(file);
+              const cv = document.createElement('canvas'); cv.width = bmp.width; cv.height = bmp.height;
+              const cx = cv.getContext('2d'); cx.drawImage(bmp, 0, 0);
+              cx.lineWidth = Math.max(6, Math.round(bmp.width * 0.012)); cx.strokeStyle = '#34d399';
+              cx.strokeRect(bbox.x0*bmp.width, bbox.y0*bmp.height, (bbox.x1-bbox.x0)*bmp.width, (bbox.y1-bbox.y0)*bmp.height);
+              $('img-old').src = cv.toDataURL('image/jpeg', 0.85);
+            } catch(e){ console.warn('[YOLO 박스그리기]', e); }
+            $('yolo-tag').textContent = 'LCD 위치 검출됨 (초록 박스)';
           } else { $('yolo-tag').textContent = 'LCD 못 찾음 (수동 확인)'; }
-        } catch(e){ console.warn('[YOLO]', e); $('yolo-tag').textContent = ''; }
+        } catch(e){ console.warn('[YOLO]', e); $('yolo-tag').textContent = 'LCD 검출 실패: ' + (e && e.message ? e.message : e); }
       }
 
       // seq 변경 시 부가 입력 복원/초기화
