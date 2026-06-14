@@ -16,6 +16,10 @@
     <script src="js/config.js?v=snap2"></script>
     <script src="js/auth.js?v=snap2"></script>
     <script src="js/photo-uploader.js?v=snap2"></script>
+    <script src="js/awms-parseValue.js?v=snap-qr"></script>
+    <script src="js/qr-scanner.js?v=snap-qr"></script>
+    <script src="js/lcd-crop.js?v=snap-yolo"></script>
+    <!-- YOLO(onnxruntime+lcd-yolo)는 무거워서 옵션 ON 시 지연 로드(loadYolo) -->
     <style>
       :root{
         --bg:#0f1720; --card:#172230; --ink:#f2f6fb; --ink-2:#aab8c8;
@@ -102,6 +106,46 @@
         background:#000c; color:#fff; font-size:17px; font-weight:700; padding:12px 20px;
         border-radius:12px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:60;}
       .toast.show{opacity:1;}
+
+      /* 설정(톱니) 버튼 — 새로고침 옆 */
+      .gear{background:var(--btn); border:1px solid var(--line); color:var(--ink);
+        font-size:15px; font-weight:700; padding:8px 14px; border-radius:10px; cursor:pointer; margin-left:8px;}
+
+      /* 옵션 화면 (전체) */
+      .opt-bg{position:fixed; inset:0; background:var(--bg); z-index:90; display:none;
+        flex-direction:column; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); overflow-y:auto;}
+      .opt-bg.open{display:flex;}
+      .opt-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;}
+      .opt-head h2{font-size:22px; font-weight:900; margin:0;}
+      .opt-close{background:var(--btn); border:1px solid var(--line); color:var(--ink);
+        font-size:17px; font-weight:800; padding:10px 18px; border-radius:12px; cursor:pointer;}
+      .opt-row{display:flex; align-items:center; justify-content:space-between; gap:12px;
+        background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 16px; margin-bottom:12px;}
+      .opt-row .label{font-size:20px; font-weight:800;}
+      .opt-row .desc{font-size:14px; color:var(--ink-2); font-weight:600; margin-top:4px;}
+      .sw{flex:0 0 auto; width:74px; height:42px; border-radius:21px; background:var(--btn);
+        border:2px solid var(--line); position:relative; cursor:pointer; transition:background .15s;}
+      .sw .knob{position:absolute; top:3px; left:3px; width:32px; height:32px; border-radius:50%;
+        background:var(--ink-2); transition:left .15s, background .15s;}
+      .sw.on{background:var(--mint-d); border-color:var(--mint-d);}
+      .sw.on .knob{left:35px; background:#04130d;}
+
+      /* 철거지침 입력 (옵션 ON 시) */
+      .reading{margin-top:12px; display:none;}
+      .reading.show{display:block;}
+      .reading label{font-size:17px; font-weight:800; color:var(--ink-2); display:block; margin-bottom:8px;}
+      .reading input{width:100%; min-height:64px; font-size:30px; font-weight:900; letter-spacing:.04em;
+        text-align:center; background:#0d141d; border:2px solid var(--line); border-radius:14px;
+        color:var(--ink); padding:0 14px;}
+      .reading .yolo-tag{font-size:14px; font-weight:700; color:var(--mint); margin-top:6px; min-height:18px;}
+
+      /* QR 버튼 (옵션 ON 시) */
+      .qr-row{display:none; margin-bottom:14px;}
+      .qr-row.show{display:block;}
+      .qr-btn{width:100%; min-height:66px; font-size:21px; font-weight:800; cursor:pointer;
+        background:var(--btn); color:var(--ink); border:2px solid var(--mint-d); border-radius:16px;}
+      .qr-btn:active{transform:scale(.98);}
+      .qr-result{text-align:center; font-size:17px; font-weight:800; color:var(--mint); margin-top:8px; min-height:20px;}
     </style>
 </head>
 <body>
@@ -115,7 +159,39 @@
 
     <div class="top">
         <span class="who" id="who">-</span>
-        <span class="refresh" id="refresh">새로고침</span>
+        <span>
+          <span class="refresh" id="refresh">새로고침</span>
+          <span class="gear" id="gear">설정</span>
+        </span>
+    </div>
+
+    <!-- 옵션 화면 -->
+    <div class="opt-bg" id="opt">
+        <div class="opt-head">
+            <h2>설정</h2>
+            <button class="opt-close" id="opt-close">닫기</button>
+        </div>
+        <div class="opt-row">
+            <div>
+                <div class="label">철거 검침값 입력</div>
+                <div class="desc">철거 사진 아래 검침값(숫자) 칸을 켭니다</div>
+            </div>
+            <div class="sw" id="sw-reading" data-opt="reading"><span class="knob"></span></div>
+        </div>
+        <div class="opt-row">
+            <div>
+                <div class="label">QR 스캔(신계기)</div>
+                <div class="desc">새 계기 QR로 계기번호·제조월을 함께 보냅니다</div>
+            </div>
+            <div class="sw" id="sw-qr" data-opt="qr"><span class="knob"></span></div>
+        </div>
+        <div class="opt-row">
+            <div>
+                <div class="label">LCD 자동검출(YOLO)</div>
+                <div class="desc">철거 사진의 계기판 위치를 자동으로 잡습니다</div>
+            </div>
+            <div class="sw" id="sw-yolo" data-opt="yolo"><span class="knob"></span></div>
+        </div>
     </div>
 
     <!-- 철거 사진 -->
@@ -127,11 +203,22 @@
             <span class="badge" id="bd-old"></span>
             <div class="spin">저장 중...</div>
         </div>
+        <!-- 철거 검침값 (옵션) -->
+        <div class="reading" id="reading-wrap">
+            <label>철거 검침값 (kWh)</label>
+            <input type="text" id="reading-val" inputmode="numeric" placeholder="예: 12345">
+            <div class="yolo-tag" id="yolo-tag"></div>
+        </div>
     </div>
 
     <!-- 신설 사진 -->
     <div class="shot">
         <div class="shot-title">신설 사진 <span class="shot-status" id="st-new"></span></div>
+        <!-- QR (옵션) -->
+        <div class="qr-row" id="qr-row">
+            <button class="qr-btn" id="qr-btn">QR 스캔 (새 계기)</button>
+            <div class="qr-result" id="qr-result"></div>
+        </div>
         <div class="shot-box" id="box-new" data-slot="new">
             <span class="hint">탭해서 사진 넣기</span>
             <img id="img-new" alt="신설 사진">
@@ -163,7 +250,26 @@
     <input class="hidden-input" type="file" accept="image/*" capture="environment" id="in-cam">
     <input class="hidden-input" type="file" accept="image/*" id="in-alb">
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.6</div>
+    <!-- QR 스캔 오버레이 (map.html과 동일 — qr-scanner.js가 이 DOM 사용) -->
+    <div id="qr-scan-overlay" style="display:none;position:fixed;inset:0;background:black;z-index:3000;flex-direction:column;">
+      <div style="display:flex;align-items:center;padding:10px 14px;background:#111;color:white;gap:8px;">
+        <span id="qr-cam-label" style="font-size:12px;font-weight:600;white-space:nowrap;">카메라</span>
+        <select id="qr-cam-select" style="flex:1;min-width:140px;padding:8px 10px;background:#374151;color:white;border:1.5px solid #6b7280;border-radius:6px;font-size:13px;font-weight:600;appearance:auto;-webkit-appearance:auto;"><option>카메라 로드 중...</option></select>
+        <button id="qr-close-btn" style="padding:6px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">×</button>
+      </div>
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;background:black;overflow:hidden;">
+        <div id="qr-reader" style="width:min(100vw, 100%); aspect-ratio:1/1; max-height:100%; background:black; position:relative; overflow:hidden;"></div>
+      </div>
+      <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
+      <div style="display:flex;gap:6px;padding:8px;background:#111;">
+        <button id="qr-switch-btn" style="display:none;flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">카메라 전환</button>
+        <button id="qr-zoom-out" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">- 줌</button>
+        <button id="qr-zoom-in" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">+ 줌</button>
+        <button id="qr-torch-btn" style="display:none;flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">손전등</button>
+      </div>
+    </div>
+
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.7</div>
 
     <div class="toast" id="toast"></div>
 
@@ -260,6 +366,7 @@
         // 이미 올라간 사진 미리보기 (있으면)
         applyExistingPhoto('old', (hit && (hit.entry.old_meter_photo || photoFromRemoval(hit.entry))) || (tmp && tmp.removal_photo));
         applyExistingPhoto('new', (hit && hit.entry.new_meter_photo) || (tmp && tmp.new_meter_photo));
+        renderSeqExtras(seq);  // 검침값/QR/YOLO 부가 입력 복원(옵션 ON시)
       }
       function photoFromRemoval(entry){
         const rp = entry.removal_photos;
@@ -312,6 +419,7 @@
           await autoSave(slot, file, localSeq);
           st.textContent = '저장됨'; st.className = 'shot-status saved';
           $('bd-'+slot).textContent = localSeq + '번';
+          if (slot === 'old' && _opt.yolo) runYoloOnOld(file, localSeq);  // 철거 LCD 자동검출(옵션, 비동기)
           await loadToday();   // 방금 저장분 반영(번호 점유/표시)
         } catch (e) {
           console.error('[autoSave]', e);
@@ -378,7 +486,117 @@
         }
       }
 
+      // ════════════ 옵션(설정) + 부가기능: 철거지침 / QR / YOLO ════════════
+      const OPT_KEYS = { reading:'snap_opt_reading', qr:'snap_opt_qr', yolo:'snap_opt_yolo' };
+      const _opt = { reading:false, qr:false, yolo:false };
+      function loadOpts(){ for (const k in OPT_KEYS){ _opt[k] = localStorage.getItem(OPT_KEYS[k]) === '1'; } }
+      function applyOpts(){
+        $('reading-wrap').classList.toggle('show', _opt.reading);
+        $('qr-row').classList.toggle('show', _opt.qr);
+        $('sw-reading').classList.toggle('on', _opt.reading);
+        $('sw-qr').classList.toggle('on', _opt.qr);
+        $('sw-yolo').classList.toggle('on', _opt.yolo);
+        if (_opt.yolo) loadYolo().then(()=>{ try{ LcdYolo.preload(); }catch(e){} });
+      }
+      $('gear').onclick = ()=> $('opt').classList.add('open');
+      $('opt-close').onclick = ()=> $('opt').classList.remove('open');
+      document.querySelectorAll('.sw[data-opt]').forEach(sw=>{
+        sw.onclick = ()=>{
+          const k = sw.dataset.opt; _opt[k] = !_opt[k];
+          localStorage.setItem(OPT_KEYS[k], _opt[k] ? '1' : '0');
+          applyOpts(); renderSeqExtras(seq);
+        };
+      });
+
+      // YOLO 지연 로드 (ort + lcd-yolo) — 토글 ON 첫 1회만
+      let _yoloLoading = null;
+      function loadYolo(){
+        if (typeof LcdYolo !== 'undefined') return Promise.resolve();
+        if (_yoloLoading) return _yoloLoading;
+        _yoloLoading = new Promise((res)=>{
+          const add = (src, cb)=>{ const s=document.createElement('script'); s.src=src; s.onload=cb; s.onerror=cb; document.head.appendChild(s); };
+          add('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js', ()=> add('js/lcd-yolo.js?v=snap-yolo', ()=> res()));
+        });
+        return _yoloLoading;
+      }
+
+      // temp 부가 데이터 저장 (항상 temp 노드 — 메인앱이 흡수, 빈칸만)
+      async function saveTempExtra(s, fields){
+        const day = dayKST();
+        await tempRef.child(day).child(String(s)).update(Object.assign({
+          daily_seq: s,
+          worker: session ? session.id : '',
+          worker_name: session ? (session.name||'') : '',
+          updated_at: firebase.database.ServerValue.TIMESTAMP
+        }, fields));
+      }
+
+      // 철거 검침값 입력 → temp.removal_value
+      $('reading-val').addEventListener('change', async ()=>{
+        const v = $('reading-val').value.trim();
+        if (v === '') return;
+        const localSeq = seq;
+        try { await saveTempExtra(localSeq, { removal_value: Number(v) }); toast('검침값 저장됨 ('+localSeq+'번)'); }
+        catch(e){ console.error('[검침값]', e); toast('검침값 저장 실패'); }
+      });
+
+      // QR 스캔 → 신계기번호 + 제조월 → temp
+      $('qr-btn').onclick = ()=>{
+        if (typeof QrScanner === 'undefined'){ toast('QR 모듈 없음'); return; }
+        const localSeq = seq;
+        QrScanner.show(async (raw)=>{
+          try { QrScanner.stop(); } catch(e){}
+          $('qr-scan-overlay').style.display = 'none';
+          const parsed = (typeof parseValue === 'function') ? parseValue(String(raw).replace(/\*/g,'')) : { value: raw, value2: '' };
+          const meterId = String(parsed.value || '').slice(0,11);
+          let mfg = ''; const v2 = String(parsed.value2 || '');
+          if (/^\d{6}$/.test(v2)) mfg = v2.slice(0,4)+'-'+v2.slice(4,6);
+          if (!meterId){ toast('QR 인식 실패'); return; }
+          try {
+            const f = { new_meter_id: meterId };
+            if (mfg) f.new_meter_mfg_ym = mfg;
+            await saveTempExtra(localSeq, f);
+            $('qr-result').textContent = '새 계기 '+meterId+(mfg?(' / '+mfg):'');
+            toast('계기번호 저장됨 ('+localSeq+'번)');
+          } catch(e){ console.error('[QR저장]', e); toast('QR 저장 실패'); }
+        });
+      };
+      $('qr-close-btn').onclick = ()=>{ try{ QrScanner.stop(); }catch(e){} $('qr-scan-overlay').style.display='none'; };
+
+      // YOLO: 철거 사진 선택 후 LCD 영역 검출 → temp.removal_lcd_region
+      async function runYoloOnOld(file, s){
+        $('yolo-tag').textContent = 'LCD 검출 중...';
+        try {
+          await loadYolo();
+          const bbox = await LcdYolo.detect(file);
+          if (bbox && bbox.x0 != null){
+            await saveTempExtra(s, { removal_lcd_region: { x0:bbox.x0, y0:bbox.y0, x1:bbox.x1, y1:bbox.y1 } });
+            $('yolo-tag').textContent = 'LCD 위치 자동검출됨';
+          } else { $('yolo-tag').textContent = 'LCD 못 찾음 (수동 확인)'; }
+        } catch(e){ console.warn('[YOLO]', e); $('yolo-tag').textContent = ''; }
+      }
+
+      // seq 변경 시 부가 입력 복원/초기화
+      function renderSeqExtras(s){
+        const tmp = tempIndex[s];
+        const entry = seqIndex[s] && seqIndex[s].entry;
+        if (_opt.reading){
+          let rv = '';
+          if (entry && entry.removal_values && entry.removal_values.whme_day != null) rv = entry.removal_values.whme_day;
+          else if (entry && entry.removal_value != null) rv = entry.removal_value;
+          else if (tmp && tmp.removal_value != null) rv = tmp.removal_value;
+          $('reading-val').value = (rv === '' ? '' : String(rv));
+          $('yolo-tag').textContent = (tmp && tmp.removal_lcd_region) ? 'LCD 위치 저장됨' : '';
+        }
+        if (_opt.qr){
+          const mid = (entry && entry.new_meter_id) || (tmp && tmp.new_meter_id) || '';
+          const mfg = (entry && entry.new_meter_mfg_ym) || (tmp && tmp.new_meter_mfg_ym) || '';
+          $('qr-result').textContent = mid ? ('새 계기 '+mid+(mfg?(' / '+mfg):'')) : '';
+        }
+      }
+
       // ── 시작 ──
+      loadOpts(); applyOpts();
       if (authGetSession()) startApp();
       else showLogin();
     </script>

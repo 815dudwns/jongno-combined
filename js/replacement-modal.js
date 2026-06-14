@@ -64,6 +64,7 @@ const RplModal = (() => {
     removalPhotoOriginals = {};
     removalPhotoRegions = {};
     _tempPrefilled = { new: false, rv: null };  // 보조앱 temp 불러옴 추적 초기화(재오픈 누수 방지)
+    _tempPrefilledData = { readingId: null, meterId: false, mfg: false, regionFid: null };
     _pendingTempPath = null;
     _tempDecisions = {};
 
@@ -424,16 +425,22 @@ const RplModal = (() => {
   // _tempPrefilled = 이번 불러옴으로 채운 슬롯 추적(작업번호 바뀌면 비움). 사용자가 직접 찍으면 setPhoto가 추적 해제.
   let _tempPrefillToken = 0;
   let _tempPrefilled = { new: false, rv: null };
+  let _tempPrefilledData = { readingId: null, meterId: false, mfg: false, regionFid: null };  // 불러온 데이터칸 추적
   let _pendingTempPath = null;   // 수락된 temp 경로 — 저장 성공 시 삭제
   let _tempDecisions = {};       // { seq: 'yes'|'no' } 이번 모달의 작업번호별 결정
   function _clearTempPrefilled() {
     if (_tempPrefilled.new) { keepNewPhotoUrl = null; resetPhoto('rpl-new-photo'); _tempPrefilled.new = false; }
     if (_tempPrefilled.rv) { delete keepRemovalPhotoUrls[_tempPrefilled.rv]; resetPhoto(RV_FIELDS[_tempPrefilled.rv].photo); _tempPrefilled.rv = null; }
+    // 불러온 데이터칸 비우기 (사용자가 직접 입력한 칸은 애초에 안 채웠으니 안전)
+    if (_tempPrefilledData.readingId) { const el = document.getElementById(_tempPrefilledData.readingId); if (el) el.value = ''; _tempPrefilledData.readingId = null; }
+    if (_tempPrefilledData.meterId) { const el = document.getElementById('rpl-new-meter-id'); if (el) el.value = ''; _tempPrefilledData.meterId = false; }
+    if (_tempPrefilledData.mfg) { if (typeof loadLastMfgYm === 'function') loadLastMfgYm(); _tempPrefilledData.mfg = false; }
+    if (_tempPrefilledData.regionFid) { delete removalPhotoRegions[_tempPrefilledData.regionFid]; _tempPrefilledData.regionFid = null; }
     _pendingTempPath = null;
   }
   async function prefillTempForSeq(seq) {
     const myToken = ++_tempPrefillToken;
-    _clearTempPrefilled();  // 직전 작업번호의 불러온 사진 제거(사용자 직접 입력분은 setPhoto가 추적해제해 보존)
+    _clearTempPrefilled();  // 직전 작업번호의 불러온 값 제거(사용자 직접 입력분은 setPhoto/빈칸가드로 보존)
     try {
       if (typeof db === 'undefined' || !db) return;
       if (_tempDecisions[seq] === 'no') return;  // 이미 '아니오' → 더 안 물음
@@ -442,39 +449,54 @@ const RplModal = (() => {
       if (myToken !== _tempPrefillToken) return;  // 그 사이 작업번호 또 바뀜 → 무시
       if (!tmp) return;
 
-      // 채울 수 있는 빈 슬롯 판별 (이미 채워진 칸·사용자 입력칸은 건드리지 않음)
-      const canNew = !!(tmp.new_meter_photo && !newPhotoBlob && !keepNewPhotoUrl);
-      let firstActive = null;
-      if (tmp.removal_photo) {
-        const clas = currentMeter ? (currentMeter.계약종별 || currentMeter.CNTR_CLAS_CD || '') : '';
-        const pwr = currentMeter ? (currentMeter.계약전력 || 0) : 0;
-        const bf = (typeof readingFieldsFor === 'function') ? readingFieldsFor(clas, pwr) : ['whme_day'];
-        const fa = (ALL_KNOWN_FIELDS.filter(f => bf.includes(f))[0]) || 'whme_day';
-        if (!removalPhotoBlobs[fa] && !keepRemovalPhotoUrls[fa]) firstActive = fa;
-      }
-      const canRv = !!firstActive;
-      if (!canNew && !canRv) return;  // 채울 빈 칸 없음 → 질문 안 함
+      // firstActive(대표 철거칸) — 계약종별 기준, 기본 whme_day
+      const clas = currentMeter ? (currentMeter.계약종별 || currentMeter.CNTR_CLAS_CD || '') : '';
+      const pwr = currentMeter ? (currentMeter.계약전력 || 0) : 0;
+      const bf = (typeof readingFieldsFor === 'function') ? readingFieldsFor(clas, pwr) : ['whme_day'];
+      const firstActive = (ALL_KNOWN_FIELDS.filter(f => bf.includes(f))[0]) || 'whme_day';
+      const readingId = RV_FIELDS[firstActive] ? RV_FIELDS[firstActive].input : 'rpl-rv-whme-day';
+      const meterIdEl = document.getElementById('rpl-new-meter-id');
+
+      // 채울 수 있는 빈 항목 판별 (이미 채워진 칸·사용자 입력칸은 안 건드림)
+      const canNewPhoto = !!(tmp.new_meter_photo && !newPhotoBlob && !keepNewPhotoUrl);
+      const canRvPhoto  = !!(tmp.removal_photo && !removalPhotoBlobs[firstActive] && !keepRemovalPhotoUrls[firstActive]);
+      const rdEl = document.getElementById(readingId);
+      const canReading  = !!(tmp.removal_value != null && rdEl && !String(rdEl.value || '').trim());
+      const canMeterId  = !!(tmp.new_meter_id && meterIdEl && !String(meterIdEl.value || '').trim());
+      const canMfg      = !!(tmp.new_meter_mfg_ym);
+      const canRegion   = !!(tmp.removal_lcd_region && !removalPhotoRegions[firstActive]);
+      if (!canNewPhoto && !canRvPhoto && !canReading && !canMeterId && !canRegion) return;  // 채울 것 없음
 
       // 결정 받기 — 이번 모달서 이 작업번호 처음이면 confirm(오/예스)
       let decision = _tempDecisions[seq];
       if (!decision) {
         const parts = [];
-        if (canRv) parts.push('철거 계기판');
-        if (canNew) parts.push('새 계기');
+        if (canRvPhoto) parts.push('철거사진');
+        if (canNewPhoto) parts.push('새계기사진');
+        if (canReading) parts.push('검침값');
+        if (canMeterId) parts.push('계기번호');
         decision = confirm(
-          `보조앱에 작업번호 ${seq}번으로 올린 ${parts.join('·')} 사진이 있어요.\n\n` +
+          `보조앱에 작업번호 ${seq}번으로 올린 ${parts.join('·')}이(가) 있어요.\n\n` +
           `이 계기 교체 건으로 불러올까요?\n` +
-          `(아니오 = 안 쓰고 직접 촬영)`
+          `(아니오 = 안 쓰고 직접 입력)`
         ) ? 'yes' : 'no';
         _tempDecisions[seq] = decision;
       }
       if (decision !== 'yes') return;
 
-      // 수락 → 빈 칸 채우기 + 저장 시 삭제 예약
-      if (canNew) { showPhotoUrl('rpl-new-photo', tmp.new_meter_photo); keepNewPhotoUrl = tmp.new_meter_photo; _tempPrefilled.new = true; }
-      if (canRv)  { showPhotoUrl(RV_FIELDS[firstActive].photo, tmp.removal_photo); keepRemovalPhotoUrls[firstActive] = tmp.removal_photo; _tempPrefilled.rv = firstActive; }
+      // 수락 → 빈 칸만 채우기 + 저장 시 삭제 예약
+      if (canNewPhoto) { showPhotoUrl('rpl-new-photo', tmp.new_meter_photo); keepNewPhotoUrl = tmp.new_meter_photo; _tempPrefilled.new = true; }
+      if (canRvPhoto)  { showPhotoUrl(RV_FIELDS[firstActive].photo, tmp.removal_photo); keepRemovalPhotoUrls[firstActive] = tmp.removal_photo; _tempPrefilled.rv = firstActive; }
+      if (canReading)  { rdEl.value = String(tmp.removal_value); _tempPrefilledData.readingId = readingId; }
+      if (canMeterId)  { meterIdEl.value = String(tmp.new_meter_id); _tempPrefilledData.meterId = true; }
+      if (canMfg) {
+        const [yy, mm] = String(tmp.new_meter_mfg_ym).split('-');
+        const ysel = document.getElementById('rpl-mfg-y'), msel = document.getElementById('rpl-mfg-m');
+        if (ysel && msel && yy && mm) { ysel.value = yy; msel.value = mm; _tempPrefilledData.mfg = true; }
+      }
+      if (canRegion)   { removalPhotoRegions[firstActive] = tmp.removal_lcd_region; _tempPrefilledData.regionFid = firstActive; }
       _pendingTempPath = `tempPhotos/jongno/${day}/${seq}`;
-      toast(`보조앱 사진을 불러왔어요 (작업번호 ${seq}번)`);
+      toast(`보조앱 입력을 불러왔어요 (작업번호 ${seq}번)`);
     } catch (e) { console.warn('[보조앱 temp] 실패(무시)', e); }
   }
 
