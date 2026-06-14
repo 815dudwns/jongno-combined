@@ -10,13 +10,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="종로 사진">
     <title>종로 사진 - 보조앱</title>
-    <!-- 종로 자산 재사용 (같은 ami-jongno Firebase) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-    <script src="js/config.js?v=snap1"></script>
-    <script src="js/auth.js?v=snap1"></script>
-    <script src="js/photo-uploader.js?v=snap1"></script>
+    <script src="js/config.js?v=snap2"></script>
+    <script src="js/auth.js?v=snap2"></script>
+    <script src="js/photo-uploader.js?v=snap2"></script>
     <style>
       :root{
         --bg:#0f1720; --card:#172230; --ink:#f2f6fb; --ink-2:#aab8c8;
@@ -29,12 +28,12 @@
         font-size:18px; -webkit-user-select:none; user-select:none;}
       body{padding:14px 14px calc(14px + env(safe-area-inset-bottom));}
 
-      /* 헤더 */
       .top{display:flex; align-items:center; justify-content:space-between;
         font-size:16px; color:var(--ink-2); padding:4px 2px 12px;}
       .top .who{font-weight:800; color:var(--ink);}
+      .top .refresh{background:var(--btn); border:1px solid var(--line); color:var(--ink);
+        font-size:15px; font-weight:700; padding:8px 14px; border-radius:10px; cursor:pointer;}
 
-      /* 저장 위치(시퀀스) */
       .seq-wrap{background:var(--card); border:1px solid var(--line); border-radius:18px;
         padding:16px 14px 18px; margin-bottom:14px;}
       .seq-label{text-align:center; font-size:17px; font-weight:800; color:var(--ink-2);
@@ -51,7 +50,6 @@
       .seq-meter .no{color:var(--mint);}
       .seq-meter .none{color:var(--amber);}
 
-      /* 사진 박스 */
       .shot{background:var(--card); border:1px solid var(--line); border-radius:18px;
         padding:14px; margin-bottom:14px;}
       .shot-title{font-size:20px; font-weight:800; margin:0 2px 10px; display:flex; justify-content:space-between; align-items:center;}
@@ -74,7 +72,6 @@
         display:none; align-items:center; justify-content:center; font-size:18px; font-weight:800; color:#fff;}
       .shot-box.busy .spin{display:flex;}
 
-      /* 팝업 (촬영/앨범) */
       .sheet-bg{position:fixed; inset:0; background:rgba(0,0,0,.55); display:none;
         align-items:flex-end; justify-content:center; z-index:50;}
       .sheet-bg.open{display:flex;}
@@ -90,7 +87,6 @@
       .sheet-btn:active{transform:scale(.98);}
       .hidden-input{position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;}
 
-      /* 로그인 오버레이 (자체 — login.html 안 거침, 지도로 안 샘) */
       .login-bg{position:fixed; inset:0; background:var(--bg); z-index:100;
         display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px;}
       .login-bg.hide{display:none;}
@@ -109,7 +105,6 @@
     </style>
 </head>
 <body>
-    <!-- 자체 로그인 오버레이 -->
     <div class="login-bg" id="login">
         <h2>종로 사진 보조</h2>
         <input type="text" id="lg-id" placeholder="아이디" autocomplete="username" autocapitalize="none">
@@ -119,19 +114,8 @@
     </div>
 
     <div class="top">
-        <span>종로 사진 보조</span>
         <span class="who" id="who">-</span>
-    </div>
-
-    <!-- 저장 위치 (데일리 시퀀스) -->
-    <div class="seq-wrap">
-        <div class="seq-label">저장 위치 (데일리 시퀀스)</div>
-        <div class="seq-row">
-            <div class="seq-btn" id="seq-prev">이전</div>
-            <div class="seq-num" id="seq-num">1</div>
-            <div class="seq-btn" id="seq-next">다음</div>
-        </div>
-        <div class="seq-meter" id="seq-meter"><span class="none">계기 미할당 (보관 후 자동 연결)</span></div>
+        <span class="refresh" id="refresh">새로고침</span>
     </div>
 
     <!-- 철거 사진 -->
@@ -156,7 +140,17 @@
         </div>
     </div>
 
-    <!-- 사진 선택 팝업 -->
+    <!-- 작업번호 (저장 위치) -->
+    <div class="seq-wrap">
+        <div class="seq-label">작업번호</div>
+        <div class="seq-row">
+            <div class="seq-btn" id="seq-prev">이전</div>
+            <div class="seq-num" id="seq-num">1</div>
+            <div class="seq-btn" id="seq-next">다음</div>
+        </div>
+        <div class="seq-meter" id="seq-meter"><span class="none">계기 미할당 (보관 후 자동 연결)</span></div>
+    </div>
+
     <div class="sheet-bg" id="sheet">
         <div class="sheet">
             <h3 id="sheet-title">사진 추가</h3>
@@ -169,51 +163,126 @@
     <input class="hidden-input" type="file" accept="image/*" capture="environment" id="in-cam">
     <input class="hidden-input" type="file" accept="image/*" id="in-alb">
 
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.1</div>
+
     <div class="toast" id="toast"></div>
 
     <script>
       const $ = id => document.getElementById(id);
 
-      // ── Firebase init (ami-jongno 공유) ──
+      // ── Firebase (ami-jongno 공유) ──
       firebase.initializeApp(firebaseConfig);
       const db = firebase.database();
-      const tempRef = db.ref('tempPhotos/jongno');
+      const statusRef = db.ref('workStatus/jongno');
+      const tempRef   = db.ref('tempPhotos/jongno');
 
-      // 오늘(KST) YYYY-MM-DD
       function dayKST(){
         return new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Seoul',
           year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date());
       }
+      function msToDayKST(ms){
+        return new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Seoul',
+          year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date(ms));
+      }
 
       let session = null;
       let seq = 1;
+      let usedSeqs = new Set();   // 오늘 이미 쓰인 작업번호(계기할당 + 임시보관)
+      let seqIndex = {};          // 작업번호 → {addr, meterId, entry} (이미 계기 할당된 것)
+      let tempIndex = {};         // 작업번호 → temp 보관 {removal_photo, new_meter_photo}
 
-      // ── 자체 로그인 (login.html 안 거침 → 지도로 안 샘) ──
+      // ── 자체 로그인 ──
       function showLogin(){ $('login').classList.remove('hide'); }
       function hideLogin(){ $('login').classList.add('hide'); }
       function doLogin(){
-        const id = $('lg-id').value.trim();
-        const pw = $('lg-pw').value;
-        const r = authLogin(id, pw);
+        const r = authLogin($('lg-id').value.trim(), $('lg-pw').value);
         if (r.ok){ startApp(); }
         else { $('lg-err').textContent = r.error || '로그인 실패'; $('lg-pw').value=''; $('lg-pw').focus(); }
       }
       $('lg-btn').onclick = doLogin;
       $('lg-pw').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
 
-      function startApp(){
+      async function startApp(){
         session = authGetSession();
         $('who').textContent = session ? (session.name || session.id) : '-';
         hideLogin();
+        await loadToday();
+        seq = nextEmptySeq();
         renderSeq();
       }
 
-      // ── 시퀀스 = 저장 위치 ──
-      function renderSeq(){ $('seq-num').textContent = seq; }
+      // ── 오늘 데이터 로드: 작업번호별 계기/보관 인덱싱 + 빈번호 계산 ──
+      async function loadToday(){
+        const today = dayKST();
+        usedSeqs = new Set(); seqIndex = {}; tempIndex = {};
+        try {
+          const snap = await statusRef.once('value');
+          const ws = snap.val() || {};
+          for (const addr in ws){
+            const rl = ws[addr] && ws[addr].replacement_list;
+            if (!rl) continue;
+            for (const mid in rl){
+              const r = rl[mid];
+              if (!r || typeof r.replaced_at !== 'number') continue;
+              if (msToDayKST(r.replaced_at) !== today) continue;       // 오늘 것만
+              if (typeof r.daily_seq === 'number'){
+                usedSeqs.add(r.daily_seq);
+                seqIndex[r.daily_seq] = { addr, meterId: r.old_meter_id || mid, entry: r };
+              }
+            }
+          }
+          // 임시보관함(사진만, 계기 미할당)도 번호 점유
+          const tsnap = await tempRef.child(today).once('value');
+          const tv = tsnap.val() || {};
+          for (const s in tv){ usedSeqs.add(Number(s)); tempIndex[Number(s)] = tv[s]; }
+        } catch(e){ console.error('[loadToday]', e); toast('데이터 로드 실패 — 새로고침'); }
+      }
+
+      function nextEmptySeq(){
+        let max = 0; usedSeqs.forEach(n => { if (n > max) max = n; });
+        for (let i=1; i<=max; i++){ if (!usedSeqs.has(i)) return i; }
+        return max + 1;
+      }
+
+      // ── 작업번호 표시 + 그 번호의 계기/사진 반영 ──
+      function renderSeq(){
+        $('seq-num').textContent = seq;
+        const hit = seqIndex[seq];
+        const tmp = tempIndex[seq];
+        const m = $('seq-meter');
+        if (hit){
+          m.innerHTML = '<span class="no">계기 ' + hit.meterId + ' (할당됨)</span>';
+        } else if (tmp){
+          m.innerHTML = '<span class="none">보관 중 (계기 미할당)</span>';
+        } else {
+          m.innerHTML = '<span class="none">계기 미할당 (보관 후 자동 연결)</span>';
+        }
+        // 이미 올라간 사진 미리보기 (있으면)
+        applyExistingPhoto('old', (hit && (hit.entry.old_meter_photo || photoFromRemoval(hit.entry))) || (tmp && tmp.removal_photo));
+        applyExistingPhoto('new', (hit && hit.entry.new_meter_photo) || (tmp && tmp.new_meter_photo));
+      }
+      function photoFromRemoval(entry){
+        const rp = entry.removal_photos;
+        if (rp && typeof rp === 'object'){ const k = Object.keys(rp)[0]; if (k) return rp[k]; }
+        return null;
+      }
+      function applyExistingPhoto(slot, url){
+        const box = $('box-'+slot), img = $('img-'+slot), st = $('st-'+slot);
+        if (url){
+          img.src = url; box.classList.add('has');
+          st.textContent = '있음'; st.className = 'shot-status saved';
+          $('bd-'+slot).textContent = seq + '번';
+        } else {
+          img.removeAttribute('src'); box.classList.remove('has');
+          st.textContent = ''; st.className = 'shot-status';
+        }
+      }
+
       $('seq-prev').onclick = () => { if (seq > 1) seq--; renderSeq(); };
       $('seq-next').onclick = () => { seq++; renderSeq(); };
+      $('refresh').onclick = async () => { await loadToday(); renderSeq(); toast('새로고침 완료'); };
 
-      // ── 사진 박스 탭 → 팝업 ──
+      // ── 팝업 ──
       let sheetSlot = null;
       function openSheet(slot){
         sheetSlot = slot;
@@ -235,16 +304,18 @@
       async function onPick(slot, file){
         if (!file) return;
         const box = $('box-'+slot), img = $('img-'+slot), st = $('st-'+slot);
+        const localSeq = seq;
         img.src = URL.createObjectURL(file);
-        box.classList.add('has', 'busy');
+        box.classList.add('has','busy');
         st.textContent = '저장 중'; st.className = 'shot-status saving';
         try {
-          await autoSave(slot, file);
+          await autoSave(slot, file, localSeq);
           st.textContent = '저장됨'; st.className = 'shot-status saved';
-          $('bd-'+slot).textContent = seq + '번 보관';
+          $('bd-'+slot).textContent = localSeq + '번';
+          await loadToday();   // 방금 저장분 반영(번호 점유/표시)
         } catch (e) {
           console.error('[autoSave]', e);
-          st.textContent = '저장 실패 (다시 시도)'; st.className = 'shot-status err';
+          st.textContent = '저장 실패 (다시)'; st.className = 'shot-status err';
           toast('저장 실패 — 다시 눌러 주세요');
         } finally {
           box.classList.remove('busy');
@@ -253,21 +324,31 @@
       $('in-cam').onchange = e => { const f=e.target.files[0]; e.target.value=''; if(sheetSlot) onPick(sheetSlot, f); };
       $('in-alb').onchange = e => { const f=e.target.files[0]; e.target.value=''; if(sheetSlot) onPick(sheetSlot, f); };
 
-      // ── 자동 저장: 압축+업로드 → tempPhotos/jongno/{날짜}/{seq} ──
-      //   계기 미할당이라 임시 보관함에. 나중에 메인앱이 같은 seq에 계기 할당하면 자동 결합.
-      async function autoSave(slot, file){
+      // ── 자동 저장: 계기 할당됐으면 그 계기에 직접(빈칸만), 아니면 임시보관함 ──
+      async function autoSave(slot, file, s){
         const day = dayKST();
-        const s = String(seq);
         const path = `replacements/_temp/${day}/${s}/${slot}.jpg`;
         const { url } = await PhotoUploader.compressAndUpload(file, path, { square:false });
-        const field = (slot==='old') ? 'removal_photo' : 'new_meter_photo';
-        await tempRef.child(day).child(s).update({
-          [field]: url,
-          daily_seq: seq,
-          worker: session ? session.id : '',
-          worker_name: session ? (session.name||'') : '',
-          updated_at: firebase.database.ServerValue.TIMESTAMP
-        });
+        const hit = seqIndex[s];
+        if (hit){
+          // 시나리오 A: 이미 할당된 계기에 직접. 빈칸만 채움(덮어쓰기 금지)
+          const node = statusRef.child(hit.addr).child('replacement_list').child(hit.meterId);
+          if (slot === 'old'){
+            if (!hit.entry.old_meter_photo) await node.child('old_meter_photo').set(url);
+          } else {
+            if (!hit.entry.new_meter_photo) await node.child('new_meter_photo').set(url);
+          }
+        } else {
+          // 시나리오 B: 임시보관함. 나중에 메인앱이 같은 번호에 계기 할당 시 결합
+          const field = (slot==='old') ? 'removal_photo' : 'new_meter_photo';
+          await tempRef.child(day).child(String(s)).update({
+            [field]: url,
+            daily_seq: s,
+            worker: session ? session.id : '',
+            worker_name: session ? (session.name||'') : '',
+            updated_at: firebase.database.ServerValue.TIMESTAMP
+          });
+        }
       }
 
       // ── 시작 ──
