@@ -180,6 +180,7 @@
         <span>
           <span class="refresh" id="refresh">새로고침</span>
           <span class="gear" id="gear">설정</span>
+          <span class="gear" id="logout">로그아웃</span>
         </span>
     </div>
 
@@ -287,7 +288,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260614.11</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260615.1</div>
 
     <!-- 숫자 키패드 (검침값 입력) -->
     <div class="kp-bg" id="kp">
@@ -347,6 +348,12 @@
       }
       $('lg-btn').onclick = doLogin;
       $('lg-pw').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+      // 로그아웃 — 세션 비우고 로그인 화면으로 (아이디 전환용). 데이터는 아이디 무관 공유라 누구로 재로그인해도 동일.
+      $('logout').onclick = () => {
+        authLogout(); session = null;
+        $('lg-id').value = ''; $('lg-pw').value = ''; $('lg-err').textContent = '';
+        showLogin();
+      };
 
       async function startApp(){
         session = authGetSession();
@@ -461,8 +468,13 @@
         box.classList.add('has','busy');
         st.textContent = '저장 중'; st.className = 'shot-status saving';
         try {
-          await autoSave(slot, mem, localSeq);
-          st.textContent = '저장됨'; st.className = 'shot-status saved';
+          const saveResult = await autoSave(slot, mem, localSeq);
+          if (saveResult === '업로드 대기열 등록됨') {
+            // 네이티브 WorkManager 경로 — 업로드는 백그라운드 진행중(아직 성공 아님 → 앰버)
+            st.textContent = '올리는 중'; st.className = 'shot-status saving';
+          } else {
+            st.textContent = '저장됨'; st.className = 'shot-status saved';
+          }
           $('bd-'+slot).textContent = localSeq + '번';
           if (slot === 'old' && _opt.yolo) runYoloOnOld(mem, localSeq);  // 철거 LCD 자동검출(옵션, 비동기)
           await loadToday();   // 방금 저장분 반영(번호 점유/표시)
@@ -476,6 +488,20 @@
       }
       $('in-cam').onchange = e => { const f=e.target.files[0]; e.target.value=''; if(sheetSlot) onPick(sheetSlot, f); };
       $('in-alb').onchange = e => { const f=e.target.files[0]; e.target.value=''; if(sheetSlot) onPick(sheetSlot, f); };
+
+      // ── 부모-자식 우선 규칙 헬퍼 (폴백 SDK 경로 전용) ──
+      // 필드에 이미 값이 있으면 건너뛰고, 비었을 때만 set. 종로맵(부모앱)이 넣은 데이터를 보호.
+      // ref: Firebase Database Reference, url: 저장할 값, label: 로그/toast용 필드명.
+      async function setIfEmpty(ref, url, label){
+        const snap = await ref.once('value');
+        if (snap.val() != null){
+          // 이미 값 있음 — 종로맵이 넣은 것으로 간주하고 덮지 않음
+          console.info('[snap 보호] 이미 값 있음, 건너뜀:', label);
+          toast('종로앱에 이미 입력됨 — 건너뜀 (' + label + ')');
+          return;
+        }
+        await ref.set(url);
+      }
 
       // ── Storage 업로드: Capacitor의 XHR shim이 Firebase SDK put()을 깨뜨림(storage/unknown 400).
       //   압축은 SDK(canvas, XHR 무관)로, 업로드는 raw REST로 우회(CDP에서 200 검증됨).
@@ -500,23 +526,92 @@
       }
 
       // ── 자동 저장: 계기 할당됐으면 그 계기에 직접, 아니면 임시보관함 ──
+      // 네이티브(AndroidUpload) 브릿지가 있으면 WorkManager 큐 등록(백그라운드, 자동재시도).
+      // 브릿지 없으면(웹 브라우저/구버전) 기존 restUpload + Firebase SDK 방식으로 폴백.
       async function autoSave(slot, file, s){
         const day = dayKST();
         const hit = seqIndex[s];
         const path = hit
           ? `replacements/${hit.addr}/${hit.meterId}_${Date.now()}/${slot}.jpg`
           : `replacements/_temp/${day}/${s}/${slot}.jpg`;
+
+        // ── 네이티브 WorkManager 경로 ──
+        if (typeof AndroidUpload !== 'undefined' && AndroidUpload.available()) {
+          const blob = await PhotoUploader.compress(file, { square:false });
+          // Blob → base64 변환 (브릿지 전달용)
+          const b64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              // data:image/jpeg;base64,XXXX 에서 XXXX 부분만 추출
+              const result = reader.result;
+              const comma = result.indexOf(',');
+              resolve(comma >= 0 ? result.slice(comma + 1) : result);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+
+          // RTDB PATCH ops 구성 — body 내 URL 자리는 __UPLOAD_URL__ 플레이스홀더
+          // 워커가 업로드 완료 후 실제 URL로 치환
+          let rtdbOps;
+          if (hit){
+            // 시나리오 A: 할당된 계기에 직접
+            // addr(한글/공백)·meterId를 인코딩 — 워커가 new URL(DATABASE_URL+path) 시 깨지지 않게.
+            // Firebase RTDB는 URL을 디코드한 값을 키로 저장하므로 기존 한글 키와 정확히 매칭된다.
+            const base = `/workStatus/jongno/${encodeURIComponent(hit.addr)}/replacement_list/${encodeURIComponent(hit.meterId)}`;
+            if (slot === 'old'){
+              // 부모-자식 우선 규칙: ifEmpty:true + check 필드(필드 경로)로 워커가 PATCH 전 GET 검사.
+              // PATCH 경로(removal_photos.json) 전체를 GET 하면 다른 칸이 채워진 경우 오skip 위험 — 필드 경로 직접 명시.
+              rtdbOps = [
+                { path: `${base}/removal_photos.json`,  body: { whme_day: '__UPLOAD_URL__' },
+                  ifEmpty: true, check: `${base}/removal_photos/whme_day.json` },
+                { path: `${base}.json`,                 body: { old_meter_photo: '__UPLOAD_URL__' },
+                  ifEmpty: true, check: `${base}/old_meter_photo.json` }
+              ];
+            } else {
+              rtdbOps = [
+                { path: `${base}.json`, body: { new_meter_photo: '__UPLOAD_URL__' },
+                  ifEmpty: true, check: `${base}/new_meter_photo.json` }
+              ];
+            }
+          } else {
+            // 시나리오 B: 임시보관함
+            const field = (slot === 'old') ? 'removal_photo' : 'new_meter_photo';
+            const tempPath = `/tempPhotos/jongno/${encodeURIComponent(day)}/${encodeURIComponent(String(s))}.json`;
+            rtdbOps = [
+              { path: tempPath, body: {
+                [field]: '__UPLOAD_URL__',
+                daily_seq: s,
+                worker: session ? session.id : '',
+                worker_name: session ? (session.name || '') : '',
+                // 워커는 Firebase SDK 없이 REST PATCH — {".sv":"timestamp"} 리터럴 사용
+                updated_at: { '.sv': 'timestamp' }
+              }}
+            ];
+          }
+
+          const queued = AndroidUpload.enqueue(b64, path, JSON.stringify(rtdbOps));
+          if (queued) {
+            // 큐 등록 성공 — 업로드는 백그라운드에서 진행, 작업자 바로 다음 작업 가능
+            return '업로드 대기열 등록됨';
+          }
+          // enqueue 실패(캐시 저장 오류 등) — 폴백 경로로 진행
+          console.warn('[AndroidUpload.enqueue 실패] restUpload 폴백 진행');
+        }
+
+        // ── 폴백: 기존 restUpload + Firebase SDK 경로 (웹 브라우저, 구버전 앱, enqueue 실패) ──
         const blob = await PhotoUploader.compress(file, { square:false });
         const url = await restUpload(blob, path);
         if (hit){
-          // 시나리오 A: 이미 할당된 계기에 직접. 사진은 시공자(보조앱) 담당이라 덮어쓰기 허용.
+          // 시나리오 A: 부모-자식 우선 규칙 — 필드에 이미 값이 있으면 건너뜀.
+          // 종로맵(부모앱)이 넣은 데이터를 snap이 덮지 않는다.
           const node = statusRef.child(hit.addr).child('replacement_list').child(hit.meterId);
           if (slot === 'old'){
             // ★종로 모달은 removal_photos[칸] 우선 표시 → 대표를 whme_day 칸에 (old_meter_photo는 호환용)
-            await node.child('removal_photos').child('whme_day').set(url);
-            await node.child('old_meter_photo').set(url);
+            await setIfEmpty(node.child('removal_photos').child('whme_day'), url, 'removal_photos/whme_day');
+            await setIfEmpty(node.child('old_meter_photo'), url, 'old_meter_photo');
           } else {
-            await node.child('new_meter_photo').set(url);
+            await setIfEmpty(node.child('new_meter_photo'), url, 'new_meter_photo');
           }
         } else {
           // 시나리오 B: 임시보관함. 나중에 메인앱이 같은 번호에 계기 할당 시 결합
