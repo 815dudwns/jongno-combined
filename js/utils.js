@@ -104,8 +104,8 @@ function phaseOf(meterNo) {
 const FIELD_META = {
     whme_day:  { label: '철거 주간(kWh)' },
     whme_mngt: { label: '철거 야간(kWh)' },
-    dm_mt_day: { label: '최대전력(kW)' },
     var_day:   { label: '무효전력(kVar)' },
+    dm_mt_day: { label: '최대전력(kW)' },
 };
 
 function readingFieldsFor(clas, pwr) {
@@ -115,7 +115,7 @@ function readingFieldsFor(clas, pwr) {
     if (!isNaN(code)) {
         // PWR>=20 AND 코드∈{211,218,311,410,430} → 4개
         if (pwrNum >= 20 && [211, 218, 311, 410, 430].includes(code)) {
-            return ['whme_day', 'whme_mngt', 'dm_mt_day', 'var_day'];
+            return ['whme_day', 'whme_mngt', 'var_day', 'dm_mt_day'];
         }
         // PWR>=20 AND 코드∈{213,610} → 2개
         if (pwrNum >= 20 && [213, 610].includes(code)) {

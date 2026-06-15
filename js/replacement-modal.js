@@ -36,20 +36,21 @@ const RplModal = (() => {
       photo:      'rpl-rv-photo-whme-mngt',
       photoInput: 'rpl-rv-photo-input-whme-mngt',
     },
-    dm_mt_day: {
-      wrap:       'rpl-rv-field-dm-mt',
-      input:      'rpl-rv-dm-mt',
-      photo:      'rpl-rv-photo-dm-mt',
-      photoInput: 'rpl-rv-photo-input-dm-mt',
-    },
     var_day:   {
       wrap:       'rpl-rv-field-var',
       input:      'rpl-rv-var',
       photo:      'rpl-rv-photo-var',
       photoInput: 'rpl-rv-photo-input-var',
     },
+    dm_mt_day: {
+      wrap:       'rpl-rv-field-dm-mt',
+      input:      'rpl-rv-dm-mt',
+      photo:      'rpl-rv-photo-dm-mt',
+      photoInput: 'rpl-rv-photo-input-dm-mt',
+    },
   };
-  const ALL_KNOWN_FIELDS = ['whme_day', 'whme_mngt', 'dm_mt_day', 'var_day'];
+  // 순서: 주간·야간·무효전력·최대전력 (영준님 2026-06-15: 무효↔최대 순서 교환)
+  const ALL_KNOWN_FIELDS = ['whme_day', 'whme_mngt', 'var_day', 'dm_mt_day'];
 
   function open(address, meter, prefillOldId, editData) {
     // 모달 열리는 즉시 YOLO 모델 워밍업 — 사진 선택 전에 미리 로드해 첫 검출도 빠르게
@@ -135,9 +136,11 @@ const RplModal = (() => {
           : [];
       activeFields = ALL_KNOWN_FIELDS.filter(f => baseFields.includes(f) || savedKeys.includes(f));
 
-      // 검침값 입력 자릿수 고정: 단상 5자리 / 삼상 6자리 (계기번호 3~4자리로 판별, 삼상=45/46/47/55)
+      // 검침값 자릿수: 단상만 5자리, 나머지(삼상·코드미상)는 6자리
+      // (영준님 2026-06-15: '삼상 필터→6'을 뒤집어 '단상 필터→5, 그 외 6'. 알 수 없음 계기도 6으로 빠지게.)
+      // 단상 = E(17)/EA(19)/G단상(25·26·27)/Amigo(53). 삼상(45/46/47/55)·코드미상은 6.
       const _mno = String((meter && (meter.계기번호 || meter.meter_id)) || '').replace(/-/g, '').padStart(11, '0');
-      const _rvDigits = ['45', '46', '47', '55'].includes(_mno.slice(2, 4)) ? 6 : 5;
+      const _rvDigits = ['17', '19', '25', '26', '27', '53'].includes(_mno.slice(2, 4)) ? 5 : 6;
 
       for (const fid of ALL_KNOWN_FIELDS) {
         const els = RV_FIELDS[fid];
@@ -147,7 +150,7 @@ const RplModal = (() => {
         const isActive = activeFields.includes(fid);
         wrapEl.style.display = isActive ? '' : 'none';
         inpEl.value = '';
-        inpEl.maxLength = _rvDigits;  // 단상5/삼상6 자릿수 제한
+        inpEl.maxLength = _rvDigits;
         // 비활성 칸 사진 슬롯 초기화
         if (!isActive) {
           resetPhoto(els.photo);

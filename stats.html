@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260612phasecount2';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      const APP_VERSION = '20260615.2';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -47,7 +47,7 @@
   <script src="js/auth.js"></script>
   <script src="js/theme.js?v=20260608dark"></script>
   <script src="js/config.js?v=20260606naver"></script>
-  <script src="js/utils.js?v=20260528a"></script>
+  <script src="js/utils.js?v=20260615a"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="css/replacement-modal.css?v=20260608lcd5">
   <style>
@@ -250,23 +250,23 @@
           </div>
           <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-whme-mngt" data-field="whme_mngt" accept="image/*" style="display:none;">
         </div>
-        <div class="rpl-field" id="rpl-rv-field-dm-mt" style="display:none;">
-          <label>최대전력(kW)</label>
-          <input type="text" id="rpl-rv-dm-mt" inputmode="numeric" placeholder="예: 5">
-          <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-dm-mt" data-field="dm_mt_day">
-            <span class="rpl-photo-label">최대전력 계기판 사진 (탭하여 선택)</span>
-            <img class="rpl-photo-preview" alt="최대전력 계기판">
-          </div>
-          <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-dm-mt" data-field="dm_mt_day" accept="image/*" style="display:none;">
-        </div>
         <div class="rpl-field" id="rpl-rv-field-var" style="display:none;">
           <label>무효전력(kVar)</label>
-          <input type="text" id="rpl-rv-var" inputmode="numeric" placeholder="예: 0">
+          <input type="text" id="rpl-rv-var" inputmode="decimal" placeholder="예: 74039">
           <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-var" data-field="var_day">
             <span class="rpl-photo-label">무효 계기판 사진 (탭하여 선택)</span>
             <img class="rpl-photo-preview" alt="무효 계기판">
           </div>
           <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-var" data-field="var_day" accept="image/*" style="display:none;">
+        </div>
+        <div class="rpl-field" id="rpl-rv-field-dm-mt" style="display:none;">
+          <label>최대전력(kW)</label>
+          <input type="text" id="rpl-rv-dm-mt" inputmode="decimal" placeholder="예: 31.99">
+          <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-dm-mt" data-field="dm_mt_day">
+            <span class="rpl-photo-label">최대전력 계기판 사진 (탭하여 선택)</span>
+            <img class="rpl-photo-preview" alt="최대전력 계기판">
+          </div>
+          <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-dm-mt" data-field="dm_mt_day" accept="image/*" style="display:none;">
         </div>
       </div>
 
@@ -988,7 +988,7 @@ loadData().then(() => {
 <script src="js/lcd-crop.js?v=20260608lcd3"></script>
 <script src="js/awms-parseValue.js?v=20260602a"></script>
 <script src="js/qr-scanner.js?v=20260608ios"></script>
-<script src="js/replacement-modal.js?v=20260614e"></script>
+<script src="js/replacement-modal.js?v=20260615a"></script>
 <div id="toast" class="toast">복사했습니다</div>
 
 <!-- QR 스캔 오버레이 (교체모달 QR 버튼용 — map.html과 동일) -->
