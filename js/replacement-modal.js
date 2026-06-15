@@ -868,6 +868,13 @@ const RplModal = (() => {
 
       let meterId = String(parsed.value || raw).toUpperCase();
       if (meterId.length > 11) meterId = meterId.slice(0, 11);
+      // [QR 강화 2026-06-15] 계기번호 타입코드(3~4자리) 검증 — 계기번호 아닌 다른 바코드(예 51379112262, 코드37) 스캔 차단.
+      //   유효 타입: E(17)/EA(19)/G(25·26·27·45·46·47)/Amigo(53·55). 그 외 = 잘못 스캔 → 안 채우고 재스캔 유도.
+      const VALID_TYPE = ['17', '19', '25', '26', '27', '45', '46', '47', '53', '55'];
+      if (!/^\d{11}$/.test(meterId) || !VALID_TYPE.includes(meterId.slice(2, 4))) {
+        alert(`계기번호 형식이 아닙니다: ${meterId}\n\n계기번호가 아닌 다른 바코드/QR을 스캔했을 수 있어요.\n계기번호 QR을 다시 스캔하세요.`);
+        return;  // new-meter-id 안 채움
+      }
       document.getElementById('rpl-new-meter-id').value = meterId;
 
       // 제조년월 자동 입력 — value2 = "YYYYMM" (예: "202411")
@@ -1096,6 +1103,8 @@ const RplModal = (() => {
         if (!hasFirstActivePhoto) missing.push('주간 계기판 사진');
         if (!hasNewPhoto) missing.push('새 계기 사진');
         if (!newMeterId || newMeterId.length !== 11) missing.push('새 계기번호 11자리');
+        // [QR 강화 백스톱] 새 계기번호 타입코드(3~4자리) 검증 — 잘못 스캔/입력된 비계기번호 차단
+        else if (!['17', '19', '25', '26', '27', '45', '46', '47', '53', '55'].includes(newMeterId.slice(2, 4))) missing.push(`새 계기번호 형식이상(${newMeterId})`);
         if (!y || !m) missing.push('제조년월');
         // 값을 입력한 칸은 사진 필수. 값 없는 칸은 사진 불필요(부분완료 허용 — 검침값 1개만 완료 가능)
         const valNoPhoto = activeFields.slice(1).filter(fid => removalValues[fid] != null && !removalPhotoBlobs[fid] && !keepRemovalPhotoUrls[fid]);
