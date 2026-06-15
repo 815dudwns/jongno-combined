@@ -30,7 +30,7 @@
       html,body{margin:0; padding:0; background:var(--bg); color:var(--ink);
         font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
         font-size:18px; -webkit-user-select:none; user-select:none;}
-      body{padding:14px 14px calc(14px + env(safe-area-inset-bottom));}
+      body{padding:14px 14px calc(74px + env(safe-area-inset-bottom));}
 
       .top{display:flex; align-items:center; justify-content:space-between;
         font-size:16px; color:var(--ink-2); padding:4px 2px 12px;}
@@ -61,10 +61,35 @@
       .shot-status.saving{color:var(--amber);}
       .shot-status.saved{color:var(--mint);}
       .shot-status.err{color:var(--red);}
+      /* 업로드 현황 도크 — 하단 고정 요약 바 + 펼침 리스트 (어르신용 큰 글씨) */
+      .uj-dock{position:fixed; left:0; right:0; bottom:0; z-index:2500;}
+      .uj-bar{display:flex; align-items:center; justify-content:space-between;
+        padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+        background:#1e293b; color:#fff; font-size:17px; font-weight:800;
+        border-top:2px solid #334155; box-shadow:0 -3px 12px rgba(0,0,0,.4);}
+      .uj-bar.has-fail{background:#b91c1c; border-top-color:#ef4444;}
+      .uj-bar.all-ok{background:#065f46; border-top-color:#10b981;}
+      .uj-bar .uj-tog{font-size:14px; font-weight:700; opacity:.9;}
+      .uj-panel{max-height:0; overflow:hidden; background:#0f1b2a; transition:max-height .22s;}
+      .uj-panel.open{max-height:46vh; overflow-y:auto;}
+      .uj-list-inner{padding:10px 12px;}
+      .uj-item{display:flex; align-items:center; gap:10px; padding:13px 12px; border-radius:12px;
+        margin-bottom:8px; font-size:18px; font-weight:800;}
+      .uj-item .lbl{flex:1;}
+      .uj-item.up{background:#3a2c10; color:#fcd34d;}
+      .uj-item.ok{background:#0d2f24; color:#34d399;}
+      .uj-item.fail{background:#3a1414; color:#fca5a5;}
+      .uj-retry{background:#dc2626; color:#fff; border:none; border-radius:10px;
+        padding:10px 16px; font-size:16px; font-weight:800;}
+      .uj-empty{color:#64748b; text-align:center; padding:16px; font-size:15px;}
       .shot-box{position:relative; width:100%; height:210px; border-radius:14px;
         border:2px dashed var(--line); background:#0d141d;
         display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer;}
       .shot-box:active{border-color:var(--mint);}
+      /* 업로드 상태 색 띠(박스 바깥) — 올리는중 노랑 / 저장됨 초록 / 실패 빨강 */
+      .shot-box.uup{box-shadow:0 0 0 4px var(--amber); border-color:var(--amber);}
+      .shot-box.uok{box-shadow:0 0 0 4px var(--mint); border-color:var(--mint);}
+      .shot-box.ufail{box-shadow:0 0 0 4px var(--red); border-color:var(--red);}
       .shot-box .hint{font-size:19px; color:var(--ink-2); font-weight:700; text-align:center; line-height:1.5;}
       .shot-box img{width:100%; height:100%; object-fit:cover; display:none;}
       .shot-box.has img{display:block;}
@@ -288,7 +313,16 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260615.3</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260615.11</div>
+
+    <!-- 업로드 현황 도크 (하단 고정) -->
+    <div class="uj-dock" id="uj-dock">
+      <div class="uj-panel" id="uj-panel"><div class="uj-list-inner" id="uj-list"></div></div>
+      <div class="uj-bar" id="uj-bar">
+        <span id="uj-summary">업로드 없음</span>
+        <span class="uj-tog" id="uj-tog">▲ 현황</span>
+      </div>
+    </div>
 
     <!-- 숫자 키패드 (검침값 입력) -->
     <div class="kp-bg" id="kp">
@@ -362,6 +396,8 @@
         await loadToday();
         seq = nextEmptySeq();
         renderSeq();
+        ujSweep();    // 앱 시작 시 orphan(done/묵은) job 노드 정리
+        ujRender();   // 업로드 현황 도크 초기 표시
       }
 
       // ── 오늘 데이터 로드: 작업번호별 계기/보관 인덱싱 + 빈번호 계산 ──
@@ -397,7 +433,8 @@
         return max + 1;
       }
 
-      // ── 작업번호 표시 + 그 번호의 계기/사진 반영 ──
+      // ── 작업번호 표시 + 그 번호의 슬롯을 "선언적으로" 재구성 ──
+      // 슬롯은 항상 slotView(seq,slot)의 진실로 다시 그린다 → 잔상/비동기 충돌이 구조적으로 불가능.
       function renderSeq(){
         $('seq-num').textContent = seq;
         const hit = seqIndex[seq];
@@ -410,9 +447,8 @@
         } else {
           m.innerHTML = '<span class="none">계기 미할당 (보관 후 자동 연결)</span>';
         }
-        // 이미 올라간 사진 미리보기 (있으면)
-        applyExistingPhoto('old', (hit && (hit.entry.old_meter_photo || photoFromRemoval(hit.entry))) || (tmp && tmp.removal_photo));
-        applyExistingPhoto('new', (hit && hit.entry.new_meter_photo) || (tmp && tmp.new_meter_photo));
+        paintSlot('old', slotView(seq, 'old'));
+        paintSlot('new', slotView(seq, 'new'));
         renderSeqExtras(seq);  // 검침값/QR/YOLO 부가 입력 복원(옵션 ON시)
       }
       function photoFromRemoval(entry){
@@ -420,16 +456,42 @@
         if (rp && typeof rp === 'object'){ const k = Object.keys(rp)[0]; if (k) return rp[k]; }
         return null;
       }
-      function applyExistingPhoto(slot, url){
-        const box = $('box-'+slot), img = $('img-'+slot), st = $('st-'+slot);
-        if (url){
-          img.src = url; box.classList.add('has');
-          st.textContent = '있음'; st.className = 'shot-status saved';
-          $('bd-'+slot).textContent = seq + '번';
-        } else {
-          img.removeAttribute('src'); box.classList.remove('has');
-          st.textContent = ''; st.className = 'shot-status';
+      // RTDB에 확정 저장된 사진 URL (없으면 null)
+      function rtdbPhotoFor(seqNo, slot){
+        const hit = seqIndex[seqNo], tmp = tempIndex[seqNo];
+        if (slot === 'old') return (hit && (hit.entry.old_meter_photo || photoFromRemoval(hit.entry))) || (tmp && tmp.removal_photo) || null;
+        return (hit && hit.entry.new_meter_photo) || (tmp && tmp.new_meter_photo) || null;
+      }
+      function jobTs(id){ const m = String(id).match(/_(\d+)$/); return m ? Number(m[1]) : 0; }
+      // 그 작업번호/슬롯의 단일 진실: 진행중 job 우선(최신 1개), 없으면 RTDB 확정사진, 둘 다 없으면 빈칸
+      function slotView(seqNo, slot){
+        let best = null, bestTs = -1;
+        for (const id in _ujJobs){
+          const j = _ujJobs[id];
+          if (j.seq === seqNo && j.slot === slot){ const t = jobTs(id); if (t > bestTs){ bestTs = t; best = j; } }
         }
+        const rtdbUrl = rtdbPhotoFor(seqNo, slot);
+        if (best){
+          if (best.status === 'up')   return { status:'up',   img: best.img || rtdbUrl };
+          if (best.status === 'fail') return { status:'fail', img: best.img || rtdbUrl };
+          return { status:'ok', img: best.img || rtdbUrl };   // ok: 원격URL 우선, 없으면 RTDB
+        }
+        return rtdbUrl ? { status:'ok', img: rtdbUrl } : null;
+      }
+      // 슬롯 DOM을 v(=slotView 결과)대로 그림. v=null이면 빈칸. 매 호출이 그 번호의 정답으로 덮음(지울 필요 없음).
+      function paintSlot(slot, v){
+        const box = $('box-'+slot), img = $('img-'+slot), st = $('st-'+slot), bd = $('bd-'+slot);
+        box.classList.remove('uup','uok','ufail');   // 상태 색 띠 초기화
+        if (!v){
+          img.removeAttribute('src'); box.classList.remove('has','busy');
+          st.textContent = ''; st.className = 'shot-status'; bd.textContent = ''; return;
+        }
+        if (v.img){ img.src = v.img; box.classList.add('has'); } else { img.removeAttribute('src'); box.classList.remove('has'); }
+        box.classList.toggle('busy', v.status === 'up');   // '올리는 중'일 때만 스피너
+        bd.textContent = seq + '번';
+        if (v.status === 'up'){ st.textContent = '올리는 중'; st.className = 'shot-status saving'; box.classList.add('uup'); }
+        else if (v.status === 'fail'){ st.textContent = '저장 실패'; st.className = 'shot-status err'; box.classList.add('ufail'); }
+        else { st.textContent = '저장됨'; st.className = 'shot-status saved'; box.classList.add('uok'); }
       }
 
       $('seq-prev').onclick = () => { if (seq > 1) seq--; renderSeq(); };
@@ -444,6 +506,101 @@
         $('sheet').classList.add('open');
       }
       function closeSheet(){ $('sheet').classList.remove('open'); }
+
+      // ── 업로드 현황 도크 (하단 고정 요약 바 + 펼침 리스트) ──
+      // jobId 키 전역 패널 → 작업번호 전환 race에 면역(슬롯 표시는 보조).
+      const _ujJobs = {};   // jobId → {seq, slot, status('up'|'ok'|'fail'), img(로컬blob 또는 원격URL), ref}
+      function ujLabel(slot){ return slot === 'old' ? '철거사진' : '신설사진'; }
+      // 사진 선택 시 등록(올리는중) + 워커 종착상태(done/failed) 구독. img=로컬 objectURL(즉시 미리보기용).
+      function ujRegister(jobId, seqNo, slot, img){
+        _ujJobs[jobId] = { seq: seqNo, slot, status: 'up', img: img || null, ref: null };
+        ujRender();
+        try {
+          const ref = db.ref('uploadJobs/jongno/' + jobId);
+          _ujJobs[jobId].ref = ref;
+          ref.on('value', sn => {
+            const val = sn.val(); const st = val && val.status;
+            if (st === 'done'){ ujSet(jobId, 'ok', val.url); ref.off(); ref.remove().catch(()=>{}); }
+            else if (st === 'failed'){ ujSet(jobId, 'fail'); ref.off(); }
+          });
+        } catch(e){ console.warn('[uj 구독 실패]', e); }
+      }
+      function ujSet(jobId, status, remoteUrl){
+        const j = _ujJobs[jobId]; if (!j) return;
+        // ok 전환 시 로컬 blob 회수 + 원격 URL로 교체(메모리 누수 방지 — 슬롯은 RTDB/원격URL로 그림)
+        if (status === 'ok' && j.img && String(j.img).startsWith('blob:')){
+          URL.revokeObjectURL(j.img); j.img = remoteUrl || null;
+        }
+        j.status = status; j.hidden = false; ujRender();
+        if (seq === j.seq) renderSeq();   // 현재 보는 번호면 슬롯도 선언적으로 재렌더
+        // 성공 항목은 1분 뒤 도크 리스트에서 자동 숨김(슬롯의 '저장됨'은 RTDB/원격URL로 그대로 유지).
+        // 실패는 숨기지 않음 — 재전송할 때까지 남는다.
+        if (status === 'ok'){
+          clearTimeout(j._t);
+          j._t = setTimeout(() => { j.hidden = true; ujRender(); }, 60000);
+        }
+      }
+      function ujRemove(jobId){
+        const j = _ujJobs[jobId]; if (!j) return;
+        if (j.ref) j.ref.off();
+        clearTimeout(j._t);
+        if (j.img && String(j.img).startsWith('blob:')) URL.revokeObjectURL(j.img);
+        delete _ujJobs[jobId]; ujRender();
+      }
+      function ujRender(){
+        const list = $('uj-list'), bar = $('uj-bar'), sum = $('uj-summary');
+        const arr = Object.entries(_ujJobs).filter(([,j]) => !j.hidden).sort((a,b) => (b[1].seq - a[1].seq));
+        let up = 0, ok = 0, fail = 0;
+        arr.forEach(([,j]) => { if (j.status==='up') up++; else if (j.status==='ok') ok++; else if (j.status==='fail') fail++; });
+        bar.classList.toggle('has-fail', fail > 0);
+        bar.classList.toggle('all-ok', fail === 0 && up === 0 && ok > 0);
+        const parts = [];
+        if (up) parts.push('올리는 중 ' + up);
+        if (ok) parts.push('성공 ' + ok);
+        if (fail) parts.push('실패 ' + fail);
+        sum.textContent = parts.length ? parts.join(' · ') : '업로드 없음';
+        if (!arr.length){ list.innerHTML = '<div class="uj-empty">아직 업로드한 사진이 없습니다</div>'; return; }
+        list.innerHTML = '';
+        arr.forEach(([id,j]) => {
+          const row = document.createElement('div');
+          row.className = 'uj-item ' + j.status;
+          const state = j.status==='up' ? '올리는 중' : j.status==='ok' ? '성공' : '실패';
+          const lbl = document.createElement('span');
+          lbl.className = 'lbl'; lbl.textContent = j.seq + '번 ' + ujLabel(j.slot) + ' — ' + state;
+          row.appendChild(lbl);
+          if (j.status === 'fail'){
+            const btn = document.createElement('button');
+            btn.className = 'uj-retry'; btn.textContent = '재전송';
+            btn.onclick = () => ujRetry(id);
+            row.appendChild(btn);
+          }
+          list.appendChild(row);
+        });
+      }
+      function ujRetry(jobId){
+        const j = _ujJobs[jobId]; if (!j) return;
+        if (j.ref) j.ref.off();
+        try { db.ref('uploadJobs/jongno/' + jobId).remove().catch(()=>{}); } catch(e){}
+        ujRemove(jobId);
+        seq = j.seq; renderSeq();         // 그 작업번호로 이동
+        sheetSlot = j.slot;
+        $('uj-panel').classList.remove('open');
+        $('in-alb').click();              // 갤러리(Pictures/종로사진실패 포함)에서 재선택
+        toast(j.seq + '번 ' + ujLabel(j.slot) + ' 재전송 — 갤러리에서 사진 선택');
+      }
+      // 앱 시작 시 orphan job 노드 정리(앱이 죽어 리스너 detach 못한 done/묵은 노드)
+      async function ujSweep(){
+        try {
+          const sn = await db.ref('uploadJobs/jongno').once('value');
+          const v = sn.val(); if (!v) return;
+          const now = Date.now();
+          for (const [id, job] of Object.entries(v)){
+            const stale = job.done_at && (now - job.done_at > 6*3600*1000);
+            if (job.status === 'done' || stale) db.ref('uploadJobs/jongno/' + id).remove().catch(()=>{});
+          }
+        } catch(e){ console.warn('[uj sweep 실패]', e); }
+      }
+      $('uj-bar').onclick = () => $('uj-panel').classList.toggle('open');
       $('box-old').onclick = () => openSheet('old');
       $('box-new').onclick = () => openSheet('new');
       $('sheet-cancel').onclick = closeSheet;
@@ -454,36 +611,29 @@
       function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show');
         clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), 1800); }
 
-      // ── 사진 선택 → 미리보기 + 자동 저장 ──
+      // ── 사진 선택 → job 등록(올리는중) + 자동 저장. 표시는 전적으로 renderSeq(선언적)가 담당 ──
       async function onPick(slot, file){
         if (!file) return;
-        const box = $('box-'+slot), img = $('img-'+slot), st = $('st-'+slot);
         const localSeq = seq;
         // ★삼성 파일피커 content:// 파일은 createImageBitmap 여러 번 호출 시 디코드 실패(종로맵과 동일).
         //   메모리 Blob으로 1회 materialize → compress·detect·박스그리기 모두 이 mem 재사용(YOLO 못찾던 원인).
         let mem = file;
         try { mem = new Blob([await file.arrayBuffer()], { type: file.type || 'image/jpeg' }); }
         catch(e){ console.warn('[materialize 실패, 원본 사용]', e); }
-        img.src = URL.createObjectURL(mem);
-        box.classList.add('has','busy');
-        st.textContent = '저장 중'; st.className = 'shot-status saving';
+        const localUrl = URL.createObjectURL(mem);
+        const jobId = `${dayKST()}_${localSeq}_${slot}_${Date.now()}`;
+        ujRegister(jobId, localSeq, slot, localUrl);   // '올리는 중' 등록 + 워커 구독
+        if (seq === localSeq) renderSeq();             // 즉시 미리보기(선언적 — 직접 DOM 조작 안 함)
         try {
-          const saveResult = await autoSave(slot, mem, localSeq);
-          if (saveResult === '업로드 대기열 등록됨') {
-            // 네이티브 WorkManager 경로 — 업로드는 백그라운드 진행중(아직 성공 아님 → 앰버)
-            st.textContent = '올리는 중'; st.className = 'shot-status saving';
-          } else {
-            st.textContent = '저장됨'; st.className = 'shot-status saved';
-          }
-          $('bd-'+slot).textContent = localSeq + '번';
+          await autoSave(slot, mem, localSeq, jobId);
+          // 상태 전이는 전부 job 모델로: 네이티브=워커 구독, 폴백=autoSave가 ujSet('ok'). 여기선 DOM 안 건드림.
           if (slot === 'old' && _opt.yolo) runYoloOnOld(mem, localSeq);  // 철거 LCD 자동검출(옵션, 비동기)
-          await loadToday();   // 방금 저장분 반영(번호 점유/표시)
+          await loadToday();                 // RTDB 반영(번호 점유)
+          if (seq === localSeq) renderSeq();
         } catch (e) {
           console.error('[autoSave]', e);
-          st.textContent = '저장 실패'; st.className = 'shot-status err';
+          ujSet(jobId, 'fail');              // 즉시 오류 → 실패(도크+슬롯 자동 반영)
           alert('저장 실패 원인:\n' + ((e && e.code) ? e.code + '\n' : '') + ((e && e.message) ? e.message : String(e)));
-        } finally {
-          box.classList.remove('busy');
         }
       }
       $('in-cam').onchange = e => { const f=e.target.files[0]; e.target.value=''; if(sheetSlot) onPick(sheetSlot, f); };
@@ -528,7 +678,7 @@
       // ── 자동 저장: 계기 할당됐으면 그 계기에 직접, 아니면 임시보관함 ──
       // 네이티브(AndroidUpload) 브릿지가 있으면 WorkManager 큐 등록(백그라운드, 자동재시도).
       // 브릿지 없으면(웹 브라우저/구버전) 기존 restUpload + Firebase SDK 방식으로 폴백.
-      async function autoSave(slot, file, s){
+      async function autoSave(slot, file, s, jobId){
         const day = dayKST();
         const hit = seqIndex[s];
         const path = hit
@@ -590,12 +740,13 @@
             ];
           }
 
-          const queued = AndroidUpload.enqueue(b64, path, JSON.stringify(rtdbOps));
+          const queued = AndroidUpload.enqueue(b64, path, JSON.stringify(rtdbOps), jobId);
           if (queued) {
-            // 큐 등록 성공 — 업로드는 백그라운드에서 진행, 작업자 바로 다음 작업 가능
+            // 큐 등록 성공 — 업로드는 백그라운드에서 진행. 상태는 onPick이 등록한 job 구독(done/failed)으로 갱신.
             return '업로드 대기열 등록됨';
           }
-          // enqueue 실패(캐시 저장 오류 등) — 폴백 경로로 진행
+          // enqueue 실패 — 워커가 돌지 않으니 구독 해제 후 폴백(폴백 끝에서 ujSet('ok'))
+          { const j = _ujJobs[jobId]; if (j && j.ref){ j.ref.off(); j.ref = null; } }
           console.warn('[AndroidUpload.enqueue 실패] restUpload 폴백 진행');
         }
 
@@ -624,6 +775,7 @@
             updated_at: firebase.database.ServerValue.TIMESTAMP
           });
         }
+        if (jobId) ujSet(jobId, 'ok', url);   // 폴백 경로(브라우저/구앱) 성공 — 원격 URL로 도크/슬롯 갱신
       }
 
       // ════════════ 옵션(설정) + 부가기능: 철거지침 / QR / YOLO ════════════
