@@ -150,7 +150,7 @@ const RplModal = (() => {
         const isActive = activeFields.includes(fid);
         wrapEl.style.display = isActive ? '' : 'none';
         inpEl.value = '';
-        inpEl.maxLength = _rvDigits;
+        inpEl.maxLength = (fid === 'dm_mt_day') ? 7 : _rvDigits;   // 최대전력은 소수점(.) 포함 7자리 (영준님 2026-06-15)
         // 비활성 칸 사진 슬롯 초기화
         if (!isActive) {
           resetPhoto(els.photo);
