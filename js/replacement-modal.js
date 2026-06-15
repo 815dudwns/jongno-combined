@@ -1065,6 +1065,16 @@ const RplModal = (() => {
         const v = el ? el.value.trim() : '';
         removalValues[fid] = v === '' ? null : Number(v);
       }
+      // 최대전력 형식 검증 — 정상 = 4자리.2자리(≤9999.99). 5자리 이상이면 무효전력과 뒤바뀐 입력 의심 → 경고
+      // (영준님 2026-06-15: 종로 작업자 최대↔무효 칸 혼동 다수 발생, 입력 단계에서 차단)
+      if (removalValues['dm_mt_day'] != null) {
+        const _dmv = Number(removalValues['dm_mt_day']);
+        if (!isNaN(_dmv) && _dmv >= 10000) {
+          if (!confirm('최대전력 값(' + removalValues['dm_mt_day'] + ')이 형식(최대 9999.99)을 벗어납니다.\n\n무효전력 칸과 바뀌어 입력되지 않았는지 확인하세요.\n(최대전력=kW 소수값 / 무효전력=큰 정수)\n\n그래도 이대로 저장하시겠습니까?')) {
+            return;   // 작업자가 수정하도록 저장 중단
+          }
+        }
+      }
       // 하위호환: whme_day 값을 removal_value(단일)에도 저장
       const removalValue = removalValues['whme_day'] != null ? String(removalValues['whme_day']) : '';
 
