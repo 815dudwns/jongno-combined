@@ -184,7 +184,8 @@
 .rpl-mfg-row select { flex: 1; text-align: center; }
 
 .rpl-alpha-row { gap: 7px !important; }
-.rpl-alpha-btn {
+.rpl-alpha-btn,
+.rpl-alpha-btn-new {
   padding: 9px 15px;
   background: var(--violet-soft);
   color: #6a55a0;
@@ -196,7 +197,8 @@
   min-width: 40px;
   box-shadow: var(--clay-sm);
 }
-.rpl-alpha-btn:active { box-shadow: var(--clay-inset-sm); }
+.rpl-alpha-btn:active,
+.rpl-alpha-btn-new:active { box-shadow: var(--clay-inset-sm); }
 
 .rpl-footer {
   display: flex;
