@@ -487,3 +487,14 @@
   .rpl-modal { align-items: center; }
   .rpl-card { border-radius: 28px; }
 }
+
+/* 비고 textarea — 입력칸 클레이 스타일 맞춤(2026-06-15) */
+.rpl-field textarea {
+  font-family: var(--font); padding: 12px 16px; border: none; border-radius: 16px;
+  font-size: 14px; color: var(--ink); background: var(--bg-deep); box-shadow: var(--clay-inset);
+  outline: none; width: 100%; box-sizing: border-box; resize: vertical; min-height: 54px; line-height: 1.45;
+}
+.rpl-field textarea:focus { box-shadow: var(--clay-inset), 0 0 0 2px var(--accent, #6366f1); }
+.rpl-field textarea::placeholder { color: var(--ink-3, #9ca3af); }
+[data-theme="dark"] .rpl-field textarea { color: #e5e7eb; }
+[data-theme="dark"] .rpl-field textarea::placeholder { color: #6b7280; }

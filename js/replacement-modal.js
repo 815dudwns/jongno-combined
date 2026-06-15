@@ -179,6 +179,7 @@ const RplModal = (() => {
         if (el) el.value = editData.removal_value != null ? String(editData.removal_value) : '';
       }
       document.getElementById('rpl-new-meter-id').value = editData.new_meter_id || '';
+      { const _rm = document.getElementById('rpl-remark'); if (_rm) _rm.value = editData.remark || ''; }
 
       // 신계기 사진 prefill
       if (editData.new_meter_photo) {
@@ -217,6 +218,7 @@ const RplModal = (() => {
         resetPhoto(RV_FIELDS[fid].photo);
       }
       document.getElementById('rpl-new-meter-id').value = '';
+      { const _rm = document.getElementById('rpl-remark'); if (_rm) _rm.value = ''; }
       _clearExtraRows();
     }
 
@@ -1239,6 +1241,7 @@ const RplModal = (() => {
       const replacement = {
         old_meter_id: String(oldMeterId),
         new_meter_id: String(newMeterId || ''),
+        remark: (function () { const e = document.getElementById('rpl-remark'); const v = e ? String(e.value || '').trim() : ''; return v || null; })(),
         removal_values: removalValues,
         removal_value: removalValue === '' ? null : Number(removalValue),
         new_meter_mfg_ym: (y && m) ? `${y}-${m}` : '',

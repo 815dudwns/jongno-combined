@@ -49,7 +49,7 @@
   <script src="js/config.js?v=20260606naver"></script>
   <script src="js/utils.js?v=20260615a"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="css/replacement-modal.css?v=20260608lcd5">
+  <link rel="stylesheet" href="css/replacement-modal.css?v=20260615remark">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: var(--font); background: var(--bg); min-height: 100vh; color: var(--ink); }
@@ -947,6 +947,7 @@ function exportExcel() {
       ...exCols(exOf(item)),
       '철거전사진': item.old_meter_photo || '',
       '철거후사진': item.new_meter_photo || '',
+      '비고': item.remark || '',
     };
   });
   // 추가계기(added_meters) 행 append — site-data 없는 계기. awms 등록 불가, "추가계기"로 구분
@@ -961,7 +962,7 @@ function exportExcel() {
       '제조년월': '',
       '추가계기': '추가계기',
       ...exCols([]),
-      '철거전사진': '', '철거후사진': '',
+      '철거전사진': '', '철거후사진': '', '비고': '',
     });
   });
   const ws = XLSX.utils.json_to_sheet(rows);
@@ -988,7 +989,7 @@ loadData().then(() => {
 <script src="js/lcd-crop.js?v=20260608lcd3"></script>
 <script src="js/awms-parseValue.js?v=20260602a"></script>
 <script src="js/qr-scanner.js?v=20260608ios"></script>
-<script src="js/replacement-modal.js?v=20260615d"></script>
+<script src="js/replacement-modal.js?v=20260615e"></script>
 <div id="toast" class="toast">복사했습니다</div>
 
 <!-- QR 스캔 오버레이 (교체모달 QR 버튼용 — map.html과 동일) -->
