@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260615.6';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      const APP_VERSION = '20260615.7';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -945,8 +945,11 @@ function exportExcel() {
       '제조년월': item.new_meter_mfg_ym || '',
       '추가계기': '',
       ...exCols(exOf(item)),
-      '철거전사진': item.old_meter_photo || '',
-      '철거후사진': item.new_meter_photo || '',
+      '지침사진_주간': (item.removal_photos && item.removal_photos.whme_day) || item.old_meter_photo || '',
+      '지침사진_야간': (item.removal_photos && item.removal_photos.whme_mngt) || '',
+      '지침사진_최대': (item.removal_photos && item.removal_photos.dm_mt_day) || '',
+      '지침사진_무효': (item.removal_photos && item.removal_photos.var_day) || '',
+      '신계기사진': item.new_meter_photo || '',
       '비고': item.remark || '',
     };
   });
@@ -962,10 +965,24 @@ function exportExcel() {
       '제조년월': '',
       '추가계기': '추가계기',
       ...exCols([]),
-      '철거전사진': '', '철거후사진': '', '비고': '',
+      '지침사진_주간': '', '지침사진_야간': '', '지침사진_최대': '', '지침사진_무효': '', '신계기사진': '', '비고': '',
     });
   });
   const ws = XLSX.utils.json_to_sheet(rows);
+  // 사진 컬럼 = 긴 URL 대신 클릭 하이퍼링크("보기")
+  try {
+    const photoHdrs = ['지침사진_주간', '지침사진_야간', '지침사진_최대', '지침사진_무효', '신계기사진'];
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    const hdrCol = {};
+    for (let c = range.s.c; c <= range.e.c; c++) { const h = ws[XLSX.utils.encode_cell({ r: 0, c })]; if (h) hdrCol[h.v] = c; }
+    for (let r = 1; r <= range.e.r; r++) {
+      photoHdrs.forEach(h => {
+        const c = hdrCol[h]; if (c == null) return;
+        const ref = XLSX.utils.encode_cell({ r, c }); const cell = ws[ref];
+        if (cell && cell.v && /^https?:/.test(String(cell.v))) { cell.l = { Target: String(cell.v) }; cell.v = '보기'; }
+      });
+    }
+  } catch (e) { console.warn('사진 하이퍼링크 변환 실패:', e); }
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '작업');
   const dv = document.getElementById('date-input').value || todayStr();
