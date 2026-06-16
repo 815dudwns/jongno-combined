@@ -847,6 +847,9 @@ function priLabel(p) {
 
 // ── 계기팀 가장 최근 완료 주소 갱신 (통신팀 화면 찐초록) ──────────
 // meter_state='complete' AND comm_state≠'complete' 중 meter_updatedAt 최대
+let _meterLatestCache = { address: null, ts: 0 };
+let _meterLatestSeeded = false;   // 전체 계산 1회 이상 완료 여부
+
 function updateMeterLatestAddress() {
     let latest = null, latestTs = 0;
     Object.entries(workStatus).forEach(([addr, st]) => {
@@ -856,6 +859,32 @@ function updateMeterLatestAddress() {
         }
     });
     meterLatestAddress = latest;
+    _meterLatestCache = { address: latest, ts: latestTs };
+    _meterLatestSeeded = true;
+}
+
+// 단건 증분 갱신 — child_changed/added 후 호출
+// 전체 O(N) 순회 없이 캐시를 증분 갱신.
+// 이전 최신 주소 조건이 깨진 경우(리셋) → 전체 재계산.
+function updateMeterLatestAddressIncremental(addr) {
+    // 전체 계산 전이면 self-seed (호출 순서 의존 제거)
+    if (!_meterLatestSeeded) {
+        updateMeterLatestAddress();
+        return;
+    }
+    const st = workStatus[addr];
+    if (!st) return;
+    const isCand = st.meter_state === 'complete' && st.comm_state !== 'complete' && st.meter_updatedAt;
+    if (isCand) {
+        const ts = new Date(st.meter_updatedAt).getTime();
+        if (ts > _meterLatestCache.ts) {
+            _meterLatestCache = { address: addr, ts };
+            meterLatestAddress = addr;
+        }
+    } else if (meterLatestAddress === addr) {
+        // 기존 최신 주소가 조건 불만족으로 변경됨 → 전체 재계산
+        updateMeterLatestAddress();
+    }
 }
 
 // ── 마커 이미지 캐시 (canvas → dataURL) — DOM 마커 대신 이미지 아이콘으로 경량화 ──
@@ -1044,7 +1073,23 @@ function updateMarkerColor(address) {
     // 검증된 경로인 '마커 재생성'으로 갱신한다. 이미지는 캐시되므로 재생성 비용은 낮다.
     old.overlay.setMap(null);
     markers.splice(idx, 1);
+    _markerByAddr.delete(address);
     createMarker(pos, address, meters);  // 최신 workStatus로 색/번호/검침일/zIndex 재계산
+}
+
+// ── 마커 제거 (child_removed 호출 — workStatus 노드 삭제 시) ──────
+// 주의: workStatus에서 주소가 삭제되면 해당 사이트는 기본 색(pending)으로 복귀해야 하지만
+//       renderViewport가 다음 pan/zoom 시 _addrData에서 재생성하므로 정합이 맞춰진다.
+//       (삭제 후 화면에 마커가 남아있으면 workStatus 없이 createMarker → makeEmptyEntry 폴백 적용)
+// ★ PM 확인 사항: child_removed 발생 시 마커를 "완전히 제거"하는 게 맞는지,
+//   아니면 "기본 색(pending)으로 복귀"가 맞는지. 현재는 완전 제거(spec 따름) — rare 경로.
+function removeMarker(address) {
+    const idx = markers.findIndex(m => m.address === address);
+    if (idx >= 0) {
+        markers[idx].overlay.setMap(null);
+        markers.splice(idx, 1);
+    }
+    _markerByAddr.delete(address);
 }
 
 // ── 전체 마커 색상 일괄 갱신 (Firebase 동기화 후 호출) ──────────
@@ -1069,12 +1114,20 @@ function _checkdayOf(meterNo) {
     return _checkdayByMeter.get(meterNo) || '';
 }
 
+// ── 오늘(KST) 자정 ms 헬퍼 ───────────────────────────────────────
+// updateTopbarInfo 전체/증분 양쪽에서 동일하게 사용해 dayKey 비교 일관성 보장
+function _getTodayStart() {
+    return Math.floor((Date.now() + 9 * 3600000) / 86400000) * 86400000 - 9 * 3600000;
+}
+
 // ── 우상단 작업정보: 다음에 쓸 daily_seq + 마지막 작업 계기 검침일 ──
+let _topbarCache = { maxSeq: 0, maxNo: '', dayKey: null };
+
 function updateTopbarInfo() {
     const el = document.getElementById('topbar-info');
     if (!el) return;
     // 오늘(KST) 자정 ms — daily_seq는 그날 기준이므로 오늘 작업만 집계 (오늘 없으면 1)
-    const todayStart = Math.floor((Date.now() + 9 * 3600000) / 86400000) * 86400000 - 9 * 3600000;
+    const todayStart = _getTodayStart();
     let maxSeq = 0, maxNo = '';
     Object.values(workStatus).forEach(st => {
         const rl = (st && st.replacement_list) || {};
@@ -1086,6 +1139,41 @@ function updateTopbarInfo() {
     });
     const day = maxNo ? _checkdayOf(maxNo) : '';
     el.textContent = maxSeq ? `다음 No.${maxSeq + 1}${day ? ' · 검침일 ' + day : ''}` : '';
+    _topbarCache = { maxSeq, maxNo, dayKey: todayStart };
+}
+
+// 단건 증분 갱신 — child_changed/added 후 호출 (maxSeq 증가 방향만 처리)
+// 감소(취소/삭제)는 child_removed 경로에서 updateTopbarInfo() 전체 재계산으로 처리
+function updateTopbarInfoIncremental(addr) {
+    const el = document.getElementById('topbar-info');
+    if (!el) return;
+    const todayStart = _getTodayStart();
+
+    // 자정 넘김 무효화 — 전체 재계산
+    if (_topbarCache.dayKey !== todayStart) {
+        updateTopbarInfo();
+        return;
+    }
+
+    const st = workStatus[addr];
+    if (!st) return;
+    const rl = (st && st.replacement_list) || {};
+    let changed = false;
+    for (const no in rl) {
+        const r = rl[no];
+        if (!r || typeof r.replaced_at !== 'number' || r.replaced_at < todayStart) continue;
+        if (typeof r.daily_seq === 'number' && r.daily_seq > _topbarCache.maxSeq) {
+            _topbarCache.maxSeq = r.daily_seq;
+            _topbarCache.maxNo  = no;
+            changed = true;
+        }
+    }
+    if (changed) {
+        const day = _topbarCache.maxNo ? _checkdayOf(_topbarCache.maxNo) : '';
+        el.textContent = _topbarCache.maxSeq
+            ? `다음 No.${_topbarCache.maxSeq + 1}${day ? ' · 검침일 ' + day : ''}`
+            : '';
+    }
 }
 
 // ── 현재 위치 추적 토글 ──────────────────────────────────────────

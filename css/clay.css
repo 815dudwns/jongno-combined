@@ -12,7 +12,7 @@
   --surface-2:     #efece5;   /* 보조 표면 */
 
   --mint:          #a6dcc1;   /* 주색상 — 소프트 세이지 민트 */
-  --mint-l: var(--mint-l);
+  --mint-l:        #bbe8d0;   /* 주색상 밝은쪽 (버튼 그라데이션 상단) */
   --mint-ink:      #4e9b78;   /* 민트 위 텍스트/강조 (중간) */
   --mint-strong:   #3f8e6b;   /* 진한 세이지 (텍스트) */
   --mint-deep:     #2c5e44;   /* 버튼 라벨용 딥그린 */

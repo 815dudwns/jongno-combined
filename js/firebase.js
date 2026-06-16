@@ -352,6 +352,48 @@ function buildWorkStatusFromFirebase(data) {
     return result;
 }
 
+// ── 단건 병합 헬퍼 — handleChildUpsert/mergeFirebaseData 공용 ────────
+// fb: buildWorkStatusFromFirebase 결과의 단일 항목(addr 키 변환 완료)
+// pendingWriteAddrs: 큐 미전송 주소 Set (주소 보호)
+function mergeAddrInto(addr, fb, pendingWriteAddrs) {
+    const local = workStatus[addr];
+    if (!local) {
+        workStatus[addr] = fb;
+        return;
+    }
+
+    // 주소상태 = Firebase 권위 (timestamp 게이트 제거)
+    // stale local(complete)이 fresh DB(pending)를 덮어 회색 잔존하던 근본 버그 차단.
+    // 단, 큐 미전송 작업자 입력 주소는 로컬 상태 유지(전송 후 일치).
+    if (!pendingWriteAddrs.has(addr)) {
+        local.meter_state         = fb.meter_state;
+        local.meter_reason        = fb.meter_reason;
+        local.meter_updatedAt     = fb.meter_updatedAt;
+        local.meter_updatedBy     = fb.meter_updatedBy;
+        local.meter_updatedByName = fb.meter_updatedByName;
+        local.comm_state          = fb.comm_state;
+        local.comm_reason         = fb.comm_reason;
+        local.comm_updatedAt      = fb.comm_updatedAt;
+        local.comm_updatedBy      = fb.comm_updatedBy;
+        local.comm_updatedByName  = fb.comm_updatedByName;
+    }
+
+    // checkedMeters/meterChecks — Firebase 쪽이 있으면 덮어쓰기 (체크는 공유)
+    if (fb.checkedMeters.length > 0 || Object.keys(fb.meterChecks).length > 0) {
+        local.checkedMeters = fb.checkedMeters;
+        local.meterChecks   = fb.meterChecks;
+    }
+
+    // 계기 단위 데이터 — Firebase = source of truth
+    local.replacement_list    = fb.replacement_list    || {};
+    local.added_meters        = fb.added_meters        || {};
+    local.comm_completed_list = fb.comm_completed_list || {};
+
+    // failedMeters — 로컬 전용 필드 유지
+    // meter_forced_by_comm 은 Firebase 권위 값을 사용하지 않음(mergeFirebaseData 기존 동작 유지)
+    local.failedMeters = local.failedMeters || fb.failedMeters || {};
+}
+
 // Firebase 데이터와 로컬 데이터를 각 팀 prefix 별로 updatedAt 비교하여 병합
 // meter_*/comm_* 각각 독립 비교: 둘 중 더 최신 쪽 유지
 function mergeFirebaseData(firebaseData) {
@@ -363,42 +405,7 @@ function mergeFirebaseData(firebaseData) {
         .map(e => e.address));
 
     Object.keys(converted).forEach(addr => {
-        const fb    = converted[addr];
-        const local = workStatus[addr];
-        if (!local) {
-            workStatus[addr] = fb;
-            return;
-        }
-
-        // 주소상태 = Firebase 권위 (timestamp 게이트 제거)
-        // stale local(complete)이 fresh DB(pending)를 덮어 회색 잔존하던 근본 버그 차단.
-        // 단, 큐 미전송 작업자 입력 주소는 로컬 상태 유지(전송 후 일치).
-        if (!pendingWriteAddrs.has(addr)) {
-            local.meter_state         = fb.meter_state;
-            local.meter_reason        = fb.meter_reason;
-            local.meter_updatedAt     = fb.meter_updatedAt;
-            local.meter_updatedBy     = fb.meter_updatedBy;
-            local.meter_updatedByName = fb.meter_updatedByName;
-            local.comm_state          = fb.comm_state;
-            local.comm_reason         = fb.comm_reason;
-            local.comm_updatedAt      = fb.comm_updatedAt;
-            local.comm_updatedBy      = fb.comm_updatedBy;
-            local.comm_updatedByName  = fb.comm_updatedByName;
-        }
-
-        // checkedMeters/meterChecks — Firebase 쪽이 있으면 덮어쓰기 (체크는 공유)
-        if (fb.checkedMeters.length > 0 || Object.keys(fb.meterChecks).length > 0) {
-            local.checkedMeters = fb.checkedMeters;
-            local.meterChecks   = fb.meterChecks;
-        }
-
-        // 계기 단위 데이터 — Firebase = source of truth
-        local.replacement_list    = fb.replacement_list    || {};
-        local.added_meters        = fb.added_meters        || {};
-        local.comm_completed_list = fb.comm_completed_list || {};
-
-        // failedMeters — 로컬 전용 필드 유지
-        local.failedMeters = local.failedMeters || fb.failedMeters || {};
+        mergeAddrInto(addr, converted[addr], pendingWriteAddrs);
     });
 
     // applyLocalChecked 제거 (코덱스 #2: Firebase가 source of truth, local check 덮어쓰기 금지)
@@ -449,35 +456,91 @@ async function initFirebase() {
     let _resolveInitial;
     const initialPromise = new Promise(r => { _resolveInitial = r; });
 
-    // 연속 발화(동시 작업) 시 400ms debounce로 마지막 1회만 refreshAllMarkers (병합은 즉시).
-    let _refreshTimer = null;
-    const _scheduleRefresh = () => {
-        if (_refreshTimer) clearTimeout(_refreshTimer);
-        _refreshTimer = setTimeout(() => {
-            _refreshTimer = null;
-            if (typeof refreshAllMarkers === 'function') refreshAllMarkers();
-        }, 400);
-    };
+    // ── 단건 갱신: child 이벤트용 기존 키 추적 ──────────────────
+    // child_added는 부착 시 기존 키 전체를 replay하므로 isAdd=true & 이미 본 키는 버린다.
+    let _seenKeys = new Set();
 
-    statusRef.on('value', (snapshot) => {
+    // localStorage 미러 디바운스 저장 (child마다 전체 JSON.stringify 방지)
+    let _mirrorTimer = null;
+    function scheduleMirrorSave() {
+        if (_mirrorTimer) clearTimeout(_mirrorTimer);
+        _mirrorTimer = setTimeout(() => {
+            _mirrorTimer = null;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+        }, 400);
+    }
+
+    // child_added / child_changed 공용 처리
+    function handleChildUpsert(snap, isAdd) {
+        const encKey = snap.key;
+        // child_added replay 홍수 방지: 초기 스냅샷에 있던 키는 이미 build로 반영됨
+        if (isAdd && _seenKeys.has(encKey)) return;
+        _seenKeys.add(encKey);
+
+        const val = snap.val();
+        if (!val) return;
+        const addr = decodeKey(encKey);
+
+        const pendingWriteAddrs = new Set(loadEventQueue()
+            .filter(e => e.type === 'state' || e.type === 'reset')
+            .map(e => e.address));
+
+        // buildWorkStatusFromFirebase 재사용 — 단건도 동일 변환 로직 적용
+        const converted = buildWorkStatusFromFirebase({ [encKey]: val });
+        const fb = converted[addr];
+        if (!fb) return;
+
+        mergeAddrInto(addr, fb, pendingWriteAddrs);
+        scheduleMirrorSave();
+
+        // map.js 단건 갱신 (화면에 있으면 즉시 색갱신, 없으면 renderViewport가 다음 pan/zoom에 반영)
+        if (typeof updateMarkerColor === 'function') updateMarkerColor(addr);
+        if (typeof updateTopbarInfoIncremental === 'function') updateTopbarInfoIncremental(addr);
+        if (typeof updateMeterLatestAddressIncremental === 'function') updateMeterLatestAddressIncremental(addr);
+    }
+
+    // child_removed 처리
+    function handleChildRemoved(snap) {
+        const encKey = snap.key;
+        const addr = decodeKey(encKey);
+        delete workStatus[addr];
+        _seenKeys.delete(encKey);
+        scheduleMirrorSave();
+
+        // 마커 제거 후 캐시 전체 재계산 (감소는 증분으로 못 처리)
+        if (typeof removeMarker === 'function') removeMarker(addr);
+        if (typeof updateTopbarInfo === 'function') updateTopbarInfo();
+        if (typeof updateMeterLatestAddress === 'function') updateMeterLatestAddress();
+    }
+
+    // named value 핸들러 — 초기 1회 후 off()로 해제
+    const valueHandler = (snapshot) => {
         const data = snapshot.val();
         if (!_initialDone) {
             _initialDone = true;
             // ★ 초기 1회 = build(전체 교체) — 원본 get()→build와 동일 정합:
             //   workStatus = 정확히 FB 주소집합. 미러에만 있고 FB에서 삭제된 stale 주소 제거(self-heal 유지).
-            //   (merge는 add-only라 삭제 반영 못함 → 초기엔 build, 이후 변경만 merge)
             //   pendingWrite 손실 없음: flushEventQueue가 리스너 부착 전 await됨(미전송분은 스냅샷에 포함).
             if (data) {
                 workStatus = buildWorkStatusFromFirebase(data);
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+                // _seenKeys: child_added replay 가드용 — 초기 snapshot 키 전부 기록
+                _seenKeys = new Set(Object.keys(data));
             }
             console.log('[Firebase] 초기 로드 완료(on 첫 콜백), 주소수:', Object.keys(workStatus).length);
+
+            // value 리스너 해제 → child 3개로 교체 (이후 전체 발화 제거)
+            statusRef.off('value', valueHandler);
+            statusRef.on('child_added',   s => handleChildUpsert(s, true));
+            statusRef.on('child_changed', s => handleChildUpsert(s, false));
+            statusRef.on('child_removed', s => handleChildRemoved(s));
+
             _resolveInitial();   // 첫 렌더는 initMap()이 await 후 renderViewport로 수행
-        } else if (data) {
-            mergeFirebaseData(data);   // 이후 변경 = 보호병합(pendingWrite/failedMeters)
-            _scheduleRefresh();
         }
-    });
+        // else 분기 제거: child 리스너가 이후 변경을 담당 (이 핸들러는 첫 콜백 후 off됨)
+    };
+
+    statusRef.on('value', valueHandler);
 
     // 10초 간격 큐 재시도 (오프라인 → 온라인 복귀 시 미전송 이벤트 처리)
     setInterval(async () => {

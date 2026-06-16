@@ -97,7 +97,7 @@ function showDetail(address, meters) {
     // 좌표정확도가 approximate인 계기가 하나라도 있으면 "주소 오류" 표시
     const hasApproximate = meters.some(m => m.좌표정확도 === 'approximate');
     const errorTag = hasApproximate
-        ? ' <span style="color:#ef4444;font-size:12px;">(주소 오류)</span>'
+        ? ' <span style="color:var(--rose);font-size:12px;">(주소 오류)</span>'
         : '';
 
     // 도로명/지번 라인 — 헤더와 다를 때만 노출 (중복 표시 방지)
@@ -112,7 +112,7 @@ function showDetail(address, meters) {
     let jibunLine = '';
     if (jibunAddr && jibunAddr !== headerAddr) {
         const br = roadLine ? '<br>' : '';
-        jibunLine = `${br}<span style="color:#9ca3af;">${esc(jibunAddr)}</span>` +
+        jibunLine = `${br}<span style="color:var(--ink-3);">${esc(jibunAddr)}</span>` +
             `<button class="copy-btn" data-copy="${esc(jibunAddr)}" title="지번 복사" style="margin-left:6px;vertical-align:middle;">${COPY_ICON_SVG}</button>`;
     }
     document.getElementById('detail-road-address').innerHTML = roadLine + jibunLine;
@@ -184,10 +184,10 @@ function showDetail(address, meters) {
             const failInput = document.getElementById('fail-reason');
             const reason = failInput.value.trim();
             if (!reason) {
-                failInput.style.borderColor = '#ef4444';
+                failInput.style.boxShadow = 'var(--clay-inset), 0 0 0 2px var(--rose)';
                 return;
             }
-            failInput.style.borderColor = '';
+            failInput.style.boxShadow = '';
             updateStatus('fail');
             closeDetail();
         };
@@ -307,10 +307,11 @@ function updateStatusBar(state) {
     const bar = document.getElementById('status-bar');
     if (!bar) return;
 
+    // 상태 띠 색 — 클레이 상태 토큰 사용 (액션 버튼 색과 일치). 완료=민트 진한톤, 보류=블루, 불가=로즈
     const colorMap = {
-        complete: 'var(--mint)',
-        hold:     '#3b82f6',
-        fail:     '#ef4444',
+        complete: 'var(--mint-ink)',
+        hold:     'var(--blue)',
+        fail:     'var(--rose)',
     };
 
     if (state === 'pending' || !colorMap[state]) {
