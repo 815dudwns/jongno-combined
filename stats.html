@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260616.5';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      const APP_VERSION = '20260616.6';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -966,10 +966,55 @@ function exportExcel() {
       '비고': item.remark || '',
     };
   });
-  // 추가계기(added_meters) 행 append — 단 replacement_list에 이미 있는 계기(=실제 교체완료, daily_seq/검침/신설 보유)는 중복이라 제외(그 계기는 위 daily_seq 행에 검침/신설 포함됨)
+  // 추가계기(added_meters) 행 append
+  //  ① 그날 base에 이미 검침값 행으로 있으면 제외(중복)
+  //  ② 그 외엔 전체 DB(날짜무관)에서 이 계기의 교체완료(replacement)를 역검색 — 있으면 검침값/신설/사진 채움
+  //     (추가 등록일 ≠ 교체완료일이어도 누락 방지. 영준님 2026-06-16: 추가계기도 검침값 다 있으면 채워서 내보내기)
+  //  ③ 그것도 없으면(진짜 미작업 추가계기) 빈 행
   const _baseMeters = new Set(base.map(it => String(it.old_meter_id)));
+  // 전체 workStatus(decodeKey 주소키)에서 철거계기번호 → {r, addr} 역인덱스
+  const _allRplByMeter = {};
+  Object.entries(window.workStatus || {}).forEach(([addr, val]) => {
+    const rl = val && val.replacement_list;
+    if (!rl) return;
+    Object.values(rl).forEach(r => { if (r && r.old_meter_id != null) _allRplByMeter[String(r.old_meter_id)] = { r, addr }; });
+  });
   (cachedAdded || []).forEach(a => {
-    if (_baseMeters.has(String(a.meter_id))) return;
+    const mid = String(a.meter_id);
+    if (_baseMeters.has(mid)) return;  // 그날 base 검침값 행에 이미 포함
+    const hit = _allRplByMeter[mid];
+    if (hit) {
+      // 다른 날 교체완료된 추가계기 → 검침값 행으로 채움(추가계기 표시 유지)
+      const item = hit.r;
+      const s = sd[String(item.old_meter_id)] || {};
+      const rv = item.removal_values || {};
+      rows.push({
+        '순번': item.daily_seq ?? '',
+        '주소': hit.addr || a.address || s.주소 || '',
+        '도로명주소': s.도로명주소 || '',
+        '고객번호': s.고객번호 || item.cust_no || '',
+        '상호': s.상호 || '',
+        '호수(공동주택)': s.공동주택명 || '',
+        '고객명': s.고객명 || '',
+        '철거계기번호': item.old_meter_id || mid,
+        '신설계기번호': item.new_meter_id || '',
+        '철거지침_주간': rv.whme_day ?? (item.removal_value ?? ''),
+        '철거지침_야간': rv.whme_mngt ?? '',
+        '철거지침_최대': rv.dm_mt_day ?? '',
+        '철거지침_무효': rv.var_day ?? '',
+        '제조년월': item.new_meter_mfg_ym || '',
+        '추가계기': '추가계기',
+        ...exCols(exOf(item)),
+        '지침사진_주간': (item.removal_photos && item.removal_photos.whme_day) || item.old_meter_photo || '',
+        '지침사진_야간': (item.removal_photos && item.removal_photos.whme_mngt) || '',
+        '지침사진_최대': (item.removal_photos && item.removal_photos.dm_mt_day) || '',
+        '지침사진_무효': (item.removal_photos && item.removal_photos.var_day) || '',
+        '신계기사진': item.new_meter_photo || '',
+        '비고': item.remark || '',
+      });
+      return;
+    }
+    // 진짜 미작업 추가계기 → 빈 행
     rows.push({
       '순번': '',
       '주소': a.address || '',
