@@ -313,7 +313,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260615.11</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260616.1</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -679,6 +679,9 @@
       // 네이티브(AndroidUpload) 브릿지가 있으면 WorkManager 큐 등록(백그라운드, 자동재시도).
       // 브릿지 없으면(웹 브라우저/구버전) 기존 restUpload + Firebase SDK 방식으로 폴백.
       async function autoSave(slot, file, s, jobId){
+        // ★staleness 픽스: 저장 직전 최신 할당을 다시 받아 hit 판정 — 종로 메인앱에서 방금 할당(교체)한
+        //   계기도 인식해 temp로 새지 않고 그 계기에 직접 저장한다. (onPick 끝 loadToday는 한 박자 늦음)
+        try { await loadToday(); } catch(e){ console.warn('[autoSave loadToday]', e); }
         const day = dayKST();
         const hit = seqIndex[s];
         const path = hit
