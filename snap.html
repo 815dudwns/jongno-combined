@@ -313,7 +313,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260616.1</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260616.2</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -712,19 +712,16 @@
             // addr(한글/공백)·meterId를 인코딩 — 워커가 new URL(DATABASE_URL+path) 시 깨지지 않게.
             // Firebase RTDB는 URL을 디코드한 값을 키로 저장하므로 기존 한글 키와 정확히 매칭된다.
             const base = `/workStatus/jongno/${encodeURIComponent(hit.addr)}/replacement_list/${encodeURIComponent(hit.meterId)}`;
+            // ★부모우선(ifEmpty) 제거 — 사진이 "성공인데 종로 계기에 안 들어가는" 문제 차단.
+            //   보조앱 사진을 그 계기에 무조건 저장한다(작업자가 찍은 사진이 항상 우선).
             if (slot === 'old'){
-              // 부모-자식 우선 규칙: ifEmpty:true + check 필드(필드 경로)로 워커가 PATCH 전 GET 검사.
-              // PATCH 경로(removal_photos.json) 전체를 GET 하면 다른 칸이 채워진 경우 오skip 위험 — 필드 경로 직접 명시.
               rtdbOps = [
-                { path: `${base}/removal_photos.json`,  body: { whme_day: '__UPLOAD_URL__' },
-                  ifEmpty: true, check: `${base}/removal_photos/whme_day.json` },
-                { path: `${base}.json`,                 body: { old_meter_photo: '__UPLOAD_URL__' },
-                  ifEmpty: true, check: `${base}/old_meter_photo.json` }
+                { path: `${base}/removal_photos.json`,  body: { whme_day: '__UPLOAD_URL__' } },
+                { path: `${base}.json`,                 body: { old_meter_photo: '__UPLOAD_URL__' } }
               ];
             } else {
               rtdbOps = [
-                { path: `${base}.json`, body: { new_meter_photo: '__UPLOAD_URL__' },
-                  ifEmpty: true, check: `${base}/new_meter_photo.json` }
+                { path: `${base}.json`, body: { new_meter_photo: '__UPLOAD_URL__' } }
               ];
             }
           } else {
