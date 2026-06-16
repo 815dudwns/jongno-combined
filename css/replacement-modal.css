@@ -496,7 +496,7 @@
   font-size: 14px; color: var(--ink); background: var(--bg-deep); box-shadow: var(--clay-inset);
   outline: none; width: 100%; box-sizing: border-box; resize: vertical; min-height: 54px; line-height: 1.45;
 }
-.rpl-field textarea:focus { box-shadow: var(--clay-inset), 0 0 0 2px var(--accent, #6366f1); }
-.rpl-field textarea::placeholder { color: var(--ink-3, #9ca3af); }
-[data-theme="dark"] .rpl-field textarea { color: #e5e7eb; }
-[data-theme="dark"] .rpl-field textarea::placeholder { color: #6b7280; }
+.rpl-field textarea:focus { box-shadow: var(--clay-inset), var(--focus-glow); }
+.rpl-field textarea::placeholder { color: var(--ink-3); }
+[data-theme="dark"] .rpl-field textarea { color: var(--ink); }
+[data-theme="dark"] .rpl-field textarea::placeholder { color: var(--ink-3); }

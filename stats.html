@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1e40af">
+    <meta name="theme-color" content="#e9e6df">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="종로맵">
   <title>작업 통계 - Meter Care Solution</title>
-  <link rel="stylesheet" href="css/clay.css?v=20260608glow">
+  <link rel="stylesheet" href="css/clay.css?v=20260616css">
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260616.1';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      const APP_VERSION = '20260616.4';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -49,7 +49,7 @@
   <script src="js/config.js?v=20260606naver"></script>
   <script src="js/utils.js?v=20260615a"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="css/replacement-modal.css?v=20260615remark">
+  <link rel="stylesheet" href="css/replacement-modal.css?v=20260616css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: var(--font); background: var(--bg); min-height: 100vh; color: var(--ink); }
@@ -81,7 +81,7 @@
     #stats-map { width: 100%; height: 70vh; border-radius: 18px; background: var(--bg-deep); box-shadow: var(--clay-inset-sm); }
 
     .list-item { background: var(--surface); border-radius: 18px; padding: 13px; margin-bottom: 10px; box-shadow: var(--clay-sm); display: flex; gap: 12px; }
-    .seq-badge { width: 42px; height: 42px; flex-shrink: 0; background: linear-gradient(145deg,#9ee0bd,#5fbb8c); color: #1c4733; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; box-shadow: var(--clay-mint); }
+    .seq-badge { width: 42px; height: 42px; flex-shrink: 0; background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; box-shadow: var(--clay-mint); }
     .seq-badge.draft { background: linear-gradient(145deg,#f3e3b0,#e0b85a); color: #6b4e00; box-shadow: var(--clay-sm); }  /* 임시저장 = 노란색 */
     .seq-badge.app-done { background: linear-gradient(145deg,#555,#222); color: #fff; box-shadow: var(--clay-sm); }  /* 앱작성완료(계기큐 awms등록) = 검정 */
     .li-body { flex: 1; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--ink); }
@@ -93,6 +93,12 @@
 
     .empty { text-align: center; color: var(--ink-3); padding: 40px 8px; font-size: 14px; }
     .err { background: var(--rose-soft); color: #b91c1c; border: none; border-radius: 14px; padding: 12px; margin-bottom: 12px; font-size: 13px; box-shadow: var(--clay-sm); }
+    /* 리스트 안 글자 — 다크/테마색 대응 (인라인 하드코딩 대체) */
+    .tag-edited { color: #6a55a0; font-weight: 700; }
+    .tag-extra  { color: #6a55a0; }
+    .tag-none   { color: var(--ink-3); }
+    .li-dl-btn  { margin-top: 6px; margin-left: 6px; padding: 6px 12px; background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); border: none; border-radius: var(--radius-pill); font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: var(--clay-sm); }
+    .li-dl-btn:active { box-shadow: var(--clay-inset-sm); }
 
     /* 사진 라이트박스 */
     .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 9000; display: none; align-items: center; justify-content: center; padding: 20px; }
@@ -142,6 +148,11 @@
     [data-theme="dark"] .ana-table th { background: var(--bg-deep); color: var(--ink-2); border-color: var(--surface-2); }
     [data-theme="dark"] .ana-table td { border-color: var(--surface-2); }
     [data-theme="dark"] .ana-table tr.subtotal { background: var(--bg-deep); }
+    /* 다크: soft 배경 위 진한 텍스트/배지 — 밝게 */
+    [data-theme="dark"] .err { color: #ff9b9b; }
+    [data-theme="dark"] .draft-badge { color: #ffd36a; }
+    [data-theme="dark"] .tag-edited,
+    [data-theme="dark"] .tag-extra { color: #c4b5fd; }
     /* 복사 토스트 — detail.js/map.html과 동일 (common.css .toast 이식) */
     .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--ink); padding: 11px 20px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 700; box-shadow: var(--clay-sm); pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 9999; white-space: nowrap; }
     .toast.show { opacity: 1; }
@@ -214,7 +225,7 @@
       <div class="rpl-header">
         <div style="flex:1;min-width:0;">
           <h3>계기 교체 등록</h3>
-          <p id="rpl-title-addr" style="font-size:12px;color:#6b7280;margin:2px 0 0;line-height:1.3;word-break:break-all;"></p>
+          <p id="rpl-title-addr" style="font-size:12px;color:var(--ink-2);margin:2px 0 0;line-height:1.3;word-break:break-all;"></p>
         </div>
         <span class="rpl-seq" id="rpl-seq">오늘 <button type="button" id="rpl-seq-dec" class="rpl-seq-btn">‹</button> <span class="num" id="rpl-seq-num">?</span> <button type="button" id="rpl-seq-inc" class="rpl-seq-btn">›</button> 번째</span>
         <button class="rpl-close" id="rpl-close">×</button>
@@ -503,7 +514,7 @@ function renderList() {
   container.innerHTML = sorted.map(item => {
     const time = new Date(item.replaced_at).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' });
     const mfgYm = item.new_meter_mfg_ym || '';
-    const editedTag = item.last_edited_at ? `<span style="color:#7c3aed;">(수정됨)</span>` : '';
+    const editedTag = item.last_edited_at ? `<span class="tag-edited">(수정됨)</span>` : '';
     // 철거지침 = 칸별 고유값 (주간/야간/최대/무효)
     const rv = item.removal_values;
     const rvParts = [];
@@ -511,7 +522,7 @@ function renderList() {
       Object.keys(STAT_FL).forEach(k => { if (rv[k] != null && rv[k] !== '') rvParts.push(`${STAT_FL[k]} <b>${rv[k]}</b>${_cpBtn(rv[k])}`); });
     }
     if (!rvParts.length && item.removal_value != null && item.removal_value !== '') rvParts.push(`주간 <b>${item.removal_value}</b>${_cpBtn(item.removal_value)}`);
-    const rvStr = rvParts.length ? rvParts.join(' · ') : '<span style="color:#9ca3af;">지침 없음</span>';
+    const rvStr = rvParts.length ? rvParts.join(' · ') : '<span class="tag-none">지침 없음</span>';
     // 추가데이터(extra_data) — 1종2종/20kW↑ 자유입력 검침값. 큐/awms엔 안 감, 표시·엑셀만.
     const exParts = [];
     if (Array.isArray(item.extra_data)) {
@@ -522,10 +533,10 @@ function renderList() {
         }
       });
     }
-    const exStr = exParts.length ? `<div class="meta" style="color:#7c3aed;">추가데이터: ${exParts.join(' · ')}</div>` : '';
+    const exStr = exParts.length ? `<div class="meta tag-extra">추가데이터: ${exParts.join(' · ')}</div>` : '';
     const hasPhoto = item.old_meter_photo || item.new_meter_photo;
     const dlBtn = hasPhoto
-      ? `<button class="li-dl-btn" data-old="${item.old_meter_photo || ''}" data-new="${item.new_meter_photo || ''}" data-base="${item.old_meter_id}" style="margin-top:6px;margin-left:6px;padding:6px 10px;background:#059669;color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">사진 받기</button>`
+      ? `<button class="li-dl-btn" data-old="${item.old_meter_photo || ''}" data-new="${item.new_meter_photo || ''}" data-base="${item.old_meter_id}">사진 받기</button>`
       : '';
     return `
       <div class="list-item" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}">
@@ -953,8 +964,10 @@ function exportExcel() {
       '비고': item.remark || '',
     };
   });
-  // 추가계기(added_meters) 행 append — site-data 없는 계기. awms 등록 불가, "추가계기"로 구분
+  // 추가계기(added_meters) 행 append — 단 replacement_list에 이미 있는 계기(=실제 교체완료, daily_seq/검침/신설 보유)는 중복이라 제외(그 계기는 위 daily_seq 행에 검침/신설 포함됨)
+  const _baseMeters = new Set(base.map(it => String(it.old_meter_id)));
   (cachedAdded || []).forEach(a => {
+    if (_baseMeters.has(String(a.meter_id))) return;
     rows.push({
       '순번': '',
       '주소': a.address || '',
