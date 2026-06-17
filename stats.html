@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260617.4';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      const APP_VERSION = '20260617.5';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -50,7 +50,7 @@
   <script src="js/utils.js?v=20260615a"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <link rel="stylesheet" href="css/replacement-modal.css?v=20260617d">
+  <link rel="stylesheet" href="css/replacement-modal.css?v=20260617e">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: var(--font); background: var(--bg); min-height: 100vh; color: var(--ink); }

@@ -501,7 +501,7 @@
 [data-theme="dark"] .rpl-field textarea { color: var(--ink); }
 [data-theme="dark"] .rpl-field textarea::placeholder { color: var(--ink-3); }
 
-/* 검침칸 수동 토글 + 추가데이터 버튼 줄 (영준님 2026-06-17, 새계기번호 위) */
-.rpl-rv-extra-bar { display: flex; gap: 6px; justify-content: flex-end; align-items: center; flex-wrap: wrap; margin: 6px 0; }
-.rpl-rv-toggle-btn { font-size: 12px; padding: 5px 12px; border-radius: 10px; border: 1px solid var(--line, #d0d0d8); background: var(--surface-2, #f0f0f4); color: var(--ink-2, #666); cursor: pointer; }
-.rpl-rv-toggle-btn.on { background: var(--accent, #6a55a0); color: #fff; border-color: transparent; }
+/* 검침칸 수동 토글 + 추가데이터 버튼 줄 (영준님 2026-06-17, 새계기번호 위, 나란히 동일 디자인) */
+.rpl-rv-extra-bar { display: flex; gap: 8px; align-items: stretch; margin: 8px 0; }
+.rpl-rv-extra-bar > button { flex: 1; width: auto; margin: 0; font-size: 13px; font-weight: 600; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--line, #d0d0d8); background: var(--surface-2, #f0f0f4); color: var(--ink-2, #666); cursor: pointer; text-align: center; }
+.rpl-rv-extra-bar > button.on { background: var(--accent, #6a55a0); color: #fff; border-color: transparent; }
