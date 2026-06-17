@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260617.11';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      const APP_VERSION = '20260617.12';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -585,8 +585,8 @@ function renderList() {
           </div>
         </div>
         <div class="li-photos">
-          ${item.old_meter_photo ? `<img src="${item.old_meter_photo}" alt="기존" data-full="${item.old_meter_photo}" loading="lazy" decoding="async">` : ''}
-          ${item.new_meter_photo ? `<img src="${item.new_meter_photo}" alt="신규" data-full="${item.new_meter_photo}" loading="lazy" decoding="async">` : ''}
+          ${item.old_meter_photo ? `<img src="${item.old_meter_photo_thumb || item.old_meter_photo}" alt="기존" data-full="${item.old_meter_photo}" loading="lazy" decoding="async">` : ''}
+          ${item.new_meter_photo ? `<img src="${item.new_meter_photo_thumb || item.new_meter_photo}" alt="신규" data-full="${item.new_meter_photo}" loading="lazy" decoding="async">` : ''}
         </div>
       </div>
     `;
@@ -1204,11 +1204,11 @@ loadData().then(() => {
 </script>
 
 <!-- 모달 의존 스크립트 (inline script 이후 로드 — RplModal 사용 가능) -->
-<script src="js/photo-uploader.js?v=20260528a"></script>
+<script src="js/photo-uploader.js?v=20260617thumb"></script>
 <script src="js/lcd-crop.js?v=20260608lcd3"></script>
 <script src="js/awms-parseValue.js?v=20260602a"></script>
 <script src="js/qr-scanner.js?v=20260608ios"></script>
-<script src="js/replacement-modal.js?v=20260617h"></script>
+<script src="js/replacement-modal.js?v=20260617thumb"></script>
 <div id="toast" class="toast">복사했습니다</div>
 
 <!-- QR 스캔 오버레이 (교체모달 QR 버튼용 — map.html과 동일) -->

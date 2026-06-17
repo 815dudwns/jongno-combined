@@ -1264,6 +1264,23 @@ const RplModal = (() => {
         });
       }
 
+      // 목록(stats) 표시용 썸네일 — 대표 철거칸(old)·신계기(new) 두 장만(~320px·q0.6).
+      // 순수 추가분 — 실패해도 본 흐름 무영향(stats가 원본 폴백). 새 blob 있을 때만 새로 생성.
+      if (!dryRun && removalPhotoBlobs[firstActive]) {
+        uploadTasks.push({
+          tag: 'thumb_old',
+          promise: PhotoUploader.uploadThumb(removalPhotoBlobs[firstActive], `${baseDir}/${firstActive}.jpg`)
+            .then(url => ({ url })).catch(e => { console.warn('[thumb] old 실패(무시)', e); return { url: '' }; }),
+        });
+      }
+      if (!dryRun && newPhotoBlob) {
+        uploadTasks.push({
+          tag: 'thumb_new',
+          promise: PhotoUploader.uploadThumb(newPhotoBlob, `${baseDir}/new.jpg`)
+            .then(url => ({ url })).catch(e => { console.warn('[thumb] new 실패(무시)', e); return { url: '' }; }),
+        });
+      }
+
       const results = await Promise.all(uploadTasks.map(t => t.promise));
 
       // 태그 기반 결과 매핑
@@ -1323,6 +1340,9 @@ const RplModal = (() => {
         new_meter_mfg_ym: (y && m) ? `${y}-${m}` : '',
         old_meter_photo: oldMeterPhoto,
         new_meter_photo: urlMap['new'] || '',
+        // 목록 표시용 썸네일 — 새 blob 있으면 새로, 없으면(수정모드 keep) 기존 유지
+        old_meter_photo_thumb: removalPhotoBlobs[firstActive] ? (urlMap['thumb_old'] || '') : ((editingData && editingData.old_meter_photo_thumb) || ''),
+        new_meter_photo_thumb: newPhotoBlob ? (urlMap['thumb_new'] || '') : ((editingData && editingData.new_meter_photo_thumb) || ''),
         removal_photos,
         extra_data,
         worker,

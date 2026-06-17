@@ -82,5 +82,17 @@ const PhotoUploader = (() => {
     return { url, size: compressed.size };
   }
 
-  return { compress, upload, compressAndUpload };
+  // 썸네일 경로 규칙: foo/bar.jpg → foo/bar_thumb.jpg (Storage URL은 토큰이 달라 치환 불가 → URL은 RTDB에 별도 저장)
+  function thumbPathOf(path) {
+    return /\.jpg$/i.test(path) ? path.replace(/\.jpg$/i, '_thumb.jpg') : path + '_thumb.jpg';
+  }
+
+  // 목록(stats) 표시용 썸네일 생성+업로드 (~320px·q0.6 → 장당 30~60KB).
+  // 원본과 별개의 추가분 — 실패해도 호출부에서 best-effort로 무시(stats가 원본 폴백).
+  async function uploadThumb(fileOrBlob, origPath) {
+    const thumb = await compress(fileOrBlob, { maxW: 320, quality: 0.6, square: false });
+    return await upload(thumb, thumbPathOf(origPath));
+  }
+
+  return { compress, upload, compressAndUpload, thumbPathOf, uploadThumb };
 })();
