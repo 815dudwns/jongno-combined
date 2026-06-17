@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260617.12';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      const APP_VERSION = '20260618.1';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -637,11 +637,12 @@ function renderSummary() {
 
   // 단상/삼상 = 신설계기(new_meter_id) 기준 — 우리가 단 표준계기(AE/G/Amigo)라 분류 완전.
   //   구계기 기준은 한전 옛 타입 중 코드 외(E/EA/G/Amigo 아님)가 미분류로 빠져 단+삼≠총 (2026-06-09 검증).
-  //   신설계기 없는 건(아직 안 바꾼 이어서/임시저장) = 미완. → 단상 + 삼상 + 미완 = 총작업.
+  //   ★draft(임시저장)도 신설계기번호 있으면 = 교체 완료(계기큐 전송만 비고사유로 보류). 작업량이니 단상/삼상에 집계.
+  //   진짜 미완 = 신설계기번호 없는 것(아직 안 바꾼 이어서)뿐. → 단상 + 삼상 + 미완 = 총작업. (분석 탭과 동일 기준)
   let dansang = 0, samsang = 0, incomplete = 0;
   arr.forEach(i => {
     const nm = String(i.new_meter_id || '').trim();
-    if (!nm || i.draft === true) { incomplete++; return; }   // 신설계기 없음 또는 임시저장(draft) = 미완(이어서)
+    if (!nm) { incomplete++; return; }   // 신설계기번호 없음 = 진짜 미완(이어서). draft여도 신계기 있으면 아래서 분류.
     const ph = (typeof phaseOf === 'function') ? phaseOf(nm) : null;
     if (ph === '단상') dansang++;
     else if (ph === '삼상') samsang++;
