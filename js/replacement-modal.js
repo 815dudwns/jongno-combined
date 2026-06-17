@@ -121,6 +121,14 @@ const RplModal = (() => {
       draftBtn.textContent = '임시 저장';
     }
 
+    // 완료(저장)된 건만 '임시저장으로 되돌리기' 노출 — 이미 draft(임시저장)면 의미없음
+    const revertBtn = document.getElementById('rpl-revert');
+    if (revertBtn) {
+      revertBtn.style.display = (isEditMode && editingData && !editingData.draft) ? '' : 'none';
+      revertBtn.disabled = false;
+      revertBtn.textContent = '임시저장으로';
+    }
+
     // 지침 4칸 활성화 — currentMeter의 계약종별·계약전력으로 판별
     // 수정(edit) 모드면 기존 removal_values 키도 union — stats 등 meter에 계약종별 없는 경우 데이터 손실 방지
     let activeFields = [];
@@ -1367,6 +1375,48 @@ const RplModal = (() => {
     }
   }
 
+  // 완료(저장) → 임시저장(draft) 되돌리기. 검침값·사진은 유지, draft 플래그만 true로.
+  async function onRevertToDraft() {
+    if (!editingData) return;
+    const oldId = editingData.old_meter_id || (currentMeter && (currentMeter.계기번호 || currentMeter.meter_id));
+    if (!oldId) return toast('대상 계기번호 없음');
+
+    const ok = confirm(`완료 상태를 임시저장으로 되돌릴까요?\n\n계기 ${oldId}\n주소 ${currentAddress}\n\n검침값·사진은 그대로 유지되고 작업중(임시저장) 상태로 바뀝니다.`);
+    if (!ok) return;
+
+    const rvBtn = document.getElementById('rpl-revert');
+    if (rvBtn) { rvBtn.disabled = true; rvBtn.textContent = '되돌리는 중...'; }
+
+    try {
+      const dryRun = isDryRun();
+      if (!dryRun && (!db || !statusRef)) throw new Error('Firebase 미초기화');
+      const addrKey = (typeof encodeKey === 'function') ? encodeKey(currentAddress) : currentAddress;
+      const patch = { draft: true, last_edited_at: Date.now() };
+
+      if (dryRun) {
+        console.log('[DRY RUN] revert to draft', addrKey, oldId, patch);
+      } else {
+        await statusRef.child(addrKey).child('replacement_list').child(String(oldId)).update(patch);
+      }
+
+      // 로컬 미러 반영
+      const rl = workStatus[currentAddress] && workStatus[currentAddress].replacement_list;
+      if (rl && rl[oldId]) { rl[oldId].draft = true; rl[oldId].last_edited_at = patch.last_edited_at; }
+
+      toast('임시저장으로 되돌렸습니다');
+      setTimeout(close, 600);
+
+      if (typeof updateMarkerColor === 'function') updateMarkerColor(currentAddress);
+      if (typeof renderMetersList === 'function') renderMetersList();
+      if (typeof window.statsAfterModalChange === 'function') window.statsAfterModalChange();
+    } catch (e) {
+      console.error(e);
+      toast(`되돌리기 실패: ${e.message || e}`);
+    } finally {
+      if (rvBtn) { rvBtn.disabled = false; rvBtn.textContent = '임시저장으로'; }
+    }
+  }
+
   function init() {
     document.getElementById('rpl-close').onclick = close;
     document.getElementById('rpl-cancel').onclick = close;
@@ -1375,6 +1425,8 @@ const RplModal = (() => {
     if (draftBtn) draftBtn.onclick = () => onSave(true);
     const delBtn = document.getElementById('rpl-delete');
     if (delBtn) delBtn.onclick = onDelete;
+    const revertBtn = document.getElementById('rpl-revert');
+    if (revertBtn) revertBtn.onclick = onRevertToDraft;
 
     // 신계기 사진 바인딩
     document.getElementById('rpl-new-photo').onclick = () =>
