@@ -10,11 +10,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="종로맵">
   <title>작업 통계 - Meter Care Solution</title>
-  <link rel="stylesheet" href="css/clay.css?v=20260616d">
+  <link rel="stylesheet" href="css/clay.css?v=20260608glow">
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260617.6';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      const APP_VERSION = '20260616.1';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -49,8 +49,7 @@
   <script src="js/config.js?v=20260606naver"></script>
   <script src="js/utils.js?v=20260615a"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <link rel="stylesheet" href="css/replacement-modal.css?v=20260617f">
+  <link rel="stylesheet" href="css/replacement-modal.css?v=20260615remark">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: var(--font); background: var(--bg); min-height: 100vh; color: var(--ink); }
@@ -188,7 +187,6 @@
 
     <div class="tab-panel active" id="tab-list">
       <button id="btn-export" style="width:100%;margin-bottom:10px;padding:12px;background:linear-gradient(145deg,var(--mint-l),var(--mint));color:var(--mint-deep);border:none;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:var(--clay-sm);">엑셀 내보내기 (이 날짜)</button>
-      <button id="btn-photos" style="width:100%;margin-bottom:10px;padding:12px;background:linear-gradient(145deg,var(--mint-l),var(--mint));color:var(--mint-deep);border:none;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:var(--clay-sm);">사진 전체 다운로드 (이 날짜)</button>
       <div class="ana-bar" id="list-filter" style="margin-bottom:10px;gap:6px;">
         <button class="ana-mode active" data-lf="all">전체</button>
         <button class="ana-mode" data-lf="incomplete">미완료</button>
@@ -227,28 +225,22 @@
       <div class="rpl-header">
         <div style="flex:1;min-width:0;">
           <h3>계기 교체 등록</h3>
-          <p id="rpl-title-addr" style="font-size:12px;color:#6b7280;margin:2px 0 0;line-height:1.3;word-break:break-all;"></p>
+          <p id="rpl-title-addr" style="font-size:12px;color:var(--ink-2);margin:2px 0 0;line-height:1.3;word-break:break-all;"></p>
         </div>
         <span class="rpl-seq" id="rpl-seq">오늘 <button type="button" id="rpl-seq-dec" class="rpl-seq-btn">‹</button> <span class="num" id="rpl-seq-num">?</span> <button type="button" id="rpl-seq-inc" class="rpl-seq-btn">›</button> 번째</span>
         <button class="rpl-close" id="rpl-close">×</button>
       </div>
 
-      <div class="rpl-current-meter rpl-replace-only" id="rpl-current-meter" style="display:none;">
-        <span class="rpl-current-label">현재 계기번호</span>
-        <strong id="rpl-current-meter-id">-</strong>
-      </div>
-
       <div class="rpl-field rpl-add-only" style="display:none;">
         <label>계기 11자리</label>
-        <input type="text" id="rpl-old-meter-id" inputmode="numeric" maxlength="11" placeholder="">
-        <div class="rpl-alpha-row" style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">
-          <button type="button" class="rpl-alpha-btn" data-ch="A">A</button>
-          <button type="button" class="rpl-alpha-btn" data-ch="B">B</button>
-          <button type="button" class="rpl-alpha-btn" data-ch="G">G</button>
-          <button type="button" class="rpl-alpha-btn" data-ch="L">L</button>
-          <button type="button" class="rpl-alpha-btn" data-ch="BS" style="margin-left:auto;background:var(--rose-soft,#f3cdcd);color:#b13c3c;">⌫</button>
-        </div>
+        <input type="text" id="rpl-old-meter-id" inputmode="numeric" maxlength="11">
       </div>
+
+      <div class="rpl-photo rpl-replace-only" id="rpl-new-photo">
+        <span class="rpl-photo-label">새 계기 사진 (탭하여 선택)</span>
+        <img class="rpl-photo-preview" alt="새 계기">
+      </div>
+      <input type="file" id="rpl-new-photo-input" accept="image/*" style="display:none;">
 
       <div class="rpl-replace-only" id="rpl-removal-fields">
         <div class="rpl-field" id="rpl-rv-field-whme-day" style="display:none;">
@@ -289,55 +281,30 @@
         </div>
       </div>
 
-      <div class="rpl-replace-only rpl-rv-extra-bar" id="rpl-rv-extra-bar">
-        <button type="button" id="rpl-rv-toggle" class="rpl-rv-toggle-btn">검침칸 수동</button>
-        <button type="button" class="rpl-extra-add" id="rpl-extra-add">+ 추가 데이터</button>
-      </div>
-      <div class="rpl-replace-only" id="rpl-extra-wrap">
-        <div id="rpl-extra-rows"></div>
-      </div>
-
       <div class="rpl-field rpl-replace-only">
         <label>새 계기번호</label>
         <div class="rpl-input-with-qr">
-          <input type="text" id="rpl-new-meter-id" inputmode="numeric" maxlength="11" placeholder="QR 또는 직접 입력">
+          <input type="text" id="rpl-new-meter-id" inputmode="numeric" maxlength="11">
           <button class="rpl-qr-btn" id="rpl-qr-btn">QR</button>
         </div>
-        <!-- AMIGO 영문 prefix용 알파벳 보조 버튼 (numeric 키보드라 문자 직접입력 불가) -->
-        <div class="rpl-alpha-row" style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">
-          <button type="button" class="rpl-alpha-btn-new" data-ch="A">A</button>
-          <button type="button" class="rpl-alpha-btn-new" data-ch="B">B</button>
-          <button type="button" class="rpl-alpha-btn-new" data-ch="G">G</button>
-          <button type="button" class="rpl-alpha-btn-new" data-ch="L">L</button>
-          <button type="button" class="rpl-alpha-btn-new" data-ch="BS" style="margin-left:auto;background:var(--rose-soft,#f3cdcd);color:#b13c3c;">⌫</button>
-        </div>
       </div>
-
-      <div class="rpl-photo rpl-replace-only" id="rpl-new-photo">
-        <span class="rpl-photo-label">새 계기 사진 (탭하여 선택)</span>
-        <img class="rpl-photo-preview" alt="새 계기">
-      </div>
-      <input type="file" id="rpl-new-photo-input" accept="image/*" style="display:none;">
 
       <div class="rpl-field rpl-replace-only">
-        <label>제조년월 (선택/수정 가능)</label>
+        <label>제조년월</label>
         <div class="rpl-mfg-row">
           <select id="rpl-mfg-y"></select>
           <select id="rpl-mfg-m"></select>
         </div>
       </div>
 
-
-      <div class="rpl-field" id="rpl-remark-field">
-        <label>비고 (특이사항 — 조회불가·디스플레이오류 등)</label>
-        <textarea id="rpl-remark" rows="2" placeholder="특이사항 있으면 입력 (선택)"></textarea>
+      <div class="rpl-replace-only" id="rpl-extra-wrap">
+        <div id="rpl-extra-rows"></div>
+        <button type="button" class="rpl-extra-add" id="rpl-extra-add">+ 추가 데이터</button>
       </div>
 
       <div class="rpl-footer">
         <button class="rpl-btn" id="rpl-delete" style="display:none;">삭제</button>
-        <button class="rpl-btn" id="rpl-revert" style="display:none;">임시저장으로</button>
         <button class="rpl-btn cancel" id="rpl-cancel">취소</button>
-        <button class="rpl-btn draft" id="rpl-draft">임시 저장</button>
         <button class="rpl-btn save" id="rpl-save">저장</button>
       </div>
     </div>
@@ -997,55 +964,8 @@ function exportExcel() {
       '비고': item.remark || '',
     };
   });
-  // 추가계기(added_meters) 행 append
-  //  ① 그날 base에 이미 검침값 행으로 있으면 제외(중복)
-  //  ② 그 외엔 전체 DB(날짜무관)에서 이 계기의 교체완료(replacement)를 역검색 — 있으면 검침값/신설/사진 채움
-  //     (추가 등록일 ≠ 교체완료일이어도 누락 방지. 영준님 2026-06-16: 추가계기도 검침값 다 있으면 채워서 내보내기)
-  //  ③ 그것도 없으면(진짜 미작업 추가계기) 빈 행
-  const _baseMeters = new Set(base.map(it => String(it.old_meter_id)));
-  // 전체 workStatus(decodeKey 주소키)에서 철거계기번호 → {r, addr} 역인덱스
-  const _allRplByMeter = {};
-  Object.entries(window.workStatus || {}).forEach(([addr, val]) => {
-    const rl = val && val.replacement_list;
-    if (!rl) return;
-    Object.values(rl).forEach(r => { if (r && r.old_meter_id != null) _allRplByMeter[String(r.old_meter_id)] = { r, addr }; });
-  });
+  // 추가계기(added_meters) 행 append — site-data 없는 계기. awms 등록 불가, "추가계기"로 구분
   (cachedAdded || []).forEach(a => {
-    const mid = String(a.meter_id);
-    if (_baseMeters.has(mid)) return;  // 그날 base 검침값 행에 이미 포함
-    const hit = _allRplByMeter[mid];
-    if (hit) {
-      // 다른 날 교체완료된 추가계기 → 검침값 행으로 채움(추가계기 표시 유지)
-      const item = hit.r;
-      const s = sd[String(item.old_meter_id)] || {};
-      const rv = item.removal_values || {};
-      rows.push({
-        '순번': item.daily_seq ?? '',
-        '주소': hit.addr || a.address || s.주소 || '',
-        '도로명주소': s.도로명주소 || '',
-        '고객번호': s.고객번호 || item.cust_no || '',
-        '상호': s.상호 || '',
-        '호수(공동주택)': s.공동주택명 || '',
-        '고객명': s.고객명 || '',
-        '철거계기번호': item.old_meter_id || mid,
-        '신설계기번호': item.new_meter_id || '',
-        '철거지침_주간': rv.whme_day ?? (item.removal_value ?? ''),
-        '철거지침_야간': rv.whme_mngt ?? '',
-        '철거지침_최대': rv.dm_mt_day ?? '',
-        '철거지침_무효': rv.var_day ?? '',
-        '제조년월': item.new_meter_mfg_ym || '',
-        '추가계기': '추가계기',
-        ...exCols(exOf(item)),
-        '지침사진_주간': (item.removal_photos && item.removal_photos.whme_day) || item.old_meter_photo || '',
-        '지침사진_야간': (item.removal_photos && item.removal_photos.whme_mngt) || '',
-        '지침사진_최대': (item.removal_photos && item.removal_photos.dm_mt_day) || '',
-        '지침사진_무효': (item.removal_photos && item.removal_photos.var_day) || '',
-        '신계기사진': item.new_meter_photo || '',
-        '비고': item.remark || '',
-      });
-      return;
-    }
-    // 진짜 미작업 추가계기 → 빈 행
     rows.push({
       '순번': '',
       '주소': a.address || '',
@@ -1089,109 +1009,6 @@ function exportExcel() {
 }
 document.getElementById('btn-export').onclick = exportExcel;
 
-// ── 사진 전체 다운로드 (이 날짜) ────────────────────────────────────────
-// 철거지침 4칸(주간/야간/최대/무효) + 신계기 사진을 zip으로. 카톡 전송 위해 280MB 단위로
-// 작업번호(daily_seq) 경계에서 분할 → 종로_사진_{날짜}_001-050.zip 식 여러 파트.
-// ★폰-세이프: 파트 하나씩 메모리에 쌓고 생성·다운로드 후 즉시 해제(전체를 한 번에 안 만듦).
-const PHOTO_PART_LIMIT = 280 * 1024 * 1024;  // 280MB (카톡 300MB 한도 안전여유)
-const PHOTO_FIELD_LABEL = { whme_day: '주간', whme_mngt: '야간', dm_mt_day: '최대', var_day: '무효' };
-
-function _photoTasksOf(item) {
-  // 한 계기의 사진 목록 [{url, label}] — old_meter_photo는 removal_photos.whme_day 별칭이라 중복 제외(폴백만)
-  const rp = item.removal_photos || {};
-  const tasks = [];
-  ['whme_day', 'whme_mngt', 'dm_mt_day', 'var_day'].forEach(fid => {
-    let url = rp[fid] || '';
-    if (fid === 'whme_day' && !url) url = item.old_meter_photo || '';  // 구버전 폴백
-    if (url && /^https?:/.test(url)) tasks.push({ url, label: PHOTO_FIELD_LABEL[fid] });
-  });
-  if (item.new_meter_photo && /^https?:/.test(item.new_meter_photo)) tasks.push({ url: item.new_meter_photo, label: '신설' });
-  return tasks;
-}
-
-function _triggerDownload(blob, filename) {
-  const a = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-}
-
-async function downloadAllPhotos() {
-  if (typeof JSZip === 'undefined') { alert('사진 압축 라이브러리 로드 실패 — 새로고침 후 다시 시도하세요.'); return; }
-  const base = [...(cachedData || [])].sort((a, b) => (a.daily_seq ?? Infinity) - (b.daily_seq ?? Infinity));
-  if (!base.length) { alert('이 날짜에 사진이 있는 작업이 없습니다.'); return; }
-
-  const btn = document.getElementById('btn-photos');
-  const orig = btn.textContent;
-  btn.disabled = true;
-  const setMsg = (t) => { btn.textContent = t; };
-  const dv = document.getElementById('date-input').value || todayStr();
-
-  let zip = new JSZip();
-  let partBytes = 0;        // 현재 파트에 담긴 사진 바이트 합
-  let partFiles = 0;
-  let partStartSeq = null;  // 현재 파트 첫 작업번호
-  let partEndSeq = null;
-  let partNo = 0;
-  let totalPhotos = 0, failed = 0, doneItems = 0;
-  const used = new Set();   // 파일명 중복 방지
-
-  const seq3 = (it) => String(it.daily_seq ?? 0).padStart(3, '0');
-
-  async function flushPart() {
-    if (partFiles === 0) { zip = new JSZip(); partBytes = 0; partStartSeq = partEndSeq = null; return; }
-    partNo++;
-    setMsg(`파트 ${partNo} 압축 중…`);
-    const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-    const range = (partStartSeq === partEndSeq) ? seq3pad(partStartSeq) : `${seq3pad(partStartSeq)}-${seq3pad(partEndSeq)}`;
-    _triggerDownload(blob, `종로_사진_${dv}_${range}.zip`);
-    // 메모리 해제 — 다음 파트는 새 zip
-    zip = new JSZip(); partBytes = 0; partFiles = 0; partStartSeq = partEndSeq = null;
-    await new Promise(r => setTimeout(r, 800));  // 연속 다운로드 브라우저 차단 완화
-  }
-  function seq3pad(n) { return String(n ?? 0).padStart(3, '0'); }
-
-  try {
-    for (const item of base) {
-      doneItems++;
-      setMsg(`사진 받는 중 ${doneItems}/${base.length}…`);
-      const tasks = _photoTasksOf(item);
-      if (!tasks.length) continue;
-      if (partStartSeq === null) partStartSeq = item.daily_seq ?? 0;
-      partEndSeq = item.daily_seq ?? 0;
-      // 한 계기의 사진들(최대 5장) 병렬 fetch
-      const blobs = await Promise.all(tasks.map(async t => {
-        try {
-          const res = await fetch(t.url);
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          return { blob: await res.blob(), label: t.label };
-        } catch (e) { console.warn('사진 fetch 실패:', t.url, e); failed++; return null; }
-      }));
-      for (const b of blobs) {
-        if (!b) continue;
-        let name = `${seq3(item)}_${item.old_meter_id || 'NA'}_${b.label}.jpg`;
-        while (used.has(name)) name = name.replace(/(\.jpg)$/, '_x$1');
-        used.add(name);
-        zip.file(name, b.blob);
-        partBytes += b.blob.size; partFiles++; totalPhotos++;
-      }
-      // 이 계기까지 담은 뒤 280MB 넘으면 작업번호 경계에서 파트 마감
-      if (partBytes >= PHOTO_PART_LIMIT) await flushPart();
-    }
-    await flushPart();  // 마지막 파트
-    if (totalPhotos === 0) { alert('받을 사진이 없습니다.'); }
-    else setMsg(`완료: ${totalPhotos}장${failed ? ` (실패 ${failed})` : ''} · ${partNo}개 zip`);
-    if (failed) console.warn(`사진 다운로드 실패 ${failed}장`);
-  } catch (e) {
-    console.error('사진 다운로드 오류:', e);
-    alert('사진 다운로드 중 오류: ' + (e && e.message || e));
-  } finally {
-    setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 4000);
-  }
-}
-document.getElementById('btn-photos').onclick = downloadAllPhotos;
-
 // 초기 데이터 로드 후 이전 세션 탭 복원
 // (지도/분석 탭은 cachedData가 준비된 뒤 그려야 그전 날짜 필터가 반영됨)
 loadData().then(() => {
@@ -1208,7 +1025,7 @@ loadData().then(() => {
 <script src="js/lcd-crop.js?v=20260608lcd3"></script>
 <script src="js/awms-parseValue.js?v=20260602a"></script>
 <script src="js/qr-scanner.js?v=20260608ios"></script>
-<script src="js/replacement-modal.js?v=20260617d"></script>
+<script src="js/replacement-modal.js?v=20260615e"></script>
 <div id="toast" class="toast">복사했습니다</div>
 
 <!-- QR 스캔 오버레이 (교체모달 QR 버튼용 — map.html과 동일) -->

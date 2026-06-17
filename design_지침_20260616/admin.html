@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#e9e6df">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="종로맵">
+  <title>관리자 - Meter Care Solution</title>
+  <link rel="stylesheet" href="css/clay.css?v=20260608dark2">
+
+  <script>
+    // 권한 게이트: admin만
+    (function () {
+      const raw = localStorage.getItem('jongno_auth');
+      if (!raw) { window.location.replace('login.html'); return; }
+      try {
+        const s = JSON.parse(raw);
+        if (s.role !== 'admin') { window.location.replace('map.html'); }
+      } catch { window.location.replace('login.html'); }
+    })();
+  </script>
+
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+  <script src="js/auth.js"></script>
+  <script src="js/theme.js?v=20260608dark"></script>
+  <script src="js/config.js"></script>
+  <script src="js/utils.js?v=20260528a"></script>
+  <script src="js/firebase.js?v=20260528a"></script>
+  <script src="js/admin-data.js?v=20260528a"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: var(--font); background: var(--bg); color: var(--ink); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+    /* ─── 헤더 (클레이 표면 바) ─── */
+    .header { background: var(--surface); color: var(--ink); padding: 12px 16px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; box-shadow: var(--clay-sm); }
+    .header a { color: var(--mint-strong); text-decoration: none; font-size: 13px; font-weight: 700; }
+    .header h1 { font-size: 16px; font-weight: 800; flex: 1; letter-spacing: -0.02em; }
+    .demo-toggle { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--bg-deep); border-radius: var(--radius-pill); box-shadow: var(--clay-inset-sm); font-size: 12px; font-weight: 700; color: var(--ink-2); }
+    .demo-toggle input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--mint-ink); }
+    .demo-toggle.on { background: var(--amber-soft); color: #9a7220; box-shadow: var(--clay-sm); }
+    .demo-toggle.on label { font-weight: 800; }
+
+    /* ─── 탭 바 ─── */
+    .tabs { background: var(--bg); border-bottom: 1.5px solid rgba(170,162,148,0.22); padding: 0 8px; display: flex; overflow-x: auto; position: sticky; top: 56px; z-index: 90; }
+    .tab { padding: 12px 14px; font-size: 13px; font-weight: 700; color: var(--ink-2); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; user-select: none; display: flex; align-items: center; gap: 6px; }
+    .tab:hover { color: var(--ink); }
+    .tab.active { color: var(--mint-strong); border-bottom-color: var(--mint-ink); font-weight: 800; }
+    .tab .badge { background: var(--rose-soft); color: #b13c3c; font-size: 11px; padding: 2px 7px; border-radius: var(--radius-pill); font-weight: 800; }
+    .tab.active .badge { background: var(--amber-soft); color: #9a7220; }
+
+    /* ─── 본문 ─── */
+    .container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ─── 카드 (클레이 볼록 표면) ─── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .card { background: var(--surface); border-radius: var(--radius-sm); padding: 14px; box-shadow: var(--clay-sm); }
+    .card .label { font-size: 11px; color: var(--ink-2); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .card .value { font-size: 24px; font-weight: 800; color: var(--ink); margin-top: 4px; }
+    .card .sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; font-weight: 600; }
+    .card.accent { background: linear-gradient(145deg, var(--mint-l), var(--mint)); box-shadow: var(--clay-mint); }
+    .card.accent .label { color: var(--mint-deep); opacity: 0.8; }
+    .card.accent .value { color: var(--mint-deep); }
+    .card.accent .sub { color: var(--mint-deep); opacity: 0.75; }
+    .card.warn { background: var(--amber-soft); }
+    .card.danger { background: var(--rose-soft); }
+    .card.success { background: var(--green-soft); }
+
+    /* ─── 섹션 / 테이블 ─── */
+    .section { background: var(--surface); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: var(--clay-sm); }
+    .section h2 { font-size: 14px; font-weight: 800; color: var(--ink); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; letter-spacing: -0.01em; }
+    .section h2 .count { background: var(--bg-deep); color: var(--ink-2); font-size: 11px; padding: 3px 9px; border-radius: var(--radius-pill); font-weight: 800; box-shadow: var(--clay-inset-sm); }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: var(--bg-deep); color: var(--ink-2); font-weight: 800; padding: 9px 8px; text-align: left; border-bottom: none; font-size: 12px; }
+    th:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+    th:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+    td { padding: 11px 8px; border-bottom: 1px solid rgba(170,162,148,0.18); vertical-align: middle; color: var(--ink); }
+    tr:hover td { background: color-mix(in srgb, var(--mint) 14%, transparent); }
+
+    .photo-thumb { width: 56px; height: 56px; border-radius: 10px; background: var(--bg-deep); background-size: cover; background-position: center; cursor: pointer; display: inline-block; vertical-align: middle; box-shadow: var(--clay-inset-sm); }
+    .photo-thumb.empty { display: inline-flex; align-items: center; justify-content: center; color: var(--ink-3); font-size: 10px; font-weight: 700; }
+
+    .v-state { font-size: 11px; padding: 4px 10px; border-radius: var(--radius-pill); font-weight: 800; display: inline-block; }
+    .v-state.unverified { background: var(--gray-soft); color: var(--ink-2); }
+    .v-state.verified { background: var(--green-soft); color: #2f7d4f; }
+    .v-state.needs_fix { background: var(--amber-soft); color: #9a7220; }
+    .v-state.rework_requested { background: var(--rose-soft); color: #b13c3c; }
+
+    .actions { display: flex; gap: 6px; }
+    .btn { padding: 8px 13px; font-size: 12px; font-weight: 800; border: none; border-radius: var(--radius-pill); cursor: pointer; box-shadow: var(--clay-sm); transition: transform .12s ease, box-shadow .12s ease; font-family: var(--font); }
+    .btn:active { transform: translateY(1px); box-shadow: var(--clay-inset-sm); }
+    .btn.pass { background: var(--green-soft); color: #2f7d4f; }
+    .btn.fix { background: var(--amber-soft); color: #9a7220; }
+    .btn.rework { background: var(--rose-soft); color: #b13c3c; }
+    .btn.primary { background: linear-gradient(145deg, var(--mint-l), var(--mint)); color: var(--mint-deep); box-shadow: var(--clay-mint); padding: 12px 18px; font-size: 13px; }
+    .btn.secondary { background: var(--surface); color: var(--ink-2); }
+
+    .empty { text-align: center; padding: 40px 20px; color: var(--ink-3); font-size: 13px; font-weight: 600; }
+    .empty .icon { font-size: 32px; margin-bottom: 8px; opacity: 0.5; }
+
+    /* 모달 (사진 확대) — 카메라 사진이므로 다크 오버레이 유지, 컸트롤만 클레이 */
+    .modal-bg { position: fixed; inset: 0; background: rgba(20,18,16,0.86); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-bg.active { display: flex; }
+    .modal-bg img { max-width: 100%; max-height: 90vh; border-radius: 14px; }
+    .modal-bg .close { position: absolute; top: 16px; right: 16px; background: var(--surface); color: var(--ink-2); border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 18px; font-weight: 700; cursor: pointer; box-shadow: var(--clay-sm); }
+    .modal-bg .close:active { box-shadow: var(--clay-inset-sm); }
+
+    /* 토스트 — 클레이 표면 알약 */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--ink); padding: 11px 20px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 700; z-index: 2000; display: none; box-shadow: var(--clay); }
+    .toast.active { display: block; }
+
+    /* mockup 배너 — 앵버 클레이 */
+    .mockup-banner { background: var(--amber-soft); border: none; border-radius: var(--radius-sm); padding: 14px; text-align: center; color: #9a7220; font-size: 13px; font-weight: 700; margin-bottom: 14px; box-shadow: var(--clay-sm); }
+
+    /* 데모 모드 인디케이터 */
+    body.demo-mode::before {
+      content: "데모 모드 — 실제 DB 변경 없음";
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      background: var(--amber); color: #4a3a14; text-align: center;
+      padding: 4px 0; font-size: 11px; font-weight: 800; letter-spacing: 0.5px;
+    }
+    body.demo-mode .header { top: 24px; }
+    body.demo-mode .tabs { top: 80px; }
+
+    /* ─── 모바일 (≤720px) ─── */
+    @media (max-width: 720px) {
+      .header { padding: 10px 12px; gap: 8px; }
+      .header h1 { font-size: 14px; }
+      .header a { font-size: 12px; }
+      .demo-toggle { padding: 5px 8px; font-size: 11px; }
+
+      .tabs { padding: 0 4px; top: 52px; }
+      .tab { padding: 10px 10px; font-size: 12px; gap: 4px; }
+      .tab .badge { font-size: 10px; padding: 1px 6px; }
+
+      .container { padding: 10px; }
+      .cards { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .card { padding: 10px; }
+      .card .value { font-size: 18px; }
+      .card .label { font-size: 10px; }
+      .card .sub { font-size: 10px; }
+
+      .section { padding: 10px; }
+      .section h2 { font-size: 13px; margin-bottom: 8px; }
+
+      /* 표는 카드 리스트로 전환 */
+      .m-card-list { display: block; }
+      .m-table-wrap { display: none; }
+
+      .m-row {
+        background: var(--surface); border: none; border-radius: var(--radius-sm);
+        padding: 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--clay-sm);
+      }
+      .m-row-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .m-row-meta { font-size: 11px; color: var(--ink-3); }
+      .m-row-customer { font-family: ui-monospace, monospace; font-weight: 800; font-size: 14px; color: var(--ink); }
+      .m-row-addr { font-size: 13px; color: var(--ink-2); font-weight: 700; }
+      .m-row-meters { font-size: 12px; color: var(--ink-2); line-height: 1.4; }
+      .m-row-meters b { color: var(--ink); font-weight: 800; }
+      .m-row-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; font-size: 11px; color: var(--ink-3); }
+      .m-row-grid .v { color: var(--ink); font-weight: 700; font-size: 12px; }
+      .m-row-photos { display: flex; gap: 6px; }
+      .m-row-photos .photo-thumb { width: 64px; height: 64px; }
+      .m-row-actions { display: flex; gap: 6px; }
+      .m-row-actions .btn { flex: 1; padding: 10px 8px; font-size: 13px; }
+
+      body.demo-mode .tabs { top: 76px; }
+    }
+
+    @media (min-width: 721px) {
+      .m-card-list { display: none; }
+      .m-table-wrap { display: block; }
+    }
+
+    /* ─── 다크 모드 보정 ───
+       표면·배경·카드(warn/danger/success)·배지 배경은 clay.css 의 soft 토큰이
+       자동으로 다크 틴트로 전환되므로 별도 배경 지정 불필요.
+       여기서는 (1) soft 배경 위 '진한 텍스트 색'만 밝게 (2) 인라인 하드코딩 보정만 한다. */
+    [data-theme="dark"] .tab.active { color: var(--mint-strong); }
+    [data-theme="dark"] .tab .badge { color: #f0a0a0; }
+    [data-theme="dark"] .tab.active .badge { color: #e6c068; }
+    [data-theme="dark"] .v-state.verified,
+    [data-theme="dark"] .btn.pass { color: #7fd49b; }
+    [data-theme="dark"] .v-state.needs_fix,
+    [data-theme="dark"] .btn.fix { color: #e6c068; }
+    [data-theme="dark"] .v-state.rework_requested,
+    [data-theme="dark"] .btn.rework { color: #f0a0a0; }
+    [data-theme="dark"] .mockup-banner { color: #e6c068; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <a href="map.html">← 지도</a>
+  <h1>관리자 — 데이터관리 + 리포트</h1>
+  <button data-theme-toggle onclick="jongnoCycleTheme()" style="padding:8px 14px;border:none;border-radius:999px;background:var(--bg-deep);box-shadow:var(--clay-inset-sm);color:var(--ink-2);font-size:12px;font-weight:700;cursor:pointer;margin-right:4px;font-family:var(--font);">시스템</button>
+  <div id="demo-toggle" class="demo-toggle">
+    <input type="checkbox" id="demo-checkbox">
+    <label for="demo-checkbox">데모</label>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="verify">검증 큐 <span class="badge" id="badge-verify">0</span></div>
+  <div class="tab" data-tab="rework">재요청 <span class="badge" id="badge-rework">0</span></div>
+  <div class="tab" data-tab="export-prep">전송 준비 <span class="badge" id="badge-export">0</span></div>
+  <div class="tab" data-tab="export-history">전송 이력</div>
+  <div class="tab" data-tab="report">리포트</div>
+  <div class="tab" data-tab="awms">AWMS 비교</div>
+</div>
+
+<div class="container">
+
+  <!-- ─── 탭 A: 검증 큐 ─── -->
+  <div class="panel active" id="panel-verify">
+    <div class="cards">
+      <div class="card warn">
+        <div class="label">검증 대기</div>
+        <div class="value" id="card-unverified">0</div>
+        <div class="sub">통과/수정/재요청 결정 필요</div>
+      </div>
+      <div class="card">
+        <div class="label">수정 보류</div>
+        <div class="value" id="card-needs-fix">0</div>
+        <div class="sub">admin 직접 수정 예정</div>
+      </div>
+      <div class="card success">
+        <div class="label">검증 완료</div>
+        <div class="value" id="card-verified">0</div>
+        <div class="sub">전송 대기 + 전송 완료</div>
+      </div>
+      <div class="card danger">
+        <div class="label">재요청</div>
+        <div class="value" id="card-rework">0</div>
+        <div class="sub">작업자에게 재작업 요청</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>검증 대기 목록 <span class="count" id="verify-count">0건</span></h2>
+      <div id="verify-table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ─── 탭 B: 재요청 대기 ─── -->
+  <div class="panel" id="panel-rework">
+    <div class="section">
+      <h2>재요청 대기 <span class="count" id="rework-count">0건</span></h2>
+      <div class="empty"><div class="icon">대기</div>재요청한 작업의 작업자 응답 대기 목록 (다음 단계 구현)</div>
+    </div>
+  </div>
+
+  <!-- ─── 탭 C: 전송 준비 ─── -->
+  <div class="panel" id="panel-export-prep">
+    <div class="cards">
+      <div class="card accent">
+        <div class="label">전송 가능</div>
+        <div class="value" id="card-export-ready">0</div>
+        <div class="sub">검증 완료 미전송</div>
+      </div>
+      <div class="card">
+        <div class="label">예상 매출</div>
+        <div class="value" id="card-export-revenue">0원</div>
+        <div class="sub">전송 후 확정</div>
+      </div>
+    </div>
+    <div class="section">
+      <h2>전송 준비 목록 <span class="count" id="export-prep-count">0건</span></h2>
+      <div style="margin-bottom: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn primary" id="btn-export-excel" style="flex:1; min-width: 160px;">엑셀 다운로드 + 일괄 전송 처리</button>
+        <button class="btn secondary" id="btn-export-refresh">새로고침</button>
+      </div>
+      <div id="export-prep-table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ─── 탭 D: 전송 이력 ─── -->
+  <div class="panel" id="panel-export-history">
+    <div class="cards">
+      <div class="card accent">
+        <div class="label">누적 전송</div>
+        <div class="value" id="card-total-exported">0</div>
+        <div class="sub">건수</div>
+      </div>
+      <div class="card success">
+        <div class="label">누적 매출</div>
+        <div class="value" id="card-total-revenue">0원</div>
+        <div class="sub">건당 1,000원</div>
+      </div>
+    </div>
+    <div class="section">
+      <h2>전송 이력</h2>
+      <div id="export-history-wrap"><div class="empty">아직 전송 기록 없음</div></div>
+    </div>
+  </div>
+
+  <!-- ─── 탭 E: 리포트 ─── -->
+  <div class="panel" id="panel-report">
+    <div class="section">
+      <h2>전체 진척</h2>
+      <div class="cards">
+        <div class="card accent">
+          <div class="label">대상 건수</div>
+          <div class="value" id="rpt-target">0</div>
+          <div class="sub">자동완료 제외</div>
+        </div>
+        <div class="card">
+          <div class="label">처리 완료</div>
+          <div class="value" id="rpt-done">0</div>
+          <div class="sub">전송 완료 기준</div>
+        </div>
+        <div class="card success">
+          <div class="label">달성률</div>
+          <div class="value" id="rpt-rate">0%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>계기 타입별 (5종)</h2>
+      <div style="max-width: 480px; margin: 0 auto;"><canvas id="chart-type5"></canvas></div>
+    </div>
+
+    <div class="section">
+      <h2>작업자별 처리량</h2>
+      <canvas id="chart-worker" style="max-height: 280px;"></canvas>
+    </div>
+  </div>
+
+  <!-- ─── 탭 F: AWMS 비교 (mockup) ─── -->
+  <div class="panel" id="panel-awms">
+    <div class="mockup-banner">
+      AWMS 비교 기능은 다음 단계에서 구현 예정입니다. 아래는 영업 시연용 예시 화면입니다.
+    </div>
+    <div class="cards">
+      <div class="card">
+        <div class="label">우리 DB 등록</div>
+        <div class="value">0</div>
+        <div class="sub">교체 기록 건수</div>
+      </div>
+      <div class="card">
+        <div class="label">AWMS 미등록</div>
+        <div class="value">0</div>
+        <div class="sub">자동 등록 대상</div>
+      </div>
+      <div class="card warn">
+        <div class="label">정보 불일치</div>
+        <div class="value">0</div>
+        <div class="sub">수정 필요</div>
+      </div>
+    </div>
+    <div class="section">
+      <h2>비교 결과</h2>
+      <div class="empty"><div class="icon">준비중</div>AWMS와 우리 DB를 비교하여<br>미등록·오등록 자동 탐지</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 사진 확대 모달 -->
+<div class="modal-bg" id="photo-modal">
+  <button class="close" onclick="closePhotoModal()">×</button>
+  <img id="photo-modal-img" alt="">
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─── Firebase 초기화 (firebase.js의 함수 활용) ─────────
+  let _firebaseReady = false;
+  try {
+    if (typeof initFirebaseApp === 'function') {
+      _firebaseReady = initFirebaseApp();
+    }
+  } catch (e) { console.warn('[admin] firebase init failed', e); }
+
+  // ─── 데모 모드 ─────────
+  const demoCheck = document.getElementById('demo-checkbox');
+  function applyDemoMode() {
+    const on = AdminData.isDemoMode();
+    document.body.classList.toggle('demo-mode', on);
+    document.getElementById('demo-toggle').classList.toggle('on', on);
+    demoCheck.checked = on;
+  }
+  demoCheck.addEventListener('change', () => {
+    AdminData.setDemoMode(demoCheck.checked);
+    applyDemoMode();
+    refreshAll();
+    toast(demoCheck.checked ? '데모 모드 ON — 가짜 데이터로 시연' : '데모 모드 OFF — 실제 데이터');
+  });
+  applyDemoMode();
+
+  // ─── 탭 전환 ─────────
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      const id = t.dataset.tab;
+      document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + id));
+    });
+  });
+
+  // ─── 토스트 ─────────
+  let _toastTimer;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('active');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => el.classList.remove('active'), 2000);
+  }
+
+  // ─── 사진 모달 ─────────
+  function showPhoto(url) {
+    if (!url) { toast('사진 없음'); return; }
+    document.getElementById('photo-modal-img').src = url;
+    document.getElementById('photo-modal').classList.add('active');
+  }
+  function closePhotoModal() {
+    document.getElementById('photo-modal').classList.remove('active');
+  }
+  document.getElementById('photo-modal').addEventListener('click', e => {
+    if (e.target.id === 'photo-modal') closePhotoModal();
+  });
+
+  // ─── 검증 큐 렌더 ─────────
+  let _data = null;
+  let _summary = null;
+  let _queue = [];
+  let _exportPending = [];
+
+  async function refreshAll() {
+    try {
+      _data = await AdminData.loadAll();
+      _summary = AdminData.summarize(_data);
+      _queue = AdminData.extractVerificationQueue(_data);
+      _exportPending = AdminData.extractExportPending(_data);
+
+      renderCards();
+      renderVerifyTable();
+      renderExportPrepTable();
+      renderReport();
+    } catch (e) {
+      console.error(e);
+      toast('데이터 로드 실패: ' + e.message);
+    }
+  }
+
+  function renderCards() {
+    const s = _summary;
+    document.getElementById('card-unverified').textContent = s.unverified;
+    document.getElementById('card-needs-fix').textContent = s.needs_fix;
+    document.getElementById('card-verified').textContent = s.verified_pending + s.verified_exported;
+    document.getElementById('card-rework').textContent = s.rework;
+    document.getElementById('badge-verify').textContent = s.unverified + s.needs_fix;
+    document.getElementById('badge-rework').textContent = s.rework;
+    document.getElementById('badge-export').textContent = s.verified_pending;
+
+    document.getElementById('card-export-ready').textContent = s.verified_pending;
+    document.getElementById('card-export-revenue').textContent = (s.verified_pending * AdminData.UNIT_PRICE).toLocaleString() + '원';
+
+    document.getElementById('card-total-exported').textContent = s.verified_exported;
+    document.getElementById('card-total-revenue').textContent = s.revenue.toLocaleString() + '원';
+
+    document.getElementById('rpt-target').textContent = s.target.toLocaleString();
+    document.getElementById('rpt-done').textContent = s.verified_exported;
+    document.getElementById('rpt-rate').textContent = s.target ? ((s.verified_exported / s.target) * 100).toFixed(1) + '%' : '0%';
+  }
+
+  function renderVerifyTable() {
+    const wrap = document.getElementById('verify-table-wrap');
+    document.getElementById('verify-count').textContent = _queue.length + '건';
+    if (!_queue.length) {
+      wrap.innerHTML = '<div class="empty"><div class="icon">완료</div>검증 대기 없음</div>';
+      return;
+    }
+    const rows = _queue.map(item => `
+      <tr>
+        <td>${dateStr(item.replaced_at)}</td>
+        <td><span class="v-state ${item.verification_state}">${vStateLabel(item.verification_state)}</span></td>
+        <td><span style="font-family:ui-monospace,monospace;font-weight:700;color:var(--ink);">${escapeHtml(item.customer_id || '')}</span></td>
+        <td>${escapeHtml(shortAddr(item.address))}</td>
+        <td>${escapeHtml(item.old_meter_id)}<br><span style="color:var(--ink-3);font-size:11px;">→ ${escapeHtml(item.new_meter_id)}</span></td>
+        <td><span style="font-size:11px;color:var(--ink-2);">${type5Label(item.new_type5)}</span></td>
+        <td>${item.removal_value != null ? Number(item.removal_value).toLocaleString() : '-'}</td>
+        <td>${escapeHtml(item.new_meter_mfg_ym || '-')}</td>
+        <td>${escapeHtml(item.worker)}</td>
+        <td>
+          ${photoCell(item.old_photo)} ${photoCell(item.new_photo)}
+        </td>
+        <td class="actions">
+          <button class="btn pass" onclick="actVerify('${escAttr(item.address)}','${item.old_meter_id}','verified')">통과</button>
+          <button class="btn fix" onclick="actVerify('${escAttr(item.address)}','${item.old_meter_id}','needs_fix')">수정</button>
+          <button class="btn rework" onclick="actRework('${escAttr(item.address)}','${item.old_meter_id}')">재요청</button>
+        </td>
+      </tr>
+    `).join('');
+    // 모바일 카드 뷰
+    const mcards = _queue.map(item => `
+      <div class="m-row">
+        <div class="m-row-head">
+          <div class="m-row-customer">${escapeHtml(item.customer_id || '(추가계기)')}</div>
+          <div><span class="v-state ${item.verification_state}">${vStateLabel(item.verification_state)}</span></div>
+        </div>
+        <div class="m-row-addr">${escapeHtml(shortAddr(item.address))}</div>
+        <div class="m-row-meters">
+          <b>${escapeHtml(item.old_meter_id)}</b> → <b>${escapeHtml(item.new_meter_id)}</b>
+          <span style="color:var(--ink-2);"> · ${type5Label(item.new_type5)}</span>
+        </div>
+        <div class="m-row-grid">
+          <div><div>일시</div><div class="v">${dateStr(item.replaced_at)}</div></div>
+          <div><div>철거값</div><div class="v">${item.removal_value != null ? Number(item.removal_value).toLocaleString() : '-'}</div></div>
+          <div><div>제조</div><div class="v">${escapeHtml(item.new_meter_mfg_ym || '-')}</div></div>
+          <div><div>작업자</div><div class="v">${escapeHtml(item.worker)}</div></div>
+        </div>
+        <div class="m-row-photos">${photoCell(item.old_photo)}${photoCell(item.new_photo)}</div>
+        <div class="m-row-actions">
+          <button class="btn pass" onclick="actVerify('${escAttr(item.address)}','${item.old_meter_id}','verified')">통과</button>
+          <button class="btn fix" onclick="actVerify('${escAttr(item.address)}','${item.old_meter_id}','needs_fix')">수정</button>
+          <button class="btn rework" onclick="actRework('${escAttr(item.address)}','${item.old_meter_id}')">재요청</button>
+        </div>
+      </div>
+    `).join('');
+
+    wrap.innerHTML = `
+      <div class="m-table-wrap" style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>일시</th><th>상태</th><th>고객번호</th><th>주소</th><th>계기번호</th>
+            <th>타입</th><th>철거값</th><th>제조</th><th>작업자</th><th>사진</th><th>조치</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>
+      <div class="m-card-list">${mcards}</div>
+    `;
+  }
+
+  function renderExportPrepTable() {
+    const wrap = document.getElementById('export-prep-table-wrap');
+    document.getElementById('export-prep-count').textContent = _exportPending.length + '건';
+    if (!_exportPending.length) {
+      wrap.innerHTML = '<div class="empty"><div class="icon">대기</div>전송 가능한 검증 완료 건 없음</div>';
+      return;
+    }
+    const rows = _exportPending.slice(0, 200).map(item => `
+      <tr>
+        <td>${dateStr(item.replaced_at)}</td>
+        <td><span style="font-family:ui-monospace,monospace;font-weight:700;color:var(--ink);">${escapeHtml(item.customer_id || '')}</span></td>
+        <td>${escapeHtml(shortAddr(item.address))}</td>
+        <td>${escapeHtml(item.old_meter_id)}<br><span style="color:var(--ink-3);font-size:11px;">→ ${escapeHtml(item.new_meter_id)}</span></td>
+        <td>${item.removal_value != null ? Number(item.removal_value).toLocaleString() : '-'}</td>
+        <td>${escapeHtml(item.new_meter_mfg_ym || '-')}</td>
+        <td>${escapeHtml(item.worker)}</td>
+      </tr>
+    `).join('');
+    const mcards = _exportPending.slice(0, 200).map(item => `
+      <div class="m-row">
+        <div class="m-row-head">
+          <div class="m-row-customer">${escapeHtml(item.customer_id || '(추가계기)')}</div>
+          <div class="m-row-meta">${dateStr(item.replaced_at)}</div>
+        </div>
+        <div class="m-row-addr">${escapeHtml(shortAddr(item.address))}</div>
+        <div class="m-row-meters"><b>${escapeHtml(item.old_meter_id)}</b> → <b>${escapeHtml(item.new_meter_id)}</b></div>
+        <div class="m-row-grid">
+          <div><div>철거값</div><div class="v">${item.removal_value != null ? Number(item.removal_value).toLocaleString() : '-'}</div></div>
+          <div><div>제조</div><div class="v">${escapeHtml(item.new_meter_mfg_ym || '-')}</div></div>
+          <div><div>작업자</div><div class="v">${escapeHtml(item.worker)}</div></div>
+        </div>
+      </div>
+    `).join('');
+
+    wrap.innerHTML = `
+      <div class="m-table-wrap" style="overflow-x:auto;">
+      <table>
+        <thead><tr><th>일시</th><th>고객번호</th><th>주소</th><th>계기번호</th><th>철거값</th><th>제조</th><th>작업자</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </div>
+      <div class="m-card-list">${mcards}</div>
+      ${_exportPending.length > 200 ? `<div style="text-align:center;color:var(--ink-3);font-size:12px;margin-top:8px;">전체 ${_exportPending.length}건 중 상위 200건만 미리보기</div>` : ''}
+    `;
+  }
+
+  // ─── 리포트 차트 ─────────
+  let _chartType5 = null;
+  let _chartWorker = null;
+
+  function renderReport() {
+    const s = _summary;
+    // 타입5 도넛
+    const type5Data = ['AE','G_단상','G_삼상','AMIGO_단상','AMIGO_삼상'].map(k => s.byType5[k] || 0);
+    const type5Labels = ['AE','G 단상','G 삼상','AMIGO 단상','AMIGO 삼상'];
+    if (_chartType5) _chartType5.destroy();
+    _chartType5 = new Chart(document.getElementById('chart-type5'), {
+      type: 'doughnut',
+      data: {
+        labels: type5Labels,
+        datasets: [{
+          data: type5Data,
+          backgroundColor: ['#3b82f6','#10b981','#059669','#a855f7','#7c3aed'],
+        }]
+      },
+      options: { plugins: { legend: { position: 'bottom' } } }
+    });
+
+    // 작업자 막대
+    const workerEntries = Object.entries(s.byWorker).sort((a,b) => b[1] - a[1]).slice(0, 10);
+    if (_chartWorker) _chartWorker.destroy();
+    _chartWorker = new Chart(document.getElementById('chart-worker'), {
+      type: 'bar',
+      data: {
+        labels: workerEntries.map(e => e[0]),
+        datasets: [{
+          label: '교체 건수',
+          data: workerEntries.map(e => e[1]),
+          backgroundColor: '#0f172a',
+        }]
+      },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+  }
+
+  // ─── 액션 ─────────
+  async function actVerify(addr, oldId, state) {
+    const session = (typeof authGetSession === 'function') ? authGetSession() : null;
+    const me = session ? session.id : 'admin';
+    const meName = session ? session.name : '관리자';
+    const patch = {
+      verification_state: state,
+      verified_at: Date.now(),
+      verified_by: me,
+      verified_by_name: meName,
+    };
+    if (state === 'needs_fix') {
+      const reason = prompt('수정 사유 (선택)') || '';
+      patch.verification_reason = reason;
+    }
+    if (AdminData.isDemoMode()) {
+      mutateLocalReplacement(addr, oldId, patch);
+      toast('데모: ' + vStateLabel(state) + ' 처리');
+    } else {
+      try {
+        await AdminData.setVerification(addr, oldId, patch);
+        toast(vStateLabel(state) + ' 처리 완료');
+      } catch (e) {
+        toast('실패: ' + e.message);
+        return;
+      }
+    }
+    refreshAll();
+  }
+
+  async function actRework(addr, oldId) {
+    const reason = prompt('재요청 사유 (작업자에게 보일 문구)') || '';
+    if (!reason) return;
+    const session = (typeof authGetSession === 'function') ? authGetSession() : null;
+    const me = session ? session.id : 'admin';
+    const meName = session ? session.name : '관리자';
+    const patch = {
+      verification_state: 'rework_requested',
+      verification_reason: reason,
+      rework_at: Date.now(),
+      rework_by: me,
+      rework_by_name: meName,
+    };
+    if (AdminData.isDemoMode()) {
+      mutateLocalReplacement(addr, oldId, patch);
+      toast('데모: 재요청 처리');
+    } else {
+      try {
+        await AdminData.setVerification(addr, oldId, patch);
+        toast('재요청 처리 완료');
+      } catch (e) { toast('실패: ' + e.message); return; }
+    }
+    refreshAll();
+  }
+
+  function mutateLocalReplacement(addr, oldId, patch) {
+    if (!_data) return;
+    const e = _data.workStatus[addr];
+    if (!e || !e.replacement_list || !e.replacement_list[oldId]) return;
+    Object.assign(e.replacement_list[oldId], patch);
+  }
+
+  // ─── 엑셀 전송 ─────────
+  document.getElementById('btn-export-excel').onclick = doExportExcel;
+  document.getElementById('btn-export-refresh').onclick = refreshAll;
+
+  async function doExportExcel() {
+    if (!_exportPending.length) { toast('전송 가능한 건 없음'); return; }
+    if (!confirm(`${_exportPending.length}건 엑셀 전송 처리\n예상 매출: ${(_exportPending.length * AdminData.UNIT_PRICE).toLocaleString()}원`)) return;
+
+    const exportable = _exportPending;
+    const batchId = 'EXP-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + String(Date.now() % 10000).padStart(4,'0');
+    const ts = Date.now();
+
+    // 엑셀 데이터 — 컬럼 순서는 고객번호 첫 번째 (매칭 안 된 건 빈 칸)
+    const rows = exportable.map(item => ({
+      '고객번호': item.customer_id || '',
+      '주소': item.address,
+      '도로명주소': item.site?.도로명주소 || '',
+      '기존 계기번호': item.old_meter_id,
+      '신규 계기번호': item.new_meter_id,
+      '철거 제번': item.removal_value,
+      '제조년월': item.new_meter_mfg_ym,
+      '작업자': item.worker,
+      '작업일시': dateStr(item.replaced_at, true),
+      '단상/삼상': item.site?.단상삼상 || '',
+      '검침일': item.site?.검침일 || '',
+      '순위': item.site?.순위 || '',
+      '동그룹': item.site?.동그룹 || '',
+      '기존 계기 사진': item.old_photo || '',
+      '신규 계기 사진': item.new_photo || '',
+      '배치ID': batchId,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '교체기록');
+    XLSX.writeFile(wb, `종로_교체기록_${batchId}.xlsx`);
+
+    // 전송 상태 업데이트 (매칭된 건만)
+    if (AdminData.isDemoMode()) {
+      exportable.forEach(item => {
+        mutateLocalReplacement(item.address, item.old_meter_id, {
+          export_state: 'exported',
+          exported_at: ts,
+          exported_batch_id: batchId,
+        });
+      });
+      toast(`데모: ${exportable.length}건 엑셀 생성 + 전송 처리`);
+    } else {
+      try {
+        for (const item of exportable) {
+          await AdminData.setVerification(item.address, item.old_meter_id, {
+            export_state: 'exported',
+            exported_at: ts,
+            exported_batch_id: batchId,
+          });
+        }
+        // 배치 기록 저장
+        if (typeof statusRef !== 'undefined' && statusRef) {
+          await firebase.database().ref('exportBatches/jongno/' + batchId).set({
+            batch_id: batchId,
+            exported_at: ts,
+            exported_by: 'admin',
+            count: exportable.length,
+            total_amount: exportable.length * AdminData.UNIT_PRICE,
+            meter_ids: exportable.map(x => x.old_meter_id),
+            customer_ids: exportable.map(x => x.customer_id || ''),
+            destination: '현 데이터관리업체',
+            format: 'excel',
+          });
+        }
+        toast(`${exportable.length}건 엑셀 생성 + 전송 처리 완료`);
+      } catch (e) { toast('상태 업데이트 실패: ' + e.message); return; }
+    }
+    refreshAll();
+  }
+
+  // ─── 유틸 ─────────
+  function dateStr(ms, withTime) {
+    if (!ms) return '-';
+    const d = new Date(ms);
+    const fmt = new Intl.DateTimeFormat('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: withTime ? '2-digit' : undefined,
+      minute: withTime ? '2-digit' : undefined,
+      hour12: false,
+    }).formatToParts(d);
+    const g = t => (fmt.find(x => x.type === t) || {}).value || '';
+    const mm = g('month'), dd = g('day');
+    if (!withTime) return `${mm}/${dd}`;
+    const yyyy = g('year'), HH = g('hour'), MM = g('minute');
+    return `${yyyy}-${mm}-${dd} ${HH}:${MM}`;
+  }
+  function shortAddr(a) { return (a || '').replace('서울특별시 종로구 ', ''); }
+  function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function escAttr(s) { return String(s || '').replace(/'/g, "\\'"); }
+  function photoCell(url) {
+    if (!url) return '<span class="photo-thumb empty">없음</span>';
+    return `<span class="photo-thumb" style="background-image:url('${url}')" onclick="showPhoto('${url}')"></span>`;
+  }
+  function vStateLabel(s) {
+    return ({unverified:'대기', verified:'통과', needs_fix:'수정', rework_requested:'재요청'})[s] || s;
+  }
+
+  // ─── 시작 ─────────
+  refreshAll();
+</script>
+
+</body>
+</html>
