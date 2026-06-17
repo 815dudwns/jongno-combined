@@ -51,23 +51,39 @@ const RplModal = (() => {
   };
   // 순서: 주간·야간·무효전력·최대전력 (영준님 2026-06-15: 무효↔최대 순서 교환)
   const ALL_KNOWN_FIELDS = ['whme_day', 'whme_mngt', 'var_day', 'dm_mt_day'];
-  let activeFields = [];      // 현재 활성 검침칸 (open에서 계약정보로 계산)
-  let _rvForceAll = false;    // 수동 토글: true면 4칸(주간·야간·무효·최대) 강제 표시
+  let activeFields = [];      // 현재 활성 검침칸 (open에서 계약정보로 자동 계산)
+  let _rvMode = 'auto';       // 수동 토글 순환: auto → day(주간) → night(야간) → all(4개) → day...
 
-  // 검침칸 표시 갱신 (자동 activeFields + 수동 _rvForceAll)
+  // 현재 모드의 실제 검침칸 목록 (auto면 자동계산값 그대로)
+  function _rvFieldsFor(autoFields) {
+    if (_rvMode === 'day')   return ['whme_day'];
+    if (_rvMode === 'night') return ['whme_mngt'];
+    if (_rvMode === 'all')   return ALL_KNOWN_FIELDS.slice();
+    return autoFields || [];
+  }
+
+  // 검침칸 표시 갱신
   function _applyRvVisibility() {
+    const eff = _rvFieldsFor(activeFields);
     for (const fid of ALL_KNOWN_FIELDS) {
       const els = RV_FIELDS[fid];
       const w = els && document.getElementById(els.wrap);
-      if (w) w.style.display = (_rvForceAll || activeFields.includes(fid)) ? '' : 'none';
+      if (w) w.style.display = eff.includes(fid) ? '' : 'none';
     }
     const rf = document.getElementById('rpl-removal-fields');
-    if (rf) rf.classList.toggle('single', !_rvForceAll && activeFields.length <= 1);
+    if (rf) rf.classList.toggle('single', eff.length <= 1);
     const btn = document.getElementById('rpl-rv-toggle');
     if (btn) {
-      btn.textContent = _rvForceAll ? '검침 자동(1칸)으로' : '검침 4칸 수동';
-      btn.classList.toggle('on', _rvForceAll);
+      const lbl = { auto: '검침칸 수동', day: '검침: 주간', night: '검침: 야간', all: '검침: 4칸' };
+      btn.textContent = lbl[_rvMode] || '검침칸 수동';
+      btn.classList.toggle('on', _rvMode !== 'auto');
     }
+  }
+
+  // 버튼 누를 때마다 주간 → 야간 → 4개 순환 (auto에서 첫 클릭 시 주간)
+  function _cycleRvMode() {
+    _rvMode = (_rvMode === 'day') ? 'night' : (_rvMode === 'night') ? 'all' : 'day';
+    _applyRvVisibility();
   }
 
   function open(address, meter, prefillOldId, editData) {
@@ -75,7 +91,7 @@ const RplModal = (() => {
     if (typeof LcdYolo !== 'undefined') LcdYolo.preload();
     currentAddress = address;
     currentMeter = meter || null;
-    _rvForceAll = false;   // 모달 열 때마다 수동토글 초기화
+    _rvMode = 'auto';   // 모달 열 때마다 수동토글 초기화(자동판별)
     editingData = editData || null;
     newPhotoBlob = null;
     keepNewPhotoUrl = null;
@@ -174,7 +190,7 @@ const RplModal = (() => {
         const wrapEl = document.getElementById(els.wrap);
         const inpEl  = document.getElementById(els.input);
         if (!wrapEl || !inpEl) continue;
-        const isActive = _rvForceAll || activeFields.includes(fid);
+        const isActive = _rvFieldsFor(activeFields).includes(fid);
         wrapEl.style.display = isActive ? '' : 'none';
         inpEl.value = '';
         inpEl.maxLength = (fid === 'dm_mt_day') ? 7 : _rvDigits;   // 최대전력은 소수점(.) 포함 7자리 (영준님 2026-06-15)
@@ -1096,10 +1112,9 @@ const RplModal = (() => {
       const prevSavedKeys = (editingData && editingData.removal_values && typeof editingData.removal_values === 'object')
           ? Object.keys(editingData.removal_values).filter(k => editingData.removal_values[k] != null)
           : [];
-      // 수동토글(_rvForceAll)이 켜져 있으면 4칸 전부 저장 대상
-      const activeFields = _rvForceAll
-          ? ALL_KNOWN_FIELDS.slice()
-          : ALL_KNOWN_FIELDS.filter(f => baseFields.includes(f) || prevSavedKeys.includes(f));
+      // 수동토글(_rvMode) 반영 — auto면 자동계산, 아니면 모드별 칸
+      const _autoFields = ALL_KNOWN_FIELDS.filter(f => baseFields.includes(f) || prevSavedKeys.includes(f));
+      const activeFields = _rvFieldsFor(_autoFields);
       const firstActive = activeFields[0] || 'whme_day';
 
       const removalValues = {};
@@ -1450,7 +1465,7 @@ const RplModal = (() => {
     const revertBtn = document.getElementById('rpl-revert');
     if (revertBtn) revertBtn.onclick = onRevertToDraft;
     const rvToggleBtn = document.getElementById('rpl-rv-toggle');
-    if (rvToggleBtn) rvToggleBtn.onclick = () => { _rvForceAll = !_rvForceAll; _applyRvVisibility(); };
+    if (rvToggleBtn) rvToggleBtn.onclick = _cycleRvMode;
 
     // 신계기 사진 바인딩
     document.getElementById('rpl-new-photo').onclick = () =>

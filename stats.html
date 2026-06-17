@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260617.3';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      const APP_VERSION = '20260617.4';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -50,7 +50,7 @@
   <script src="js/utils.js?v=20260615a"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <link rel="stylesheet" href="css/replacement-modal.css?v=20260617c">
+  <link rel="stylesheet" href="css/replacement-modal.css?v=20260617d">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: var(--font); background: var(--bg); min-height: 100vh; color: var(--ink); }
@@ -250,9 +250,6 @@
         </div>
       </div>
 
-      <div class="rpl-replace-only" id="rpl-rv-toggle-wrap" style="text-align:right;margin:4px 0;">
-        <button type="button" id="rpl-rv-toggle" class="rpl-rv-toggle-btn">검침 4칸 수동</button>
-      </div>
       <div class="rpl-replace-only" id="rpl-removal-fields">
         <div class="rpl-field" id="rpl-rv-field-whme-day" style="display:none;">
           <label>철거 주간(kWh)</label>
@@ -292,6 +289,14 @@
         </div>
       </div>
 
+      <div class="rpl-replace-only rpl-rv-extra-bar" id="rpl-rv-extra-bar">
+        <button type="button" id="rpl-rv-toggle" class="rpl-rv-toggle-btn">검침칸 수동</button>
+        <button type="button" class="rpl-extra-add" id="rpl-extra-add">+ 추가 데이터</button>
+      </div>
+      <div class="rpl-replace-only" id="rpl-extra-wrap">
+        <div id="rpl-extra-rows"></div>
+      </div>
+
       <div class="rpl-field rpl-replace-only">
         <label>새 계기번호</label>
         <div class="rpl-input-with-qr">
@@ -322,10 +327,6 @@
         </div>
       </div>
 
-      <div class="rpl-replace-only" id="rpl-extra-wrap">
-        <div id="rpl-extra-rows"></div>
-        <button type="button" class="rpl-extra-add" id="rpl-extra-add">+ 추가 데이터</button>
-      </div>
 
       <div class="rpl-field" id="rpl-remark-field">
         <label>비고 (특이사항 — 조회불가·디스플레이오류 등)</label>
@@ -1207,7 +1208,7 @@ loadData().then(() => {
 <script src="js/lcd-crop.js?v=20260608lcd3"></script>
 <script src="js/awms-parseValue.js?v=20260602a"></script>
 <script src="js/qr-scanner.js?v=20260608ios"></script>
-<script src="js/replacement-modal.js?v=20260617c"></script>
+<script src="js/replacement-modal.js?v=20260617d"></script>
 <div id="toast" class="toast">복사했습니다</div>
 
 <!-- QR 스캔 오버레이 (교체모달 QR 버튼용 — map.html과 동일) -->
