@@ -1290,6 +1290,9 @@ const RplModal = (() => {
       const replacement = {
         old_meter_id: String(oldMeterId),
         new_meter_id: String(newMeterId || ''),
+        // 계약정보 저장 — snap(보조앱) 검침칸 자동판별 재료 (영준님 2026-06-17)
+        계약종별: (currentMeter && (currentMeter.계약종별 || currentMeter.CNTR_CLAS_CD)) || (editingData && editingData.계약종별) || null,
+        계약전력: (currentMeter && currentMeter.계약전력) || (editingData && editingData.계약전력) || null,
         remark: (function () { const e = document.getElementById('rpl-remark'); const v = e ? String(e.value || '').trim() : ''; return v || null; })(),
         removal_values: removalValues,
         removal_value: removalValue === '' ? null : Number(removalValue),
