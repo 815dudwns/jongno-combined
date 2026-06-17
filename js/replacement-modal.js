@@ -511,8 +511,12 @@ const RplModal = (() => {
                                 : (tmp.removal_value != null ? [firstActive] : []);
       const tmpRVval = (fid) => (tmpRV ? tmpRV[fid] : tmp.removal_value);
       // 채울 수 있는 빈 항목 판별 (이미 채워진 칸·사용자 입력칸은 안 건드림)
+      // 철거사진 — snap 멀티(removal_photos{fid}) 우선, 없으면 단일 removal_photo→firstActive 하위호환
+      const tmpRP = (tmp.removal_photos && typeof tmp.removal_photos === 'object') ? tmp.removal_photos : null;
+      const tmpRPfields = tmpRP ? ALL_KNOWN_FIELDS.filter(f => tmpRP[f]) : (tmp.removal_photo ? [firstActive] : []);
+      const tmpRPval = (fid) => (tmpRP ? tmpRP[fid] : tmp.removal_photo);
       const canNewPhoto = !!(tmp.new_meter_photo && !newPhotoBlob && !keepNewPhotoUrl);
-      const canRvPhoto  = !!(tmp.removal_photo && !removalPhotoBlobs[firstActive] && !keepRemovalPhotoUrls[firstActive]);
+      const canRvPhoto  = tmpRPfields.some(fid => !removalPhotoBlobs[fid] && !keepRemovalPhotoUrls[fid]);
       const rdEl = document.getElementById(readingId);
       const canReading  = tmpRVfields.some(fid => { const el = document.getElementById(RV_FIELDS[fid].input); return el && !String(el.value || '').trim(); });
       const canMeterId  = !!(tmp.new_meter_id && meterIdEl && !String(meterIdEl.value || '').trim());
@@ -539,7 +543,14 @@ const RplModal = (() => {
 
       // 수락 → 빈 칸만 채우기 + 저장 시 삭제 예약
       if (canNewPhoto) { showPhotoUrl('rpl-new-photo', tmp.new_meter_photo); keepNewPhotoUrl = tmp.new_meter_photo; _tempPrefilled.new = true; }
-      if (canRvPhoto)  { showPhotoUrl(RV_FIELDS[firstActive].photo, tmp.removal_photo); keepRemovalPhotoUrls[firstActive] = tmp.removal_photo; _tempPrefilled.rv = firstActive; }
+      if (canRvPhoto)  {
+        if (tmpRPfields.length > 1 || (tmpRPfields[0] && tmpRPfields[0] !== 'whme_day')) { _rvMode = 'all'; _applyRvVisibility(); }
+        for (const fid of tmpRPfields) {
+          if (removalPhotoBlobs[fid] || keepRemovalPhotoUrls[fid]) continue;
+          showPhotoUrl(RV_FIELDS[fid].photo, tmpRPval(fid)); keepRemovalPhotoUrls[fid] = tmpRPval(fid);
+        }
+        _tempPrefilled.rv = firstActive;
+      }
       // 흡수값을 사용자가 직접 고치면 추적 해제 → 작업번호 변경 시 _clearTempPrefilled가 안 지움(수정 보존).
       //   메인앱 입력칸은 readonly 아님 → 종로앱에서 자유롭게 수정 가능(영준님 지시).
       if (canReading)  {
