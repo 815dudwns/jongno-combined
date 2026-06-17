@@ -74,7 +74,7 @@ const RplModal = (() => {
     if (rf) rf.classList.toggle('single', eff.length <= 1);
     const btn = document.getElementById('rpl-rv-toggle');
     if (btn) {
-      const lbl = { auto: '검침칸 수동', day: '검침: 주간', night: '검침: 야간', all: '검침: 4칸' };
+      const lbl = { auto: '검침: 자동', day: '검침: 주간', night: '검침: 야간', all: '검침: 4칸' };
       btn.textContent = lbl[_rvMode] || '검침칸 수동';
       btn.classList.toggle('on', _rvMode !== 'auto');
     }
@@ -82,7 +82,7 @@ const RplModal = (() => {
 
   // 버튼 누를 때마다 주간 → 야간 → 4개 순환 (auto에서 첫 클릭 시 주간)
   function _cycleRvMode() {
-    _rvMode = (_rvMode === 'day') ? 'night' : (_rvMode === 'night') ? 'all' : 'day';
+    _rvMode = (_rvMode === 'auto') ? 'day' : (_rvMode === 'day') ? 'night' : (_rvMode === 'night') ? 'all' : 'auto';
     _applyRvVisibility();
   }
 
