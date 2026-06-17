@@ -14,7 +14,7 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260616.7';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      const APP_VERSION = '20260617.1';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
@@ -50,7 +50,7 @@
   <script src="js/utils.js?v=20260615a"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <link rel="stylesheet" href="css/replacement-modal.css?v=20260616css">
+  <link rel="stylesheet" href="css/replacement-modal.css?v=20260617a">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: var(--font); background: var(--bg); min-height: 100vh; color: var(--ink); }
@@ -227,22 +227,28 @@
       <div class="rpl-header">
         <div style="flex:1;min-width:0;">
           <h3>계기 교체 등록</h3>
-          <p id="rpl-title-addr" style="font-size:12px;color:var(--ink-2);margin:2px 0 0;line-height:1.3;word-break:break-all;"></p>
+          <p id="rpl-title-addr" style="font-size:12px;color:#6b7280;margin:2px 0 0;line-height:1.3;word-break:break-all;"></p>
         </div>
         <span class="rpl-seq" id="rpl-seq">오늘 <button type="button" id="rpl-seq-dec" class="rpl-seq-btn">‹</button> <span class="num" id="rpl-seq-num">?</span> <button type="button" id="rpl-seq-inc" class="rpl-seq-btn">›</button> 번째</span>
         <button class="rpl-close" id="rpl-close">×</button>
       </div>
 
-      <div class="rpl-field rpl-add-only" style="display:none;">
-        <label>계기 11자리</label>
-        <input type="text" id="rpl-old-meter-id" inputmode="numeric" maxlength="11">
+      <div class="rpl-current-meter rpl-replace-only" id="rpl-current-meter" style="display:none;">
+        <span class="rpl-current-label">현재 계기번호</span>
+        <strong id="rpl-current-meter-id">-</strong>
       </div>
 
-      <div class="rpl-photo rpl-replace-only" id="rpl-new-photo">
-        <span class="rpl-photo-label">새 계기 사진 (탭하여 선택)</span>
-        <img class="rpl-photo-preview" alt="새 계기">
+      <div class="rpl-field rpl-add-only" style="display:none;">
+        <label>계기 11자리</label>
+        <input type="text" id="rpl-old-meter-id" inputmode="numeric" maxlength="11" placeholder="">
+        <div class="rpl-alpha-row" style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">
+          <button type="button" class="rpl-alpha-btn" data-ch="A">A</button>
+          <button type="button" class="rpl-alpha-btn" data-ch="B">B</button>
+          <button type="button" class="rpl-alpha-btn" data-ch="G">G</button>
+          <button type="button" class="rpl-alpha-btn" data-ch="L">L</button>
+          <button type="button" class="rpl-alpha-btn" data-ch="BS" style="margin-left:auto;background:var(--rose-soft,#f3cdcd);color:#b13c3c;">⌫</button>
+        </div>
       </div>
-      <input type="file" id="rpl-new-photo-input" accept="image/*" style="display:none;">
 
       <div class="rpl-replace-only" id="rpl-removal-fields">
         <div class="rpl-field" id="rpl-rv-field-whme-day" style="display:none;">
@@ -286,13 +292,27 @@
       <div class="rpl-field rpl-replace-only">
         <label>새 계기번호</label>
         <div class="rpl-input-with-qr">
-          <input type="text" id="rpl-new-meter-id" inputmode="numeric" maxlength="11">
+          <input type="text" id="rpl-new-meter-id" inputmode="numeric" maxlength="11" placeholder="QR 또는 직접 입력">
           <button class="rpl-qr-btn" id="rpl-qr-btn">QR</button>
+        </div>
+        <!-- AMIGO 영문 prefix용 알파벳 보조 버튼 (numeric 키보드라 문자 직접입력 불가) -->
+        <div class="rpl-alpha-row" style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">
+          <button type="button" class="rpl-alpha-btn-new" data-ch="A">A</button>
+          <button type="button" class="rpl-alpha-btn-new" data-ch="B">B</button>
+          <button type="button" class="rpl-alpha-btn-new" data-ch="G">G</button>
+          <button type="button" class="rpl-alpha-btn-new" data-ch="L">L</button>
+          <button type="button" class="rpl-alpha-btn-new" data-ch="BS" style="margin-left:auto;background:var(--rose-soft,#f3cdcd);color:#b13c3c;">⌫</button>
         </div>
       </div>
 
+      <div class="rpl-photo rpl-replace-only" id="rpl-new-photo">
+        <span class="rpl-photo-label">새 계기 사진 (탭하여 선택)</span>
+        <img class="rpl-photo-preview" alt="새 계기">
+      </div>
+      <input type="file" id="rpl-new-photo-input" accept="image/*" style="display:none;">
+
       <div class="rpl-field rpl-replace-only">
-        <label>제조년월</label>
+        <label>제조년월 (선택/수정 가능)</label>
         <div class="rpl-mfg-row">
           <select id="rpl-mfg-y"></select>
           <select id="rpl-mfg-m"></select>
@@ -304,9 +324,15 @@
         <button type="button" class="rpl-extra-add" id="rpl-extra-add">+ 추가 데이터</button>
       </div>
 
+      <div class="rpl-field" id="rpl-remark-field">
+        <label>비고 (특이사항 — 조회불가·디스플레이오류 등)</label>
+        <textarea id="rpl-remark" rows="2" placeholder="특이사항 있으면 입력 (선택)"></textarea>
+      </div>
+
       <div class="rpl-footer">
         <button class="rpl-btn" id="rpl-delete" style="display:none;">삭제</button>
         <button class="rpl-btn cancel" id="rpl-cancel">취소</button>
+        <button class="rpl-btn draft" id="rpl-draft">임시 저장</button>
         <button class="rpl-btn save" id="rpl-save">저장</button>
       </div>
     </div>
@@ -1177,7 +1203,7 @@ loadData().then(() => {
 <script src="js/lcd-crop.js?v=20260608lcd3"></script>
 <script src="js/awms-parseValue.js?v=20260602a"></script>
 <script src="js/qr-scanner.js?v=20260608ios"></script>
-<script src="js/replacement-modal.js?v=20260615e"></script>
+<script src="js/replacement-modal.js?v=20260617a"></script>
 <div id="toast" class="toast">복사했습니다</div>
 
 <!-- QR 스캔 오버레이 (교체모달 QR 버튼용 — map.html과 동일) -->
