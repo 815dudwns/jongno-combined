@@ -505,11 +505,16 @@ const RplModal = (() => {
       const readingId = RV_FIELDS[firstActive] ? RV_FIELDS[firstActive].input : 'rpl-rv-whme-day';
       const meterIdEl = document.getElementById('rpl-new-meter-id');
 
+      // 검침값 — snap 멀티필드(removal_values{fid}) 우선, 없으면 구스키마 단일(removal_value→firstActive) 하위호환
+      const tmpRV = (tmp.removal_values && typeof tmp.removal_values === 'object') ? tmp.removal_values : null;
+      const tmpRVfields = tmpRV ? ALL_KNOWN_FIELDS.filter(f => tmpRV[f] != null)
+                                : (tmp.removal_value != null ? [firstActive] : []);
+      const tmpRVval = (fid) => (tmpRV ? tmpRV[fid] : tmp.removal_value);
       // 채울 수 있는 빈 항목 판별 (이미 채워진 칸·사용자 입력칸은 안 건드림)
       const canNewPhoto = !!(tmp.new_meter_photo && !newPhotoBlob && !keepNewPhotoUrl);
       const canRvPhoto  = !!(tmp.removal_photo && !removalPhotoBlobs[firstActive] && !keepRemovalPhotoUrls[firstActive]);
       const rdEl = document.getElementById(readingId);
-      const canReading  = !!(tmp.removal_value != null && rdEl && !String(rdEl.value || '').trim());
+      const canReading  = tmpRVfields.some(fid => { const el = document.getElementById(RV_FIELDS[fid].input); return el && !String(el.value || '').trim(); });
       const canMeterId  = !!(tmp.new_meter_id && meterIdEl && !String(meterIdEl.value || '').trim());
       const canMfg      = !!(tmp.new_meter_mfg_ym);
       const canRegion   = !!(tmp.removal_lcd_region && !removalPhotoRegions[firstActive]);
@@ -537,8 +542,16 @@ const RplModal = (() => {
       if (canRvPhoto)  { showPhotoUrl(RV_FIELDS[firstActive].photo, tmp.removal_photo); keepRemovalPhotoUrls[firstActive] = tmp.removal_photo; _tempPrefilled.rv = firstActive; }
       // 흡수값을 사용자가 직접 고치면 추적 해제 → 작업번호 변경 시 _clearTempPrefilled가 안 지움(수정 보존).
       //   메인앱 입력칸은 readonly 아님 → 종로앱에서 자유롭게 수정 가능(영준님 지시).
-      if (canReading)  { rdEl.value = String(tmp.removal_value); _tempPrefilledData.readingId = readingId;
-        if (!rdEl._absorbGuard) { rdEl._absorbGuard = true; rdEl.addEventListener('input', () => { if (_tempPrefilledData.readingId === readingId) _tempPrefilledData.readingId = null; }); } }
+      if (canReading)  {
+        // 멀티필드(또는 비주간 단일)면 4칸 모드로 펼쳐 모두 채움 — snap이 넣은 야간/무효/최대 소멸 방지
+        if (tmpRVfields.length > 1 || (tmpRVfields[0] && tmpRVfields[0] !== 'whme_day')) { _rvMode = 'all'; _applyRvVisibility(); }
+        for (const fid of tmpRVfields) {
+          const el = document.getElementById(RV_FIELDS[fid].input);
+          if (!el || String(el.value || '').trim()) continue;
+          el.value = String(tmpRVval(fid));
+        }
+        _tempPrefilledData.readingId = readingId;
+        if (rdEl && !rdEl._absorbGuard) { rdEl._absorbGuard = true; rdEl.addEventListener('input', () => { if (_tempPrefilledData.readingId === readingId) _tempPrefilledData.readingId = null; }); } }
       if (canMeterId)  { meterIdEl.value = String(tmp.new_meter_id); _tempPrefilledData.meterId = true;
         if (!meterIdEl._absorbGuard) { meterIdEl._absorbGuard = true; meterIdEl.addEventListener('input', () => { _tempPrefilledData.meterId = false; }); } }
       if (canMfg) {
