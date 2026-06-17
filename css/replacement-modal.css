@@ -514,5 +514,7 @@
   transition: box-shadow .12s ease, transform .12s ease, background .15s ease;
 }
 .rpl-rv-extra-bar > button:active { transform: translateY(1px) scale(.985); box-shadow: var(--clay-inset-sm); }
+/* 추가데이터 버튼 = 민트 텍스트 (기존 색 유지) */
+.rpl-rv-extra-bar > .rpl-extra-add { color: var(--mint-strong); }
 /* 검침칸 수동토글 활성(주간/야간/4칸) = 민트 주버튼 */
 .rpl-rv-extra-bar > button.on { color: var(--mint-deep); background: linear-gradient(145deg, var(--mint-l), var(--mint)); box-shadow: var(--clay-mint); }
