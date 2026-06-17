@@ -51,12 +51,31 @@ const RplModal = (() => {
   };
   // 순서: 주간·야간·무효전력·최대전력 (영준님 2026-06-15: 무효↔최대 순서 교환)
   const ALL_KNOWN_FIELDS = ['whme_day', 'whme_mngt', 'var_day', 'dm_mt_day'];
+  let activeFields = [];      // 현재 활성 검침칸 (open에서 계약정보로 계산)
+  let _rvForceAll = false;    // 수동 토글: true면 4칸(주간·야간·무효·최대) 강제 표시
+
+  // 검침칸 표시 갱신 (자동 activeFields + 수동 _rvForceAll)
+  function _applyRvVisibility() {
+    for (const fid of ALL_KNOWN_FIELDS) {
+      const els = RV_FIELDS[fid];
+      const w = els && document.getElementById(els.wrap);
+      if (w) w.style.display = (_rvForceAll || activeFields.includes(fid)) ? '' : 'none';
+    }
+    const rf = document.getElementById('rpl-removal-fields');
+    if (rf) rf.classList.toggle('single', !_rvForceAll && activeFields.length <= 1);
+    const btn = document.getElementById('rpl-rv-toggle');
+    if (btn) {
+      btn.textContent = _rvForceAll ? '검침 자동(1칸)으로' : '검침 4칸 수동';
+      btn.classList.toggle('on', _rvForceAll);
+    }
+  }
 
   function open(address, meter, prefillOldId, editData) {
     // 모달 열리는 즉시 YOLO 모델 워밍업 — 사진 선택 전에 미리 로드해 첫 검출도 빠르게
     if (typeof LcdYolo !== 'undefined') LcdYolo.preload();
     currentAddress = address;
     currentMeter = meter || null;
+    _rvForceAll = false;   // 모달 열 때마다 수동토글 초기화
     editingData = editData || null;
     newPhotoBlob = null;
     keepNewPhotoUrl = null;
@@ -131,7 +150,7 @@ const RplModal = (() => {
 
     // 지침 4칸 활성화 — currentMeter의 계약종별·계약전력으로 판별
     // 수정(edit) 모드면 기존 removal_values 키도 union — stats 등 meter에 계약종별 없는 경우 데이터 손실 방지
-    let activeFields = [];
+    activeFields = [];
     if (!isAddMode) {
       const clas = (meter && meter.계약종별) || (meter && meter.CNTR_CLAS_CD) || '';
       const pwr = (meter && meter.계약전력) || 0;
@@ -155,7 +174,7 @@ const RplModal = (() => {
         const wrapEl = document.getElementById(els.wrap);
         const inpEl  = document.getElementById(els.input);
         if (!wrapEl || !inpEl) continue;
-        const isActive = activeFields.includes(fid);
+        const isActive = _rvForceAll || activeFields.includes(fid);
         wrapEl.style.display = isActive ? '' : 'none';
         inpEl.value = '';
         inpEl.maxLength = (fid === 'dm_mt_day') ? 7 : _rvDigits;   // 최대전력은 소수점(.) 포함 7자리 (영준님 2026-06-15)
@@ -1077,7 +1096,10 @@ const RplModal = (() => {
       const prevSavedKeys = (editingData && editingData.removal_values && typeof editingData.removal_values === 'object')
           ? Object.keys(editingData.removal_values).filter(k => editingData.removal_values[k] != null)
           : [];
-      const activeFields = ALL_KNOWN_FIELDS.filter(f => baseFields.includes(f) || prevSavedKeys.includes(f));
+      // 수동토글(_rvForceAll)이 켜져 있으면 4칸 전부 저장 대상
+      const activeFields = _rvForceAll
+          ? ALL_KNOWN_FIELDS.slice()
+          : ALL_KNOWN_FIELDS.filter(f => baseFields.includes(f) || prevSavedKeys.includes(f));
       const firstActive = activeFields[0] || 'whme_day';
 
       const removalValues = {};
@@ -1427,6 +1449,8 @@ const RplModal = (() => {
     if (delBtn) delBtn.onclick = onDelete;
     const revertBtn = document.getElementById('rpl-revert');
     if (revertBtn) revertBtn.onclick = onRevertToDraft;
+    const rvToggleBtn = document.getElementById('rpl-rv-toggle');
+    if (rvToggleBtn) rvToggleBtn.onclick = () => { _rvForceAll = !_rvForceAll; _applyRvVisibility(); };
 
     // 신계기 사진 바인딩
     document.getElementById('rpl-new-photo').onclick = () =>
