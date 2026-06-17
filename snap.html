@@ -156,7 +156,15 @@
       .sw.on .knob{left:35px; background:#04130d;}
 
       /* 철거지침 입력 (옵션 ON 시) */
-      .reading{margin-top:12px; display:none;}
+      .rv-head{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;}
+.rv-toggle-btn{font-size:15px; font-weight:800; padding:9px 16px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--ink-2);}
+.rv-toggle-btn.on{background:var(--mint); color:#06281d; border-color:transparent;}
+.rv-row{margin-bottom:12px;}
+.rv-row.hide{display:none;}
+.rv-lab{font-size:15px; font-weight:700; color:var(--ink-2); display:block; margin-bottom:4px;}
+.kp-ok{width:100%; margin-top:10px;}
+.kp-dot.off{opacity:.28; pointer-events:none;}
+.reading{margin-top:12px; display:none;}
       .reading.show{display:block;}
       .reading label{font-size:17px; font-weight:800; color:var(--ink-2); display:block; margin-bottom:8px;}
       .reading input{width:100%; min-height:64px; font-size:30px; font-weight:900; letter-spacing:.04em;
@@ -249,8 +257,14 @@
         </div>
         <!-- 철거 검침값 (옵션) -->
         <div class="reading" id="reading-wrap">
-            <label>철거 검침값 (kWh)</label>
-            <input type="text" id="reading-val" inputmode="numeric" placeholder="예: 12345">
+            <div class="rv-head">
+                <label>철거 검침값</label>
+                <button type="button" id="rv-toggle" class="rv-toggle-btn">검침: 자동</button>
+            </div>
+            <div class="rv-row" data-fid="whme_day"><span class="rv-lab">주간 (kWh)</span><input type="text" id="rv-whme-day" readonly placeholder="예: 12345"></div>
+            <div class="rv-row" data-fid="whme_mngt"><span class="rv-lab">야간 (kWh)</span><input type="text" id="rv-whme-mngt" readonly placeholder="야간"></div>
+            <div class="rv-row" data-fid="var_day"><span class="rv-lab">무효 (kVarh)</span><input type="text" id="rv-var" readonly placeholder="예: 18.59"></div>
+            <div class="rv-row" data-fid="dm_mt_day"><span class="rv-lab">최대 (kW)</span><input type="text" id="rv-dm-mt" readonly placeholder="예: 31.99"></div>
             <div class="yolo-tag" id="yolo-tag"></div>
         </div>
     </div>
@@ -313,7 +327,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260616.3</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260617.1</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -327,7 +341,7 @@
     <!-- 숫자 키패드 (검침값 입력) -->
     <div class="kp-bg" id="kp">
         <div class="kp">
-            <div class="kp-title">철거 검침값 (kWh)</div>
+            <div class="kp-title" id="kp-title">철거 검침값</div>
             <div class="kp-display" id="kp-display">0</div>
             <div class="kp-grid">
                 <button class="kp-key" data-k="1">1</button>
@@ -339,10 +353,11 @@
                 <button class="kp-key" data-k="7">7</button>
                 <button class="kp-key" data-k="8">8</button>
                 <button class="kp-key" data-k="9">9</button>
-                <button class="kp-key del" data-k="del">지움</button>
+                <button class="kp-key kp-dot" id="kp-dot" data-k=".">·</button>
                 <button class="kp-key" data-k="0">0</button>
-                <button class="kp-key ok" data-k="ok">확인</button>
+                <button class="kp-key del" data-k="del">지움</button>
             </div>
+            <button class="kp-key ok kp-ok" data-k="ok">확인</button>
         </div>
     </div>
 
@@ -510,11 +525,12 @@
       // ── 업로드 현황 도크 (하단 고정 요약 바 + 펼침 리스트) ──
       // jobId 키 전역 패널 → 작업번호 전환 race에 면역(슬롯 표시는 보조).
       const _ujJobs = {};   // jobId → {seq, slot, status('up'|'ok'|'fail'), img(로컬blob 또는 원격URL), ref}
-      function ujLabel(slot){ return slot === 'old' ? '철거사진' : '신설사진'; }
+      function ujLabel(slot){ return slot === 'old' ? '철거사진' : slot === 'qr' ? '계기번호' : '신설사진'; }
       // 사진 선택 시 등록(올리는중) + 워커 종착상태(done/failed) 구독. img=로컬 objectURL(즉시 미리보기용).
       function ujRegister(jobId, seqNo, slot, img){
         _ujJobs[jobId] = { seq: seqNo, slot, status: 'up', img: img || null, ref: null };
         ujRender();
+        if (slot === 'qr') return;   // QR=동기 write(워커 없음) — uploadJobs 구독 불필요, 호출측이 즉시 ujSet
         try {
           const ref = db.ref('uploadJobs/jongno/' + jobId);
           _ujJobs[jobId].ref = ref;
@@ -581,12 +597,19 @@
         const j = _ujJobs[jobId]; if (!j) return;
         if (j.ref) j.ref.off();
         try { db.ref('uploadJobs/jongno/' + jobId).remove().catch(()=>{}); } catch(e){}
+        const retrySeq = j.seq, retrySlot = j.slot;
         ujRemove(jobId);
-        seq = j.seq; renderSeq();         // 그 작업번호로 이동
-        sheetSlot = j.slot;
+        seq = retrySeq; renderSeq();      // 그 작업번호로 이동
         $('uj-panel').classList.remove('open');
+        if (retrySlot === 'qr'){
+          // QR 재전송 = 갤러리 아님, QR 재스캔
+          $('qr-btn').click();
+          toast(retrySeq + '번 계기번호 재전송 — QR 다시 스캔');
+          return;
+        }
+        sheetSlot = retrySlot;
         $('in-alb').click();              // 갤러리(Pictures/종로사진실패 포함)에서 재선택
-        toast(j.seq + '번 ' + ujLabel(j.slot) + ' 재전송 — 갤러리에서 사진 선택');
+        toast(retrySeq + '번 ' + ujLabel(retrySlot) + ' 재전송 — 갤러리에서 사진 선택');
       }
       // 앱 시작 시 orphan job 노드 정리(앱이 죽어 리스너 detach 못한 done/묵은 노드)
       async function ujSweep(){
@@ -823,37 +846,97 @@
         }, fields));
       }
 
-      // 철거 검침값 입력 → temp.removal_value
-      $('reading-val').addEventListener('change', async ()=>{
-        const v = $('reading-val').value.trim();
-        if (v === '') return;
-        const localSeq = seq;
-        try { await saveTempExtra(localSeq, { removal_value: Number(v) }); toast('검침값 저장됨 ('+localSeq+'번)'); }
-        catch(e){ console.error('[검침값]', e); toast('검침값 저장 실패'); }
-      });
+      // ── 철거 검침값 4칸 (주간/야간/무효/최대) + 자동/주간/야간/4칸 토글 ──
+      const SNAP_RV = {
+        whme_day:  { id:'rv-whme-day',  lab:'주간 (kWh)',   dec:false },
+        whme_mngt: { id:'rv-whme-mngt', lab:'야간 (kWh)',   dec:false },
+        var_day:   { id:'rv-var',       lab:'무효 (kVarh)', dec:true  },
+        dm_mt_day: { id:'rv-dm-mt',     lab:'최대 (kW)',    dec:true  },
+      };
+      const SNAP_RV_ALL = ['whme_day','whme_mngt','var_day','dm_mt_day'];
+      // 종로앱 readingFieldsFor 이식 (계약종별 code + 계약전력)
+      function snapReadingFields(clas, pwr){
+        const code = parseInt(String(clas==null?'':clas),10), p = parseInt(pwr,10)||0;
+        if(!isNaN(code)){
+          if(p>=20 && [211,218,311,410,430].includes(code)) return ['whme_day','whme_mngt','var_day','dm_mt_day'];
+          if(p>=20 && [213,610].includes(code)) return ['whme_day','dm_mt_day'];
+          if([905,910,915].includes(code)) return ['whme_mngt'];
+        }
+        return ['whme_day'];
+      }
+      let _snapRvMode = 'auto';   // auto/day/night/all (버튼 순환)
+      function snapAutoFields(seqNo){
+        const e = seqIndex[seqNo] && seqIndex[seqNo].entry;
+        if(e) return snapReadingFields(e.계약종별 || e.CNTR_CLAS_CD || '', e.계약전력 || 0);
+        return ['whme_day'];   // 미할당(미리찍기) → 주간 폴백
+      }
+      function snapRvFields(seqNo){
+        if(_snapRvMode==='day')   return ['whme_day'];
+        if(_snapRvMode==='night') return ['whme_mngt'];
+        if(_snapRvMode==='all')   return SNAP_RV_ALL.slice();
+        return snapAutoFields(seqNo);
+      }
+      function applySnapRv(seqNo){
+        const eff = snapRvFields(seqNo);
+        for(const fid of SNAP_RV_ALL){
+          const row = document.querySelector('.rv-row[data-fid="'+fid+'"]');
+          if(row) row.classList.toggle('hide', !eff.includes(fid));
+        }
+        const btn = $('rv-toggle');
+        if(btn){
+          const lbl = {auto:'검침: 자동', day:'검침: 주간', night:'검침: 야간', all:'검침: 4칸'};
+          btn.textContent = lbl[_snapRvMode] || '검침: 자동';
+          btn.classList.toggle('on', _snapRvMode!=='auto');
+        }
+      }
+      $('rv-toggle').onclick = ()=>{
+        _snapRvMode = _snapRvMode==='auto'?'day':_snapRvMode==='day'?'night':_snapRvMode==='night'?'all':'auto';
+        applySnapRv(seq);
+      };
 
-      // 검침값 입력 = 자체 숫자 키패드 (삼성 WebView inputmode 무시 회피 + 어르신 큰 UI)
-      $('reading-val').setAttribute('readonly', 'readonly');
-      let _kpVal = '';
-      function openKeypad(){
-        _kpVal = String($('reading-val').value || '').replace(/[^0-9]/g, '');
+      // 검침값 입력 = 자체 숫자 키패드 (삼성 WebView inputmode 회피 + 어르신 큰 UI), 칸별·소수점 지원
+      let _kpVal = '', _kpInputId = null, _kpDec = false;
+      function openKeypad(inputId, dec, title){
+        _kpInputId = inputId; _kpDec = !!dec;
+        _kpVal = String($(inputId).value || '').replace(dec?/[^0-9.]/g:/[^0-9]/g, '');
+        $('kp-title').textContent = title || '철거 검침값';
+        $('kp-dot').classList.toggle('off', !dec);
         $('kp-display').textContent = _kpVal || '0';
         $('kp').classList.add('open');
       }
       function closeKeypad(save){
         $('kp').classList.remove('open');
-        if (save){ $('reading-val').value = _kpVal; $('reading-val').dispatchEvent(new Event('change')); }
+        if (save && _kpInputId){ $(_kpInputId).value = _kpVal; $(_kpInputId).dispatchEvent(new Event('change')); }
       }
-      $('reading-val').onclick = openKeypad;
       $('kp').addEventListener('click', (e)=>{
         if (e.target === $('kp')){ closeKeypad(false); return; }   // 배경 탭 = 취소
         const k = e.target && e.target.dataset ? e.target.dataset.k : null;
         if (k == null) return;
         if (k === 'del') _kpVal = _kpVal.slice(0, -1);
         else if (k === 'ok'){ closeKeypad(true); return; }
-        else if (_kpVal.length < 9) _kpVal += k;
+        else if (k === '.'){ if(_kpDec && !_kpVal.includes('.')) _kpVal = (_kpVal||'0') + '.'; }
+        else if (_kpVal.replace('.','').length < 9) _kpVal += k;
         $('kp-display').textContent = _kpVal || '0';
       });
+      // 각 칸 → readonly + 클릭 시 키패드, 입력완료 시 칸별 저장
+      SNAP_RV_ALL.forEach(fid=>{
+        const m = SNAP_RV[fid], el = $(m.id);
+        if(!el) return;
+        el.setAttribute('readonly','readonly');
+        el.onclick = ()=> openKeypad(m.id, m.dec, '철거 '+m.lab);
+        el.addEventListener('change', async ()=>{
+          const v = el.value.trim(); if(v==='') return;
+          const localSeq = seq;
+          try { await saveRvField(localSeq, fid, m.dec?Number(v):parseInt(v,10)); toast('검침값 저장됨 ('+localSeq+'번)'); }
+          catch(e){ console.error('[검침값]', e); toast('검침값 저장 실패'); }
+        });
+      });
+      // 칸별 저장 → temp.removal_values{fid} (다른 칸 안 덮게 child set)
+      async function saveRvField(s, fid, val){
+        const day = dayKST();
+        await tempRef.child(day).child(String(s)).update({ daily_seq:s, worker:session?session.id:'', worker_name:session?(session.name||''):'', updated_at:firebase.database.ServerValue.TIMESTAMP });
+        await tempRef.child(day).child(String(s)).child('removal_values').child(fid).set(val);
+      }
 
       // QR 스캔 → 신계기번호 + 제조월 → temp
       //   ★헬퍼앱과 동일하게 네이티브 구글 스캐너(GmsBarcodeScanner) 사용 = window.AndroidScanner.scan()
@@ -866,13 +949,40 @@
         let mfg = ''; const v2 = String(parsed.value2 || '');
         if (/^\d{6}$/.test(v2)) mfg = v2.slice(0,4)+'-'+v2.slice(4,6);
         if (!meterId){ toast('QR 인식 실패'); return; }
+        // 사진과 동일: 도크 영수증(ujRegister/ujSet) + 직행 경로(할당된 계기면 메인에 직접, 아니면 임시보관)
+        const jobId = dayKST()+'_'+localSeq+'_qr_'+Date.now();
+        ujRegister(jobId, localSeq, 'qr', null);   // 도크에 "N번 계기번호 — 올리는 중"
         try {
+          // staleness 픽스 — 방금 메인앱에서 할당한 계기도 인식(autoSave와 동일). 안 하면 직행 못함
+          try { await loadToday(); } catch(e){ console.warn('[QR loadToday]', e); }
+          const hit = seqIndex[localSeq];
+          if (hit){
+            // 직행: 할당된 계기. ★setIfEmpty 안 씀 — draft의 new_meter_id는 ''(빈문자열)이라 !cur로 판정해야 들어감
+            const node = statusRef.child(hit.addr).child('replacement_list').child(hit.meterId);
+            const cur = (await node.child('new_meter_id').once('value')).val();
+            if (cur){
+              // 메인앱이 이미 계기번호 입력 — 작업자 입력 보호(덮지 않음)
+              ujSet(jobId, 'ok');
+              $('qr-result').textContent = '새 계기 '+meterId+' (이미 입력됨)';
+              toast('종로앱에 이미 계기번호 있음 ('+localSeq+'번)');
+              return;
+            }
+            const upd = { new_meter_id: meterId };
+            if (mfg) upd.new_meter_mfg_ym = mfg;   // 계기번호 새로 넣을 때 제조월도 세트로(QR값이 정확)
+            await node.update(upd);
+            ujSet(jobId, 'ok');
+            $('qr-result').textContent = '새 계기 '+meterId+(mfg?(' / '+mfg):'')+' (계기 직접)';
+            toast('계기번호 저장됨 — 계기 직접 ('+localSeq+'번)');
+            return;
+          }
+          // 미할당 — 임시보관(메인앱이 그 번호에 계기 할당 시 흡수)
           const f = { new_meter_id: meterId };
           if (mfg) f.new_meter_mfg_ym = mfg;
           await saveTempExtra(localSeq, f);
-          $('qr-result').textContent = '새 계기 '+meterId+(mfg?(' / '+mfg):'');
+          ujSet(jobId, 'ok');
+          $('qr-result').textContent = '새 계기 '+meterId+(mfg?(' / '+mfg):'')+' (임시보관)';
           toast('계기번호 저장됨 ('+localSeq+'번)');
-        } catch(e){ console.error('[QR저장]', e); toast('QR 저장 실패'); }
+        } catch(e){ console.error('[QR저장]', e); ujSet(jobId, 'fail'); toast('QR 저장 실패'); }
       }
       $('qr-btn').onclick = ()=>{
         const localSeq = seq;
@@ -914,11 +1024,15 @@
         const tmp = tempIndex[s];
         const entry = seqIndex[s] && seqIndex[s].entry;
         if (_opt.reading){
-          let rv = '';
-          if (entry && entry.removal_values && entry.removal_values.whme_day != null) rv = entry.removal_values.whme_day;
-          else if (entry && entry.removal_value != null) rv = entry.removal_value;
-          else if (tmp && tmp.removal_value != null) rv = tmp.removal_value;
-          $('reading-val').value = (rv === '' ? '' : String(rv));
+          applySnapRv(s);
+          for(const fid of SNAP_RV_ALL){
+            let rv = '';
+            if (entry && entry.removal_values && entry.removal_values[fid] != null) rv = entry.removal_values[fid];
+            else if (fid==='whme_day' && entry && entry.removal_value != null) rv = entry.removal_value;
+            else if (tmp && tmp.removal_values && tmp.removal_values[fid] != null) rv = tmp.removal_values[fid];
+            else if (fid==='whme_day' && tmp && tmp.removal_value != null) rv = tmp.removal_value;
+            const el = $(SNAP_RV[fid].id); if(el) el.value = (rv === '' ? '' : String(rv));
+          }
           $('yolo-tag').textContent = (tmp && tmp.removal_lcd_region) ? 'LCD 위치 저장됨' : '';
         }
         if (_opt.qr){
