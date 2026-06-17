@@ -162,6 +162,9 @@
 .rv-row{margin-bottom:12px;}
 .rv-row.hide{display:none;}
 .rv-lab{font-size:15px; font-weight:700; color:var(--ink-2); display:block; margin-bottom:4px;}
+.rv-shot{min-height:150px; margin:6px 0 0; position:relative;}
+.rv-input{margin-top:8px;}
+.rv-st{position:absolute; top:8px; right:10px; font-size:13px; font-weight:800;}
 .kp-ok{width:100%; margin-top:10px;}
 .kp-dot.off{opacity:.28; pointer-events:none;}
 .reading{margin-top:12px; display:none;}
@@ -244,7 +247,7 @@
             </div>
             <div class="sw" id="sw-yolo" data-opt="yolo"><span class="knob"></span></div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260617.1</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260617.2</div>
     </div>
 
     <!-- 철거 사진 -->
@@ -262,10 +265,26 @@
                 <label>철거 검침값</label>
                 <button type="button" id="rv-toggle" class="rv-toggle-btn">검침: 자동</button>
             </div>
-            <div class="rv-row" data-fid="whme_day"><span class="rv-lab">주간 (kWh)</span><input type="text" id="rv-whme-day" readonly placeholder="예: 12345"></div>
-            <div class="rv-row" data-fid="whme_mngt"><span class="rv-lab">야간 (kWh)</span><input type="text" id="rv-whme-mngt" readonly placeholder="야간"></div>
-            <div class="rv-row" data-fid="var_day"><span class="rv-lab">무효 (kVarh)</span><input type="text" id="rv-var" readonly placeholder="예: 18.59"></div>
-            <div class="rv-row" data-fid="dm_mt_day"><span class="rv-lab">최대 (kW)</span><input type="text" id="rv-dm-mt" readonly placeholder="예: 31.99"></div>
+            <div class="rv-row" data-fid="whme_day">
+                <span class="rv-lab">주간 (kWh)</span>
+                <div class="shot-box rv-shot" id="box-rv_whme_day" data-slot="rv_whme_day"><span class="hint">탭해서 사진</span><img id="img-rv_whme_day" alt="주간"><span class="badge" id="bd-rv_whme_day"></span><span class="rv-st" id="st-rv_whme_day"></span><div class="spin">저장 중...</div></div>
+                <input type="text" class="rv-input" id="rv-whme-day" readonly placeholder="검침값 (선택)">
+            </div>
+            <div class="rv-row" data-fid="whme_mngt">
+                <span class="rv-lab">야간 (kWh)</span>
+                <div class="shot-box rv-shot" id="box-rv_whme_mngt" data-slot="rv_whme_mngt"><span class="hint">탭해서 사진</span><img id="img-rv_whme_mngt" alt="야간"><span class="badge" id="bd-rv_whme_mngt"></span><span class="rv-st" id="st-rv_whme_mngt"></span><div class="spin">저장 중...</div></div>
+                <input type="text" class="rv-input" id="rv-whme-mngt" readonly placeholder="검침값 (선택)">
+            </div>
+            <div class="rv-row" data-fid="var_day">
+                <span class="rv-lab">무효 (kVarh)</span>
+                <div class="shot-box rv-shot" id="box-rv_var_day" data-slot="rv_var_day"><span class="hint">탭해서 사진</span><img id="img-rv_var_day" alt="무효"><span class="badge" id="bd-rv_var_day"></span><span class="rv-st" id="st-rv_var_day"></span><div class="spin">저장 중...</div></div>
+                <input type="text" class="rv-input" id="rv-var" readonly placeholder="검침값 (선택)">
+            </div>
+            <div class="rv-row" data-fid="dm_mt_day">
+                <span class="rv-lab">최대 (kW)</span>
+                <div class="shot-box rv-shot" id="box-rv_dm_mt_day" data-slot="rv_dm_mt_day"><span class="hint">탭해서 사진</span><img id="img-rv_dm_mt_day" alt="최대"><span class="badge" id="bd-rv_dm_mt_day"></span><span class="rv-st" id="st-rv_dm_mt_day"></span><div class="spin">저장 중...</div></div>
+                <input type="text" class="rv-input" id="rv-dm-mt" readonly placeholder="검침값 (선택)">
+            </div>
             <div class="yolo-tag" id="yolo-tag"></div>
         </div>
     </div>
@@ -328,7 +347,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260617.1</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260617.2</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -465,6 +484,7 @@
         }
         paintSlot('old', slotView(seq, 'old'));
         paintSlot('new', slotView(seq, 'new'));
+        if (typeof SNAP_RV_ALL !== 'undefined') SNAP_RV_ALL.forEach(fid=> paintSlot('rv_'+fid, slotView(seq, 'rv_'+fid)));   // 검침 LCD 사진 4슬롯
         renderSeqExtras(seq);  // 검침값/QR/YOLO 부가 입력 복원(옵션 ON시)
       }
       function photoFromRemoval(entry){
@@ -475,6 +495,11 @@
       // RTDB에 확정 저장된 사진 URL (없으면 null)
       function rtdbPhotoFor(seqNo, slot){
         const hit = seqIndex[seqNo], tmp = tempIndex[seqNo];
+        if (slot.indexOf('rv_') === 0){   // 검침 LCD 사진 — removal_photos[fid] 멀티
+          const fid = slot.slice(3);
+          return (hit && hit.entry.removal_photos && hit.entry.removal_photos[fid])
+              || (tmp && tmp.removal_photos && tmp.removal_photos[fid]) || null;
+        }
         if (slot === 'old') return (hit && (hit.entry.old_meter_photo || photoFromRemoval(hit.entry))) || (tmp && tmp.removal_photo) || null;
         return (hit && hit.entry.new_meter_photo) || (tmp && tmp.new_meter_photo) || null;
       }
@@ -738,10 +763,14 @@
             const base = `/workStatus/jongno/${encodeURIComponent(hit.addr)}/replacement_list/${encodeURIComponent(hit.meterId)}`;
             // ★부모우선(ifEmpty) 제거 — 사진이 "성공인데 종로 계기에 안 들어가는" 문제 차단.
             //   보조앱 사진을 그 계기에 무조건 저장한다(작업자가 찍은 사진이 항상 우선).
-            if (slot === 'old'){
+            if (slot.indexOf('rv_') === 0){
+              const fid = slot.slice(3);   // 검침 LCD 사진 → removal_photos[fid] (PATCH=머지, 다른 칸 보존)
               rtdbOps = [
-                { path: `${base}/removal_photos.json`,  body: { whme_day: '__UPLOAD_URL__' } },
-                { path: `${base}.json`,                 body: { old_meter_photo: '__UPLOAD_URL__' } }
+                { path: `${base}/removal_photos.json`, body: { [fid]: '__UPLOAD_URL__' } }
+              ];
+            } else if (slot === 'old'){
+              rtdbOps = [
+                { path: `${base}.json`, body: { old_meter_photo: '__UPLOAD_URL__' } }
               ];
             } else {
               rtdbOps = [
@@ -750,18 +779,20 @@
             }
           } else {
             // 시나리오 B: 임시보관함
-            const field = (slot === 'old') ? 'removal_photo' : 'new_meter_photo';
-            const tempPath = `/tempPhotos/jongno/${encodeURIComponent(day)}/${encodeURIComponent(String(s))}.json`;
-            rtdbOps = [
-              { path: tempPath, body: {
-                [field]: '__UPLOAD_URL__',
-                daily_seq: s,
-                worker: session ? session.id : '',
-                worker_name: session ? (session.name || '') : '',
-                // 워커는 Firebase SDK 없이 REST PATCH — {".sv":"timestamp"} 리터럴 사용
-                updated_at: { '.sv': 'timestamp' }
-              }}
-            ];
+            const encS = `${encodeURIComponent(day)}/${encodeURIComponent(String(s))}`;
+            const meta = { daily_seq: s, worker: session ? session.id : '', worker_name: session ? (session.name || '') : '', updated_at: { '.sv': 'timestamp' } };
+            if (slot.indexOf('rv_') === 0){
+              const fid = slot.slice(3);   // 검침 LCD 사진 → temp.removal_photos[fid] 머지
+              rtdbOps = [
+                { path: `/tempPhotos/jongno/${encS}/removal_photos.json`, body: { [fid]: '__UPLOAD_URL__' } },
+                { path: `/tempPhotos/jongno/${encS}.json`, body: meta }
+              ];
+            } else {
+              const field = (slot === 'old') ? 'removal_photo' : 'new_meter_photo';
+              rtdbOps = [
+                { path: `/tempPhotos/jongno/${encS}.json`, body: Object.assign({ [field]: '__UPLOAD_URL__' }, meta) }
+              ];
+            }
           }
 
           const queued = AndroidUpload.enqueue(b64, path, JSON.stringify(rtdbOps), jobId);
@@ -781,23 +812,30 @@
           // 시나리오 A: 부모-자식 우선 규칙 — 필드에 이미 값이 있으면 건너뜀.
           // 종로맵(부모앱)이 넣은 데이터를 snap이 덮지 않는다.
           const node = statusRef.child(hit.addr).child('replacement_list').child(hit.meterId);
-          if (slot === 'old'){
-            // ★종로 모달은 removal_photos[칸] 우선 표시 → 대표를 whme_day 칸에 (old_meter_photo는 호환용)
-            await setIfEmpty(node.child('removal_photos').child('whme_day'), url, 'removal_photos/whme_day');
+          if (slot.indexOf('rv_') === 0){
+            const fid = slot.slice(3);   // 검침 LCD 사진 → removal_photos[fid]
+            await setIfEmpty(node.child('removal_photos').child(fid), url, 'removal_photos/'+fid);
+          } else if (slot === 'old'){
             await setIfEmpty(node.child('old_meter_photo'), url, 'old_meter_photo');
           } else {
             await setIfEmpty(node.child('new_meter_photo'), url, 'new_meter_photo');
           }
         } else {
           // 시나리오 B: 임시보관함. 나중에 메인앱이 같은 번호에 계기 할당 시 결합
-          const field = (slot==='old') ? 'removal_photo' : 'new_meter_photo';
-          await tempRef.child(day).child(String(s)).update({
-            [field]: url,
-            daily_seq: s,
-            worker: session ? session.id : '',
-            worker_name: session ? (session.name||'') : '',
-            updated_at: firebase.database.ServerValue.TIMESTAMP
-          });
+          if (slot.indexOf('rv_') === 0){
+            const fid = slot.slice(3);   // 검침 LCD 사진 → temp.removal_photos[fid] (child set=다른 칸 보존)
+            await tempRef.child(day).child(String(s)).update({ daily_seq: s, worker: session ? session.id : '', worker_name: session ? (session.name||'') : '', updated_at: firebase.database.ServerValue.TIMESTAMP });
+            await tempRef.child(day).child(String(s)).child('removal_photos').child(fid).set(url);
+          } else {
+            const field = (slot==='old') ? 'removal_photo' : 'new_meter_photo';
+            await tempRef.child(day).child(String(s)).update({
+              [field]: url,
+              daily_seq: s,
+              worker: session ? session.id : '',
+              worker_name: session ? (session.name||'') : '',
+              updated_at: firebase.database.ServerValue.TIMESTAMP
+            });
+          }
         }
         if (jobId) ujSet(jobId, 'ok', url);   // 폴백 경로(브라우저/구앱) 성공 — 원격 URL로 도크/슬롯 갱신
       }
@@ -807,7 +845,8 @@
       const _opt = { reading:false, qr:false, yolo:false };
       function loadOpts(){ for (const k in OPT_KEYS){ _opt[k] = localStorage.getItem(OPT_KEYS[k]) === '1'; } }
       function applyOpts(){
-        $('reading-wrap').classList.toggle('show', _opt.reading);
+        $('reading-wrap').classList.add('show');   // 검침 사진슬롯+토글은 항상 표시
+        document.querySelectorAll('.rv-input').forEach(el=> el.style.display = _opt.reading ? '' : 'none');   // 숫자입력칸만 '검침값 입력' 옵션으로
         $('qr-row').classList.toggle('show', _opt.qr);
         $('sw-reading').classList.toggle('on', _opt.reading);
         $('sw-qr').classList.toggle('on', _opt.qr);
@@ -922,6 +961,8 @@
       // 각 칸 → readonly + 클릭 시 키패드, 입력완료 시 칸별 저장
       SNAP_RV_ALL.forEach(fid=>{
         const m = SNAP_RV[fid], el = $(m.id);
+        const box = $('box-rv_'+fid);
+        if(box) box.onclick = ()=> openSheet('rv_'+fid);   // 검침 LCD 사진 슬롯 탭 → 시트
         if(!el) return;
         el.setAttribute('readonly','readonly');
         el.onclick = ()=> openKeypad(m.id, m.dec, '철거 '+m.lab);
