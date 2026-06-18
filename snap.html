@@ -247,19 +247,12 @@
             </div>
             <div class="sw" id="sw-yolo" data-opt="yolo"><span class="knob"></span></div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260617.3</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260617.4</div>
     </div>
 
-    <!-- 철거 사진 -->
+    <!-- 철거 검침 (종로앱과 동일: 철거사진 칸 없음. 주/야/무효/최대 검침사진이 전부, 대표=old_meter_photo) -->
     <div class="shot">
-        <div class="shot-title">철거 사진 <span class="shot-status" id="st-old"></span></div>
-        <div class="shot-box" id="box-old" data-slot="old">
-            <span class="hint">탭해서 사진 넣기</span>
-            <img id="img-old" alt="철거 사진">
-            <span class="badge" id="bd-old"></span>
-            <div class="spin">저장 중...</div>
-        </div>
-        <!-- 철거 검침값 (옵션) -->
+        <div class="shot-title">철거 검침</div>
         <div class="reading" id="reading-wrap">
             <div class="rv-head">
                 <label>철거 검침값</label>
@@ -347,7 +340,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260617.3</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260617.4</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -482,7 +475,6 @@
         } else {
           m.innerHTML = '<span class="none">계기 미할당 (보관 후 자동 연결)</span>';
         }
-        paintSlot('old', slotView(seq, 'old'));
         paintSlot('new', slotView(seq, 'new'));
         if (typeof SNAP_RV_ALL !== 'undefined') SNAP_RV_ALL.forEach(fid=> paintSlot('rv_'+fid, slotView(seq, 'rv_'+fid)));   // 검침 LCD 사진 4슬롯
         renderSeqExtras(seq);  // 검침값/QR/YOLO 부가 입력 복원(옵션 ON시)
@@ -650,7 +642,6 @@
         } catch(e){ console.warn('[uj sweep 실패]', e); }
       }
       $('uj-bar').onclick = () => $('uj-panel').classList.toggle('open');
-      $('box-old').onclick = () => openSheet('old');
       $('box-new').onclick = () => openSheet('new');
       $('sheet-cancel').onclick = closeSheet;
       $('sheet').onclick = e => { if (e.target === $('sheet')) closeSheet(); };
@@ -676,7 +667,8 @@
         try {
           await autoSave(slot, mem, localSeq, jobId);
           // 상태 전이는 전부 job 모델로: 네이티브=워커 구독, 폴백=autoSave가 ujSet('ok'). 여기선 DOM 안 건드림.
-          if (slot === 'old' && _opt.yolo) runYoloOnOld(mem, localSeq);  // 철거 LCD 자동검출(옵션, 비동기)
+          // LCD 자동검출(옵션) — 대표 검침칸(주간/심야야간) 사진에. box-old 제거로 여기로 이전.
+          if (_opt.yolo && slot === 'rv_' + snapAutoFields(localSeq)[0]) runYoloOnOld(mem, localSeq, snapAutoFields(localSeq)[0]);
           await loadToday();                 // RTDB 반영(번호 점유)
           if (seq === localSeq) renderSeq();
         } catch (e) {
@@ -768,6 +760,8 @@
               rtdbOps = [
                 { path: `${base}/removal_photos.json`, body: { [fid]: '__UPLOAD_URL__' } }
               ];
+              // 대표 검침칸(주간/심야야간)은 old_meter_photo도 채움(종로앱 정의: old=대표 검침사진, stats 목록 썸네일)
+              if (fid === snapAutoFields(s)[0]) rtdbOps.push({ path: `${base}.json`, body: { old_meter_photo: '__UPLOAD_URL__' } });
             } else if (slot === 'old'){
               rtdbOps = [
                 { path: `${base}.json`, body: { old_meter_photo: '__UPLOAD_URL__' } }
@@ -815,6 +809,8 @@
           if (slot.indexOf('rv_') === 0){
             const fid = slot.slice(3);   // 검침 LCD 사진 → removal_photos[fid]
             await setIfEmpty(node.child('removal_photos').child(fid), url, 'removal_photos/'+fid);
+            // 대표 검침칸은 old_meter_photo도(종로앱 정의 통일)
+            if (fid === snapAutoFields(s)[0]) await setIfEmpty(node.child('old_meter_photo'), url, 'old_meter_photo');
           } else if (slot === 'old'){
             await setIfEmpty(node.child('old_meter_photo'), url, 'old_meter_photo');
           } else {
@@ -1040,7 +1036,8 @@
       $('qr-close-btn').onclick = ()=>{ try{ QrScanner.stop(); }catch(e){} $('qr-scan-overlay').style.display='none'; };
 
       // YOLO: 철거 사진 선택 후 LCD 영역 검출 → temp.removal_lcd_region
-      async function runYoloOnOld(file, s){
+      async function runYoloOnOld(file, s, fid){
+        const imgId = 'img-rv_' + (fid || 'whme_day');
         $('yolo-tag').textContent = 'LCD 검출 중...';
         try {
           await loadYolo();
@@ -1054,7 +1051,7 @@
               const cx = cv.getContext('2d'); cx.drawImage(bmp, 0, 0);
               cx.lineWidth = Math.max(6, Math.round(bmp.width * 0.012)); cx.strokeStyle = '#34d399';
               cx.strokeRect(bbox.x0*bmp.width, bbox.y0*bmp.height, (bbox.x1-bbox.x0)*bmp.width, (bbox.y1-bbox.y0)*bmp.height);
-              $('img-old').src = cv.toDataURL('image/jpeg', 0.85);
+              { const ie = $(imgId); if (ie) ie.src = cv.toDataURL('image/jpeg', 0.85); }
             } catch(e){ console.warn('[YOLO 박스그리기]', e); }
             $('yolo-tag').textContent = 'LCD 위치 검출됨 (초록 박스)';
           } else { $('yolo-tag').textContent = 'LCD 못 찾음 (수동 확인)'; }
