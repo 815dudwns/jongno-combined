@@ -247,7 +247,7 @@
             </div>
             <div class="sw" id="sw-yolo" data-opt="yolo"><span class="knob"></span></div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260617.4</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260617.5</div>
     </div>
 
     <!-- 철거 검침 (종로앱과 동일: 철거사진 칸 없음. 주/야/무효/최대 검침사진이 전부, 대표=old_meter_photo) -->
@@ -340,7 +340,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260617.4</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260617.5</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -731,7 +731,7 @@
 
         // ── 네이티브 WorkManager 경로 ──
         if (typeof AndroidUpload !== 'undefined' && AndroidUpload.available()) {
-          const blob = await PhotoUploader.compress(file, { square:false });
+          const blob = await PhotoUploader.compress(file, { square:true });   // awms가 세로비율 사진을 90도 눕힘 → 가운데 1:1 크롭으로 회피
           // Blob → base64 변환 (브릿지 전달용)
           const b64 = await new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -800,7 +800,7 @@
         }
 
         // ── 폴백: 기존 restUpload + Firebase SDK 경로 (웹 브라우저, 구버전 앱, enqueue 실패) ──
-        const blob = await PhotoUploader.compress(file, { square:false });
+        const blob = await PhotoUploader.compress(file, { square:true });   // awms가 세로비율 사진을 90도 눕힘 → 가운데 1:1 크롭으로 회피
         const url = await restUpload(blob, path);
         if (hit){
           // 시나리오 A: 부모-자식 우선 규칙 — 필드에 이미 값이 있으면 건너뜀.
