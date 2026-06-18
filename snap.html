@@ -247,7 +247,7 @@
             </div>
             <div class="sw" id="sw-yolo" data-opt="yolo"><span class="knob"></span></div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260617.5</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260618.1</div>
     </div>
 
     <!-- 철거 검침 (종로앱과 동일: 철거사진 칸 없음. 주/야/무효/최대 검침사진이 전부, 대표=old_meter_photo) -->
@@ -340,7 +340,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260617.5</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260618.1</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -378,6 +378,10 @@
 
     <script>
       const $ = id => document.getElementById(id);
+
+      // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
+      const APP_VER = "20260618.1";
+      const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
       firebase.initializeApp(firebaseConfig);
@@ -426,6 +430,57 @@
         renderSeq();
         ujSweep();    // 앱 시작 시 orphan(done/묵은) job 노드 정리
         ujRender();   // 업로드 현황 도크 초기 표시
+        checkUpdate();  // 새 버전 있으면 업데이트 안내 (네이티브 자동설치)
+      }
+
+      // ── 인앱 자동업데이트 ──
+      // 버전 라벨("20260618.1") 사전식 숫자 비교. a>b면 +1.
+      function cmpVer(a, b){
+        const pa = String(a).split('.').map(n => parseInt(n,10) || 0);
+        const pb = String(b).split('.').map(n => parseInt(n,10) || 0);
+        const len = Math.max(pa.length, pb.length);
+        for (let i=0; i<len; i++){
+          const x = pa[i]||0, y = pb[i]||0;
+          if (x !== y) return x > y ? 1 : -1;
+        }
+        return 0;
+      }
+      async function checkUpdate(){
+        // 네이티브 브릿지 없으면(브라우저/구버전 APK) 조용히 skip
+        try {
+          if (typeof AndroidUpdate === 'undefined' || !AndroidUpdate.available()) return;
+        } catch(e){ return; }
+        let info;
+        try {
+          const res = await fetch(VER_JSON_URL + '?t=' + Date.now(), { cache:'no-store' });
+          if (!res.ok) return;
+          info = await res.json();
+        } catch(e){ return; }  // 오프라인/네트워크 실패 = 조용히 skip
+        const latest = info && info.versionName;
+        const apkUrl = info && info.apkUrl;
+        if (!latest || !apkUrl) return;
+        if (cmpVer(latest, APP_VER) <= 0) return;  // 이미 최신
+        showUpdateModal(latest, apkUrl, info.notes || '');
+      }
+      function showUpdateModal(latest, apkUrl, notes){
+        if (document.getElementById('upd-modal')) return;
+        const ov = document.createElement('div');
+        ov.id = 'upd-modal';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:24px;';
+        ov.innerHTML =
+          '<div style="background:var(--surface,#1a2330);border-radius:22px;box-shadow:0 20px 60px rgba(0,0,0,.5);max-width:360px;width:100%;padding:28px 24px;text-align:center;">' +
+            '<div style="font-size:20px;font-weight:800;color:var(--ink,#eaf2fb);margin-bottom:8px;">새 버전이 있습니다</div>' +
+            '<div style="font-size:15px;color:var(--ink-2,#9fb2c6);margin-bottom:4px;">v' + latest + ' 으로 업데이트</div>' +
+            (notes ? '<div style="font-size:13px;color:var(--ink-3,#7d8fa0);margin-bottom:18px;">' + notes + '</div>' : '<div style="margin-bottom:18px;"></div>') +
+            '<button id="upd-go" style="width:100%;padding:18px;border:none;border-radius:999px;background:linear-gradient(145deg,var(--mint-l,#5fe0c0),var(--mint,#2bb89a));color:#04261f;font-size:18px;font-weight:800;box-shadow:0 8px 20px rgba(43,184,154,.35);margin-bottom:10px;">지금 설치</button>' +
+            '<button id="upd-later" style="width:100%;padding:14px;border:none;border-radius:999px;background:transparent;color:var(--ink-2,#9fb2c6);font-size:15px;font-weight:700;">나중에</button>' +
+          '</div>';
+        document.body.appendChild(ov);
+        document.getElementById('upd-later').onclick = () => ov.remove();
+        document.getElementById('upd-go').onclick = () => {
+          try { AndroidUpdate.downloadAndInstall(apkUrl, latest); } catch(e){}
+          ov.remove();
+        };
       }
 
       // ── 오늘 데이터 로드: 작업번호별 계기/보관 인덱싱 + 빈번호 계산 ──
