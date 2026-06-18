@@ -247,7 +247,7 @@
             </div>
             <div class="sw" id="sw-yolo" data-opt="yolo"><span class="knob"></span></div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260617.2</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260617.3</div>
     </div>
 
     <!-- 철거 사진 -->
@@ -347,7 +347,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260617.2</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260617.3</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -1065,8 +1065,10 @@
       function renderSeqExtras(s){
         const tmp = tempIndex[s];
         const entry = seqIndex[s] && seqIndex[s].entry;
+        // ★사진슬롯 칸 수는 '검침값 입력' 옵션과 무관하게 항상 자동판별을 따른다(옵션 OFF여도 1칸/4칸 정확히).
+        //   기존엔 if(_opt.reading) 안에서만 불려 옵션 OFF 시 hide 미적용 → 사진슬롯 4칸이 다 노출되는 버그.
+        applySnapRv(s);
         if (_opt.reading){
-          applySnapRv(s);
           for(const fid of SNAP_RV_ALL){
             let rv = '';
             if (entry && entry.removal_values && entry.removal_values[fid] != null) rv = entry.removal_values[fid];
