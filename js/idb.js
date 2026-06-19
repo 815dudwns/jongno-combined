@@ -48,4 +48,14 @@
 
     window.idbGet = idbGet;
     window.idbSet = idbSet;
+
+    // 영구 저장 요청 — iOS ITP(7일 미사용)/저장공간 압박 evict 완화.
+    //   100% 보장은 아니지만(특히 사파리), 영구화에 가장 근접한 표준 API.
+    try {
+        if (navigator.storage && navigator.storage.persist) {
+            navigator.storage.persist().then(granted => {
+                console.log('[storage] persist 요청:', granted ? '영구(evict 면제)' : '비영구(evict 가능)');
+            }).catch(() => {});
+        }
+    } catch (e) { /* 무시 */ }
 })();

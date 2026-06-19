@@ -207,27 +207,40 @@ async function loadSiteDataCached(file) {
     try {
         const vr = await fetch('./data/jongno-site-data.version.json', { cache: 'no-cache' });
         if (vr.ok) ver = (await vr.json()).version;
-    } catch (e) { /* 버전 못 받으면 캐시 못 쓰고 풀 fetch */ }
+    } catch (e) { /* 버전 못 받음(오프라인 등) — 아래서 IDB 캐시 폴백 */ }
 
-    if (ver) {
-        try {
-            const cached = await idbGet('jongno-site-data');
-            if (cached && cached.version === ver && typeof cached.text === 'string') {
-                console.log('[siteData] 캐시 히트(IDB) — 재다운로드 0, ver', ver);
-                return JSON.parse(cached.text);
-            }
-        } catch (e) { /* IDB 실패 → 풀 fetch */ }
+    // IDB 캐시 미리 읽어둠 — 어떤 실패에도 최후 폴백으로 쓸 수 있게(ver 게이트 뒤에 두지 않음)
+    let cached = null;
+    try { cached = await idbGet('jongno-site-data'); } catch (e) { /* IDB 실패 무시 */ }
+
+    // 1) 버전 일치 캐시 → 즉시 사용(재다운로드 0)
+    if (ver && cached && cached.version === ver && typeof cached.text === 'string') {
+        console.log('[siteData] 캐시 히트(IDB) — 재다운로드 0, ver', ver);
+        return JSON.parse(cached.text);
     }
 
-    const r = await fetch(file, { cache: 'no-cache' });
-    const text = r.ok ? await r.text() : '[]';
-    if (ver) {
-        try {
-            await idbSet('jongno-site-data', { version: ver, text });
-            console.log('[siteData] 풀 fetch + IDB 캐시 갱신, ver', ver);
-        } catch (e) { console.warn('[siteData] IDB 저장 실패(무시, 동작엔 영향 없음):', e); }
+    // 2) 네트워크 fetch 시도 (오프라인이면 throw — !r.ok 아님)
+    try {
+        const r = await fetch(file, { cache: 'no-cache' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const text = await r.text();
+        if (ver) {
+            try {
+                await idbSet('jongno-site-data', { version: ver, text });
+                console.log('[siteData] 풀 fetch + IDB 캐시 갱신, ver', ver);
+            } catch (e) { console.warn('[siteData] IDB 저장 실패(무시):', e); }
+        }
+        return JSON.parse(text);
+    } catch (e) {
+        // 3) 네트워크 실패 → IDB 캐시라도 반환(버전 불일치여도 — 빈 데이터보다 stale이 낫다. 데이터 누락 금지)
+        if (cached && typeof cached.text === 'string') {
+            console.warn('[siteData] 네트워크 실패 — IDB 캐시 폴백(stale 가능). cachedVer', cached.version, 'srvVer', ver, e);
+            return JSON.parse(cached.text);
+        }
+        // 4) 캐시도 없음 — 진짜 빈 데이터
+        console.error('[siteData] 네트워크 실패 + 캐시 없음 → 빈 데이터:', e);
+        return [];
     }
-    return JSON.parse(text);
 }
 
 // ── 지도 초기화 ──────────────────────────────────────────────────

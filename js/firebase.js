@@ -547,12 +547,42 @@ async function initFirebase() {
         await flushEventQueue();
     }, 10000);
 
-    // 창/탭이 다시 활성화될 때 미전송 큐 플러시
-    document.addEventListener('visibilitychange', async () => {
-        if (document.visibilityState === 'visible') {
-            await flushEventQueue();
+    // ── 복귀 동기화(catch-up) ──
+    // 다른 앱 갔다 옴 / 슬립·잠금 후 복귀 시 child 리스너가 freeze됐을 수 있음 →
+    // 미전송 쓰기 먼저 보내고(flush) Firebase 현재 상태를 한 번 당겨와(once) 머지.
+    // child 리스너는 떼지 않고 유지(replay 홍수 방지) — once는 일회성 보강.
+    let _catchUpInFlight = false;
+    async function catchUpFromFirebase() {
+        if (_catchUpInFlight || !_initialDone) return;   // 초기 로드 전이면 value 핸들러가 담당
+        _catchUpInFlight = true;
+        try {
+            await flushEventQueue();                       // 1) 미전송 쓰기 먼저 (resume 시 덮어쓰기 방지)
+            const snap = await statusRef.once('value');     // 2) 현재 상태 1회 조회
+            const data = snap.val();
+            if (!data) return;
+            const converted = buildWorkStatusFromFirebase(data);
+            const pendingWriteAddrs = new Set(loadEventQueue()
+                .filter(e => e.type === 'state' || e.type === 'reset')
+                .map(e => e.address));
+            for (const addr in converted) {                 // 3) Firebase 권위 머지(pendingWrite 보호)
+                mergeAddrInto(addr, converted[addr], pendingWriteAddrs);
+            }
+            scheduleMirrorSave();
+            if (typeof refreshAllMarkers === 'function') refreshAllMarkers();  // 4) 머지만으론 재색칠 안 됨
+            console.log('[Firebase] 복귀 동기화 완료, 주소수', Object.keys(converted).length);
+        } catch (e) {
+            console.warn('[Firebase] 복귀 동기화 실패:', e);
+        } finally {
+            _catchUpInFlight = false;
         }
+    }
+
+    // 화면 복귀(visible)/bfcache 복귀(pageshow)/다른앱→복귀(focus) — in-flight 플래그로 중복 차단
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') catchUpFromFirebase();
     });
+    window.addEventListener('pageshow', () => catchUpFromFirebase());
+    window.addEventListener('focus', () => catchUpFromFirebase());
 
     // 첫 데이터(또는 8초 타임아웃) 대기 — initMap()의 await initFirebase()가 데이터 보장(빈 렌더 방지)
     await Promise.race([initialPromise, new Promise(r => setTimeout(r, 8000))]);
