@@ -1022,10 +1022,12 @@ function createMarker(position, address, meters) {
     // 계기 종류 필터 (단상/삼상) — 주소 계기 중 해당 타입 있는지 (구계기번호 기준)
     if (phaseFilter !== 'normal') {
         let hasDan = false, hasSam = false;
-        for (const m of (meters || [])) {
-            const p = (typeof phaseOf === 'function') ? phaseOf(m && m.계기번호) : null;
-            if (p === '단상') hasDan = true; else if (p === '삼상') hasSam = true;
-        }
+        const _ph = no => { const p = (typeof phaseOf === 'function') ? phaseOf(no) : null; if (p === '단상') hasDan = true; else if (p === '삼상') hasSam = true; };
+        for (const m of (meters || [])) _ph(m && m.계기번호);
+        // ★추가계기(added_meters)도 phase 판정 — siteData에 없는 현장 추가 계기가
+        //   단상/삼상 필터에서 통째로 숨겨지던 버그(추가계기만 있는 주소 = meters 비어 hasDan/Sam 둘다 false→null)
+        const _st = workStatus[address];
+        if (_st && _st.added_meters) for (const k in _st.added_meters) _ph(k);
         if (phaseFilter === 'dansang' && !hasDan) return null;
         if (phaseFilter === 'samsang' && !hasSam) return null;
         if (phaseFilter === 'both' && !(hasDan || hasSam)) return null;   // 미분류(기타)만 제외
@@ -1043,10 +1045,9 @@ function createMarker(position, address, meters) {
     // 단·삼(both): 마커 숫자를 "단상수/삼상수"로 표시 (색·완료판정은 전체 유지)
     if (phaseFilter === 'both') {
         let dan = 0, sam = 0;
-        for (const m of (meters || [])) {
-            const p = phaseOf(m && m.계기번호);
-            if (p === '단상') dan++; else if (p === '삼상') sam++;
-        }
+        const _cnt = no => { const p = phaseOf(no); if (p === '단상') dan++; else if (p === '삼상') sam++; };
+        for (const m of (meters || [])) _cnt(m && m.계기번호);
+        for (const k in (status.added_meters || {})) _cnt(k);   // 추가계기도 단/삼 카운트 포함
         style.labelMain = `${dan}/${sam}`;
     }
 
