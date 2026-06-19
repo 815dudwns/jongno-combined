@@ -247,7 +247,7 @@
             </div>
             <div class="sw" id="sw-yolo" data-opt="yolo"><span class="knob"></span></div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260618.1</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260618.2</div>
     </div>
 
     <!-- 철거 검침 (종로앱과 동일: 철거사진 칸 없음. 주/야/무효/최대 검침사진이 전부, 대표=old_meter_photo) -->
@@ -340,7 +340,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260618.1</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260618.2</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -380,7 +380,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260618.1";
+      const APP_VER = "20260618.2";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
@@ -486,7 +486,10 @@
       // ── 오늘 데이터 로드: 작업번호별 계기/보관 인덱싱 + 빈번호 계산 ──
       async function loadToday(){
         const today = dayKST();
-        usedSeqs = new Set(); seqIndex = {}; tempIndex = {};
+        // ★원자화: 전역을 비우지 않고 로컬에 새로 빌드 → 마지막에 한 번에 교체.
+        //   (여러 칸 빠른 연속 탭 시 동시 autoSave가 '비운 순간(seqIndex={})'을 읽어
+        //    hit=null로 오판 → 사진이 temp로 새던 race 차단. await 중엔 전역이 옛 유효값 유지.)
+        const _used = new Set(), _seqIdx = {}, _tempIdx = {};
         try {
           const snap = await statusRef.once('value');
           const ws = snap.val() || {};
@@ -498,15 +501,17 @@
               if (!r || typeof r.replaced_at !== 'number') continue;
               if (msToDayKST(r.replaced_at) !== today) continue;       // 오늘 것만
               if (typeof r.daily_seq === 'number'){
-                usedSeqs.add(r.daily_seq);
-                seqIndex[r.daily_seq] = { addr, meterId: r.old_meter_id || mid, entry: r };
+                _used.add(r.daily_seq);
+                _seqIdx[r.daily_seq] = { addr, meterId: r.old_meter_id || mid, entry: r };
               }
             }
           }
           // 임시보관함(사진만, 계기 미할당)도 번호 점유
           const tsnap = await tempRef.child(today).once('value');
           const tv = tsnap.val() || {};
-          for (const s in tv){ usedSeqs.add(Number(s)); tempIndex[Number(s)] = tv[s]; }
+          for (const s in tv){ _used.add(Number(s)); _tempIdx[Number(s)] = tv[s]; }
+          // 빌드 성공 → 전역에 원자적 교체(빈 상태 노출 0)
+          usedSeqs = _used; seqIndex = _seqIdx; tempIndex = _tempIdx;
         } catch(e){ console.error('[loadToday]', e); toast('데이터 로드 실패 — 새로고침'); }
       }
 
@@ -716,7 +721,7 @@
         try { mem = new Blob([await file.arrayBuffer()], { type: file.type || 'image/jpeg' }); }
         catch(e){ console.warn('[materialize 실패, 원본 사용]', e); }
         const localUrl = URL.createObjectURL(mem);
-        const jobId = `${dayKST()}_${localSeq}_${slot}_${Date.now()}`;
+        const jobId = `${dayKST()}_${localSeq}_${slot}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;  // 랜덤접미사: 같은 ms 연속 탭 jobId 충돌(=_ujJobs 덮어쓰기·done 조기remove) 방지
         ujRegister(jobId, localSeq, slot, localUrl);   // '올리는 중' 등록 + 워커 구독
         if (seq === localSeq) renderSeq();             // 즉시 미리보기(선언적 — 직접 DOM 조작 안 함)
         try {

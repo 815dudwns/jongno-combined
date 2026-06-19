@@ -1,5 +1,5 @@
 {
-  "versionName": "20260618.1",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260618.1.apk",
-  "notes": "인앱 자동업데이트 도입"
+  "versionName": "20260618.2",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260618.2.apk",
+  "notes": "동시 업로드 누락(temp 유출) 수정"
 }
