@@ -14,8 +14,11 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260618.1';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      const APP_VERSION = '20260618.2';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
+      // iframe(통계 모달)으로 열리면 부모(map.html)가 이미 캐시 관리 — 여기서 clear/reload하면
+      // 같은 오리진 공유라 부모 localStorage(지도 미러)까지 날아감. 마이그레이션 skip.
+      if (window.parent !== window) return;
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
         ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
@@ -164,7 +167,7 @@
 </head>
 <body>
   <div class="header">
-    <a href="map.html">← 지도</a>
+    <a href="map.html" onclick="if(window.parent!==window){event.preventDefault();parent.postMessage('jongno-close-stats','*');}">← 지도</a>
     <h1>작업 통계</h1>
     <button data-theme-toggle onclick="jongnoCycleTheme()" style="padding:6px 10px;border:none;border-radius:999px;background:rgba(255,255,255,0.18);color:inherit;font-size:12px;font-weight:700;cursor:pointer;">시스템</button>
   </div>
@@ -353,7 +356,8 @@ authRequire();
   const session = authGetSession();
   if (!session || (session.role !== 'admin' && session.role !== 'meter')) {
     alert('통계 열람 권한 필요');
-    location.href = 'map.html';
+    if (window.parent !== window) parent.postMessage('jongno-close-stats', '*');
+    else location.href = 'map.html';
   }
 })();
 
