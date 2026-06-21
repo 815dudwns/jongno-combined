@@ -247,7 +247,7 @@
             </div>
             <div class="sw" id="sw-yolo" data-opt="yolo"><span class="knob"></span></div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260618.2</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260621.1</div>
     </div>
 
     <!-- 철거 검침 (종로앱과 동일: 철거사진 칸 없음. 주/야/무효/최대 검침사진이 전부, 대표=old_meter_photo) -->
@@ -380,7 +380,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260618.2";
+      const APP_VER = "20260621.1";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
@@ -430,7 +430,19 @@
         renderSeq();
         ujSweep();    // 앱 시작 시 orphan(done/묵은) job 노드 정리
         ujRender();   // 업로드 현황 도크 초기 표시
+        pruneSaveLog();  // 저장이력 자동정리(오늘·어제만 보관, 그 이전 삭제)
         checkUpdate();  // 새 버전 있으면 업데이트 안내 (네이티브 자동설치)
+      }
+
+      // 저장이력(saveLog) 자동정리 — 오늘·어제만 보관, 그제 이하 날짜노드 삭제. 멱등.
+      async function pruneSaveLog(){
+        try {
+          const fmt = (d) => new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit' }).format(d);
+          const yesterday = fmt(new Date(Date.now() - 86400000));
+          const ref = db.ref('saveLog/jongno');
+          const snap = await ref.once('value');
+          snap.forEach(ch => { if (ch.key < yesterday) ref.child(ch.key).remove().catch(()=>{}); });
+        } catch(e){ console.warn('[pruneSaveLog snap]', e); }
       }
 
       // ── 인앱 자동업데이트 ──
@@ -785,9 +797,29 @@
         try { await loadToday(); } catch(e){ console.warn('[autoSave loadToday]', e); }
         const day = dayKST();
         const hit = seqIndex[s];
+        // ★사진 유실 방지: temp(미할당) 사진은 경로에 고유토큰을 붙여 Storage blob 덮어쓰기를 원천차단한다.
+        //   (번호(seq) 중복 할당 시 두 작업자가 같은 _temp/{day}/{seq}/{slot}.jpg 경로로 올려 원본이 덮이던 문제)
+        //   RTDB temp 노드는 흡수(prefillTempForSeq)가 seq로 찾으므로 seq 기준 유지 — blob만 고유화하면 충분.
+        const _uniq = `${Date.now()}_${Math.floor(Math.random() * 1e6).toString(36)}`;
         const path = hit
           ? `replacements/${hit.addr}/${hit.meterId}_${Date.now()}/${slot}.jpg`
-          : `replacements/_temp/${day}/${s}/${slot}.jpg`;
+          : `replacements/_temp/${day}/${s}/${slot}_${_uniq}.jpg`;
+
+        // 저장이력(append-only) — RTDB가 동시저장/번호중복으로 덮여도, 고유 Storage path로 사진을 추적·복구.
+        //   다다음날 prune으로 자동삭제. push키라 어떤 동시쓰기에도 절대 안 겹친다.
+        try {
+          db.ref('saveLog/jongno/' + day).push({
+            src: 'snap',
+            day, seq: s, slot,
+            fid: (slot.indexOf('rv_') === 0) ? slot.slice(3) : null,
+            path,
+            addr: hit ? hit.addr : null,
+            meter_id: hit ? hit.meterId : null,
+            worker: session ? session.id : '',
+            worker_name: session ? (session.name || '') : '',
+            ts: firebase.database.ServerValue.TIMESTAMP
+          }).catch(() => {});
+        } catch (e) { console.warn('[saveLog snap]', e); }
 
         // ── 네이티브 WorkManager 경로 ──
         if (typeof AndroidUpload !== 'undefined' && AndroidUpload.available()) {

@@ -430,6 +430,21 @@ async function syncFromFirebase() {
 }
 
 // ── 초기 로드 + 주기 동기화 ───────────────────────────────────
+// 저장이력(saveLog) 자동정리 — 오늘·어제만 보관, 그제 이하(다다음날 기준) 날짜노드 삭제.
+//   날짜키가 "YYYY-MM-DD" ISO라 사전식 비교 = 시간순. 멱등(여러 기기/앱이 동시에 돌려도 무해).
+async function pruneSaveLog() {
+    try {
+        if (typeof db === 'undefined' || !db) return;
+        const fmt = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+        const yesterday = fmt(new Date(Date.now() - 86400000));  // 어제까지 보관, 그 이전 삭제
+        const ref = db.ref('saveLog/jongno');
+        const snap = await ref.once('value');
+        snap.forEach(ch => {
+            if (ch.key < yesterday) ref.child(ch.key).remove().catch(() => {});
+        });
+    } catch (e) { console.warn('[pruneSaveLog]', e); }
+}
+
 async function initFirebase() {
     console.log('[Firebase] initFirebase 시작');
 
@@ -447,6 +462,8 @@ async function initFirebase() {
     }
 
     await flushEventQueue();
+
+    pruneSaveLog();  // 저장이력 자동정리(백그라운드, 비차단)
 
     // ★ 초기 1회 다운로드 = on('value') 첫 콜백으로 통일.
     //   기존 get()+on() = 같은 노드 전체 2회 다운로드(3MB×2). on() 1회로 절감.

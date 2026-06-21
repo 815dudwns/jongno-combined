@@ -1379,6 +1379,26 @@ const RplModal = (() => {
       const node = statusRef.child(addrKey).child('replacement_list').child(String(oldMeterId));
       await node.set(replacement);
 
+      // 저장이력(append-only) — 동시저장/번호중복으로 replacement_list가 덮여도 여기서 복구.
+      //   push키라 절대 안 겹침. 다다음날 prune으로 자동삭제. (영준님: 작업자 저장분 유실 방지)
+      try {
+        const _logDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts));
+        db.ref('saveLog/jongno/' + _logDay).push({
+          src: 'main',
+          addr: addrKey,
+          old_meter_id: String(oldMeterId),
+          new_meter_id: String(newMeterId || ''),
+          daily_seq: dailySeq,
+          removal_values: removalValues,
+          removal_photos,
+          new_meter_photo: urlMap['new'] || '',
+          base_dir: baseDir,
+          worker,
+          draft: !!isDraft,
+          ts
+        }).catch(() => {});
+      } catch (e) { console.warn('[saveLog main]', e); }
+
       // 불러온(확정된) 보조앱 temp 노드 정리 (저장 성공 후에만 — 사진 URL은 이미 record에 복사됨)
       if (_pendingTempPath) { db.ref(_pendingTempPath).remove().catch(() => {}); }
 
