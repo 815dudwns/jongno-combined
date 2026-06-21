@@ -247,7 +247,7 @@
             </div>
             <div class="sw" id="sw-yolo" data-opt="yolo"><span class="knob"></span></div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260621.2</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260621.3</div>
     </div>
 
     <!-- 철거 검침 (종로앱과 동일: 철거사진 칸 없음. 주/야/무효/최대 검침사진이 전부, 대표=old_meter_photo) -->
@@ -285,16 +285,16 @@
     <!-- 신설 사진 -->
     <div class="shot">
         <div class="shot-title">신설 사진 <span class="shot-status" id="st-new"></span></div>
-        <!-- QR (옵션) -->
-        <div class="qr-row" id="qr-row">
-            <button class="qr-btn" id="qr-btn">QR 스캔 (새 계기)</button>
-            <div class="qr-result" id="qr-result"></div>
-        </div>
         <div class="shot-box" id="box-new" data-slot="new">
             <span class="hint">탭해서 사진 넣기</span>
             <img id="img-new" alt="신설 사진">
             <span class="badge" id="bd-new"></span>
             <div class="spin">저장 중...</div>
+        </div>
+        <!-- QR (옵션) -->
+        <div class="qr-row" id="qr-row">
+            <button class="qr-btn" id="qr-btn">QR 스캔 (새 계기)</button>
+            <div class="qr-result" id="qr-result"></div>
         </div>
     </div>
 
@@ -340,7 +340,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260621.2</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260621.3</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -380,7 +380,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260621.2";
+      const APP_VER = "20260621.3";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
