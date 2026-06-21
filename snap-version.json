@@ -1,5 +1,5 @@
 {
-  "versionName": "20260621.3",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260621.3.apk",
-  "notes": "신설 사진 칸과 QR 스캔 칸 위치 교환"
+  "versionName": "20260621.4",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260621.4.apk",
+  "notes": "신설 사진 칸과 QR 스캔 칸 위치 교환 + 간격 정리(겹침 수정)"
 }
