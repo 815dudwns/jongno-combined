@@ -5,6 +5,10 @@ let markers = [];               // 현재 화면에 그려진 마커 [{overlay, 
 let sampleData = [];
 let _naverMapsLoading = null;
 
+// ── [임시] 명륜 팀 배분 매핑 (종로/중구) ──────────────────────────
+// myeongryun-team-assign.json fetch 후 계기번호→팀 이름 Map
+let teamByMeter = new Map();   // '계기번호' → '종로' | '중구'
+
 // ── 뷰포트 컬링 ─────────────────────────────────────────────────
 // _addrData: 필터(동그룹/검침일/미연계) 통과한 전체 후보 (주소→{lat,lng,meters}). 필터 변경 시만 재계산.
 // _markerByAddr: 현재 화면에 떠 있는 마커 (주소→markers 항목). renderViewport가 bounds로 증분 관리.
@@ -276,11 +280,13 @@ async function initMap() {
     populateDongGroups();
     populateCheckdayFilter();
     populateGaFilter();
+    populateTeamFilter();      // [임시] 명륜 팀 필터 UI 생성
     initCommMissingFilter();
     initHideDoneFilter();
     initPhaseFilter();
     updateCheckdayFilterVisibility();
     updateGaFilterVisibility();
+    updateTeamFilterVisibility();  // [임시] 명륜 팀 필터 표시/숨김
     // ★즉시 렌더(렌더-우선): siteData(IDB) + workStatus 미러(loadStatusLocal, 완료 포함)로 마커를 먼저 그림.
     //   아이폰 PWA 재진입 시 "빈 화면→Firebase 응답 후 마커"의 빈 화면 구간 제거.
     //   미러는 마지막 FB 동기화 스냅샷 → 완료 첫 화면 표시(빈 렌더 아님). Firebase가 권위로 곧 갱신.
@@ -291,6 +297,26 @@ async function initMap() {
     buildAddrCandidates();
     // bounds 준비됐으면 즉시, 아니면 첫 idle(attachMapViewSaveListener)이 렌더 — 새로고침 직후 빈 지도 방지
     refreshAllMarkers();
+
+    // [임시] 명륜 팀 배분 매핑 비동기 로드 (렌더-우선 후 색 반영)
+    loadTeamAssign();
+
+    // MYUNGROON_MODE: 팀 배분 패널 자동 열기 + 불필요 UI 숨김
+    if (window.MYUNGROON_MODE) {
+        setTimeout(() => {
+            // team-assign-toggle-btn 강제 활성 (toggleTeamAssignMode 호출)
+            const taBtn = document.getElementById('team-assign-toggle-btn');
+            if (taBtn) {
+                taBtn.style.display = '';
+                if (typeof window.toggleTeamAssignMode === 'function') {
+                    window.toggleTeamAssignMode();
+                }
+            }
+            // 동그룹 필터 드롭다운 숨김 (명륜 고정이라 불필요)
+            const dongFilter = document.querySelector('.dong-group-filter');
+            if (dongFilter) dongFilter.style.display = 'none';
+        }, 2000);  // sampleData + teamAssign 로드 완료 후
+    }
 
     // 마커 모드 — admin이 변경 시 Firebase 통해 모든 사용자에게 동기화
     if (typeof subscribeMarkerMode === 'function') {
@@ -337,6 +363,7 @@ async function initMap() {
                     viewToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.view === adminViewRole));
                     updateCheckdayFilterVisibility();
                     updateGaFilterVisibility();
+                    updateTeamFilterVisibility();   // [임시] 명륜 팀 필터 표시/숨김
                     // 검침일 필터 적용/해제 → 후보 재계산 + 화면 렌더
                     clearAllMarkers();
                     loadMarkers();
@@ -350,6 +377,8 @@ async function initMap() {
 
 // ── 동그룹 선택 저장/로드 ─────────────────────────────────────────
 function loadSelectedGroups() {
+    // MYUNGROON_MODE: 명륜 동그룹 고정 (다른 동 표시 안 함)
+    if (window.MYUNGROON_MODE) return new Set(['명륜']);
     try {
         const saved = localStorage.getItem('jongno_selected_groups');
         if (saved) {
@@ -452,6 +481,7 @@ function onDongGroupChange() {
     _dongToggleLabel([...checked][0] || '');
     panel.classList.remove('open');   // 선택 후 패널 닫기
     updateGaFilterVisibility();   // 명륜 선택 여부에 따라 가 필터 표시/숨김
+    updateTeamFilterVisibility();   // [임시] 명륜 팀 필터 표시/숨김
     clearAllMarkers();
     loadMarkers();   // 후보 재계산(buildAddrCandidates) + 화면 렌더(renderViewport)
     fitToCandidates();   // 선택 동그룹 영역으로 지도 이동(이동 시 idle→renderViewport 재렌더)
@@ -524,6 +554,85 @@ function updateGaFilterVisibility() {
     const isMeter = (role === 'meter');
     const isMyungryun = selectedGroups.has('명륜');
     filterEl.style.display = (isMeter && isMyungryun) ? '' : 'none';
+}
+
+// ── [임시] 명륜 팀 필터 (계기팀 시각 + 동그룹=명륜 전용) ──────────
+function loadSelectedTeam() {
+    try {
+        const saved = localStorage.getItem('jongno_team_filter_temp');
+        if (saved && ['종로', '중구', 'both'].includes(saved)) return saved;
+    } catch {}
+    return 'both';   // 기본: 둘 다
+}
+
+function saveSelectedTeam(val) {
+    try { localStorage.setItem('jongno_team_filter_temp', val); } catch {}
+}
+
+function populateTeamFilter() {
+    const panel = document.getElementById('team-filter-panel');
+    const toggleBtn = document.getElementById('team-toggle');
+    if (!panel || !toggleBtn) return;
+
+    const selected = loadSelectedTeam();
+    const opts = [
+        { val: 'both', label: '둘 다' },
+        { val: '종로', label: '종로' },
+        { val: '중구', label: '중구' },
+    ];
+    opts.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'team-seg-btn' + (opt.val === selected ? ' active' : '');
+        btn.textContent = opt.label;
+        btn.dataset.val = opt.val;
+        btn.addEventListener('click', () => {
+            saveSelectedTeam(opt.val);
+            panel.querySelectorAll('.team-seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val === opt.val));
+            clearAllMarkers();
+            loadMarkers();
+        });
+        panel.appendChild(btn);
+    });
+
+    toggleBtn.addEventListener('click', () => {
+        panel.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+        const filter = document.getElementById('team-filter');
+        if (filter && !filter.contains(e.target)) {
+            panel.classList.remove('open');
+        }
+    });
+}
+
+// 계기팀 시각 + 동그룹=명륜일 때만 팀 필터 UI 표시
+function updateTeamFilterVisibility() {
+    const role = getEffectiveRole();
+    const filterEl = document.getElementById('team-filter');
+    if (!filterEl) return;
+    const selectedGroups = loadSelectedGroups();
+    const isMeter = (role === 'meter');
+    const isMyungryun = selectedGroups.has('명륜');
+    filterEl.style.display = (isMeter && isMyungryun) ? '' : 'none';
+    // [임시] 팀 할당 버튼 표시도 함께 갱신
+    if (typeof updateTeamAssignBtnVisibility === 'function') updateTeamAssignBtnVisibility();
+}
+
+// 팀 매핑 JSON 비동기 로드 (앱 초기화 후 백그라운드)
+function loadTeamAssign() {
+    fetch('./data/myeongryun-team-assign.json')
+        .then(r => r.json())
+        .then(data => {
+            teamByMeter.clear();
+            (data['종로'] || []).forEach(no => teamByMeter.set(no, '종로'));
+            (data['중구'] || []).forEach(no => teamByMeter.set(no, '중구'));
+            console.log('[teamAssign] 로드 완료:', teamByMeter.size, '개');
+            // 매핑 로드 후 색 반영을 위해 재렌더
+            clearAllMarkers();
+            loadMarkers();
+        })
+        .catch(e => console.warn('[teamAssign] 로드 실패:', e));
 }
 
 // ── 검침일 필터 (계기팀 시각 전용) ──────────────────────────────
@@ -621,6 +730,7 @@ function buildAddrCandidates() {
     const selectedGroups = loadSelectedGroups();
     const selectedCheckdays = loadSelectedCheckdays();
     const selectedGa = loadSelectedGa();
+    const selectedTeam = loadSelectedTeam();   // [임시] 명륜 팀 필터
     const role = getEffectiveRole();
     const applyCheckdayFilter = (role === 'meter');
     // 미연계(통신팀 누락만)는 통신팀 개념 — 계기팀 시각에서는 적용 안 함
@@ -636,6 +746,11 @@ function buildAddrCandidates() {
             if (applyCheckdayFilter && !selectedCheckdays.has(item.검침일그룹)) return;
             // 명륜 가 필터: 계기팀 시각 + 명륜 동그룹에만 적용 (타 동 영향 없음)
             if (applyCheckdayFilter && item.동그룹 === '명륜' && !selectedGa.has(item.법정동)) return;
+            // [임시] 명륜 팀 필터: 계기팀 시각 + 명륜 동그룹 + 팀 매핑 있을 때 (둘다='both'면 통과)
+            if (applyCheckdayFilter && item.동그룹 === '명륜' && selectedTeam !== 'both' && teamByMeter.size > 0) {
+                const _t = teamByMeter.get(item.계기번호);
+                if (_t && _t !== selectedTeam) return;
+            }
         }
         const addr = item.주소;
         if (!grouped[addr]) {
@@ -984,6 +1099,8 @@ const MARKER_FILL = {
     'day-g1': '#f5cbb1', 'day-g2': '#b5dfc7', 'day-g3': '#d0c0dc', 'day-g4': '#d9b8c5',
     'pri-1': '#e8b8b8', 'pri-2': '#e8d3b8', 'pri-3': '#d6cfa0', 'pri-4': '#bfd5a8', 'pri-past': '#b0b0b0',
     'comm-target': '#54b485', 'comm-last': '#2c5e44', 'comm-done': '#6f6a5d',
+    // [임시] 명륜 팀 배분 색: 종로=파랑(#3a6bc4), 중구=주황(#c9632a)
+    'team-jongno': '#3a6bc4', 'team-junggu': '#c9632a',
 };
 // 흰 원(밝은 핀) 표시 + 번호 어둡게 = green/yellow/day/pri 계열
 const CIRCLE_CLASSES = new Set(['green', 'yellow', 'day-g1', 'day-g2', 'day-g3', 'day-g4', 'pri-1', 'pri-2', 'pri-3', 'pri-4', 'pri-past']);
@@ -1119,6 +1236,14 @@ function createMarker(position, address, meters) {
         styleStatus = sc.vStatus;
     }
     const style = decideMarkerStyle(styleMeters, { ...styleStatus, address }, session);
+    // 명륜 팀 배분 색 오버라이드: MYUNGROON_MODE면 role 무관, 일반모드면 계기팀 시각만
+    if ((window.MYUNGROON_MODE || getEffectiveRole() === 'meter') && meters && meters.length > 0) {
+        const _firstMeterNo = meters[0] && meters[0].계기번호;
+        if (_firstMeterNo && teamByMeter.has(_firstMeterNo)) {
+            const _team = teamByMeter.get(_firstMeterNo);
+            style.colorClass = (_team === '종로') ? 'team-jongno' : 'team-junggu';
+        }
+    }
     // 단·삼(both): 마커 숫자를 "단상수/삼상수"로 표시 (색·완료판정은 전체 유지)
     if (phaseFilter === 'both') {
         let dan = 0, sam = 0;
@@ -1144,7 +1269,13 @@ function createMarker(position, address, meters) {
         icon: getMarkerImage(style),   // canvas 이미지 아이콘 (DOM 마커 대비 대폭 경량)
         zIndex: _zi
     });
-    naver.maps.Event.addListener(customOverlay, 'click', () => showDetail(address, meters));
+    naver.maps.Event.addListener(customOverlay, 'click', () => {
+        if (window.MYUNGROON_MODE) {
+            _myungroonToggleAddr(address, meters);
+        } else {
+            showDetail(address, meters);
+        }
+    });
 
     const _m = { overlay: customOverlay, address, meters };
     markers.push(_m);
@@ -1437,3 +1568,464 @@ function escapeSearchHtml(s) {
 
 // 네이버 지도 SDK 로드 후 지도 초기화 실행
 initMap();
+
+// ── [임시] 명륜 팀 할당 (admin + 계기팀 시각 + 동그룹=명륜 전용) ────────────
+(function () {
+    'use strict';
+
+    const PRICE_SINGLE = 13000;
+    const PRICE_THREE  = 30000;
+
+    // --- 상태 ---
+    let _taMode      = false;       // 할당 모드 ON/OFF
+    let _taTool      = null;        // '종로' | '중구' | null
+    let _taAddrGroup = {};          // 주소 -> [계기번호, ...]  (명륜 전체 sampleData 기반)
+    let _taLockedSet = new Set();   // awms 잠금 계기번호
+    let _taUndoStack = [];          // [{계기번호: 이전팀}, ...]
+    let _taInitDone  = false;       // 데이터 한 번만 로드
+
+    // 드래그 상태
+    let _taDragging  = false;
+    let _taDragStart = null;    // {x, y, lat, lng}
+
+    // --- 유틸: admin + 계기팀 시각 + 명륜 그룹 게이트 ---
+    function _taGate() {
+        // MYUNGROON_MODE: 게이트 없이 항상 허용
+        if (window.MYUNGROON_MODE) return true;
+        // 로컬 임시 팀할당 도구: 동그룹 '명륜' 선택만 충족하면 노출 (admin/계기팀 게이트 완화)
+        const groups = (typeof loadSelectedGroups === 'function') ? loadSelectedGroups() : new Set();
+        return groups.has('명륜');
+    }
+
+    // --- 명륜 계기 필터 (단일 출처 — init/paint/stats 전부 이걸 씀) ---
+    function _taMyungryunMeters() {
+        return (typeof sampleData !== 'undefined' ? sampleData : [])
+            .filter(d => (d['동그룹'] || '') === '명륜');
+    }
+
+    // --- 버튼 표시/숨김 ---
+    window.updateTeamAssignBtnVisibility = function () {
+        const btn = document.getElementById('team-assign-toggle-btn');
+        if (!btn) return;
+        const gate = _taGate();
+        btn.style.display = gate ? '' : 'none';
+        // 게이트 실패 상태에서 모드가 켜져 있으면 강제 OFF (지도 드래그 잠김 방지)
+        if (!gate && _taMode) {
+            _taMode = false;
+            _taTool = null;
+            if (map) map.setOptions({ draggable: true, scrollWheel: true });
+            const mapDiv = document.getElementById('map');
+            if (mapDiv) mapDiv.style.cursor = '';
+            const panel = document.getElementById('team-assign-panel');
+            if (panel) panel.style.display = 'none';
+            btn.classList.remove('active');
+            const selRect = document.getElementById('ta-selection-rect');
+            if (selRect) selRect.style.display = 'none';
+        }
+    };
+    function updateTeamAssignBtnVisibility() { window.updateTeamAssignBtnVisibility(); }
+
+    // --- 초기 데이터 준비 (한 번만) ---
+    async function _taInit() {
+        if (_taInitDone) return;
+        _taInitDone = true;
+
+        // sampleData에서 명륜 addrGroup 구성
+        const myungryunMeters = _taMyungryunMeters();
+
+        _taAddrGroup = {};
+        myungryunMeters.forEach(d => {
+            const addr = d['주소'] || '';
+            if (!_taAddrGroup[addr]) _taAddrGroup[addr] = [];
+            _taAddrGroup[addr].push(d['계기번호']);
+        });
+
+        // awms 잠금 로드
+        try {
+            const res = await fetch('./data/cha10-awms-locked.json');
+            if (res.ok) {
+                const data = await res.json();
+                data.forEach(d => { if (d['WHM_NO']) _taLockedSet.add(d['WHM_NO']); });
+            }
+        } catch (e) {
+            console.warn('[팀할당] cha10-awms-locked.json 로드 실패:', e);
+        }
+
+        // localStorage 배정 복원 → teamByMeter 반영
+        _taRestoreFromLocalStorage();
+
+        console.log('[팀할당] init 완료: 명륜', myungryunMeters.length, '개, 잠금', _taLockedSet.size, '개');
+    }
+
+    // localStorage에 저장된 배정 복원 (map.js teamByMeter 갱신)
+    function _taRestoreFromLocalStorage() {
+        try {
+            const saved = localStorage.getItem('myeongryun_assign');
+            if (!saved) return;
+            const parsed = JSON.parse(saved);
+            // teamByMeter는 loadTeamAssign이 파일 기반으로 이미 로드했으나,
+            // localStorage(더 최신) 우선 적용 (admin 편집 세션 보존)
+            const jongnoList = parsed['종로'] || [];
+            const jungguList = parsed['중구'] || [];
+            if (jongnoList.length === 0 && jungguList.length === 0) return;
+            teamByMeter.clear();
+            jongnoList.forEach(no => teamByMeter.set(no, '종로'));
+            jungguList.forEach(no => teamByMeter.set(no, '중구'));
+            clearAllMarkers();
+            loadMarkers();
+        } catch (e) {}
+    }
+
+    // --- 모드 토글 ---
+    window.toggleTeamAssignMode = async function () {
+        if (!_taGate()) return;
+        if (!_taMode) {
+            // ON
+            await _taInit();
+            _taMode = true;
+            // 팀 필터를 'both'로 강제 (한 팀 숨겨지면 드래그 칠하기 불완전)
+            if (typeof saveSelectedTeam === 'function') {
+                saveSelectedTeam('both');
+                const panel = document.getElementById('team-filter-panel');
+                if (panel) {
+                    panel.querySelectorAll('.team-seg-btn').forEach(b =>
+                        b.classList.toggle('active', b.dataset.val === 'both'));
+                }
+            }
+            document.getElementById('team-assign-panel').style.display = '';
+            document.getElementById('team-assign-toggle-btn').classList.add('active');
+            _taSetupDraw();
+            _taUpdateStats();
+            _taSetHint('팔레트 선택 후 지도에서 드래그하세요');
+        } else {
+            // OFF
+            _taMode = false;
+            _taTool = null;
+            if (map) map.setOptions({ draggable: true, scrollWheel: true });
+            const mapDiv = document.getElementById('map');
+            if (mapDiv) mapDiv.style.cursor = '';
+            document.getElementById('team-assign-panel').style.display = 'none';
+            document.getElementById('team-assign-toggle-btn').classList.remove('active');
+            document.getElementById('ta-selection-rect').style.display = 'none';
+            // 팔레트 버튼 초기화
+            ['ta-btn-jongno', 'ta-btn-junggu'].forEach(id => {
+                const b = document.getElementById(id);
+                if (b) b.classList.remove('active');
+            });
+        }
+    };
+
+    // --- 팔레트 선택 ---
+    window.setTeamAssignTool = function (tool) {
+        if (!_taMode) return;
+        _taTool = (_taTool === tool) ? null : tool;   // 같은 버튼 다시 누르면 해제
+        _taPaletteSyncUI();
+        if (_taTool) {
+            if (map) map.setOptions({ draggable: false, scrollWheel: false });
+            const mapDiv = document.getElementById('map');
+            if (mapDiv) mapDiv.style.cursor = 'crosshair';
+            _taSetHint((_taTool === '종로' ? '종로' : '중구') + ' 칠하기: 드래그로 영역 선택');
+        } else {
+            if (map) map.setOptions({ draggable: true, scrollWheel: true });
+            const mapDiv = document.getElementById('map');
+            if (mapDiv) mapDiv.style.cursor = '';
+            _taSetHint('팔레트 선택 후 지도에서 드래그하세요');
+        }
+    };
+
+    function _taPaletteSyncUI() {
+        const jBtn = document.getElementById('ta-btn-jongno');
+        const gBtn = document.getElementById('ta-btn-junggu');
+        if (jBtn) jBtn.classList.toggle('active', _taTool === '종로');
+        if (gBtn) gBtn.classList.toggle('active', _taTool === '중구');
+    }
+
+    // --- pixelToLatLng (team-edit.html 검증 로직 그대로) ---
+    function _taPixelToLatLng(px, py) {
+        const mapBounds = map.getBounds();
+        const mapSize   = map.getSize();
+        const sw = mapBounds.getSW();
+        const ne = mapBounds.getNE();
+        const lat = ne.lat() - (py / mapSize.height) * (ne.lat() - sw.lat());
+        const lng = sw.lng() + (px / mapSize.width)  * (ne.lng() - sw.lng());
+        return { lat, lng };
+    }
+
+    // --- 드래그 이벤트 설정 (한 번만) ---
+    let _taDrawSetup = false;
+    function _taSetupDraw() {
+        if (_taDrawSetup) return;
+        _taDrawSetup = true;
+
+        const selRect = document.getElementById('ta-selection-rect');
+
+        document.addEventListener('mousedown', e => {
+            if (!_taMode || !_taTool || e.button !== 0) return;
+            const mapDiv = document.getElementById('map');
+            if (!mapDiv) return;
+            const mapRect = mapDiv.getBoundingClientRect();
+            // 지도 div 안에서만 드래그 시작
+            if (e.clientX < mapRect.left || e.clientX > mapRect.right ||
+                e.clientY < mapRect.top  || e.clientY > mapRect.bottom) return;
+            e.preventDefault();
+            _taDragging = true;
+            const lx = e.clientX - mapRect.left;
+            const ly = e.clientY - mapRect.top;
+            _taDragStart = { x: e.clientX, y: e.clientY, lat_lng: _taPixelToLatLng(lx, ly) };
+            selRect.style.left   = e.clientX + 'px';
+            selRect.style.top    = e.clientY + 'px';
+            selRect.style.width  = '0px';
+            selRect.style.height = '0px';
+            selRect.style.display = 'block';
+        });
+
+        document.addEventListener('mousemove', e => {
+            if (!_taDragging) return;
+            const sx = _taDragStart.x, sy = _taDragStart.y;
+            const cx = e.clientX, cy = e.clientY;
+            selRect.style.left   = Math.min(cx, sx) + 'px';
+            selRect.style.top    = Math.min(cy, sy) + 'px';
+            selRect.style.width  = Math.abs(cx - sx) + 'px';
+            selRect.style.height = Math.abs(cy - sy) + 'px';
+        });
+
+        document.addEventListener('mouseup', e => {
+            if (!_taDragging) return;
+            _taDragging = false;
+            selRect.style.display = 'none';
+
+            const mapDiv = document.getElementById('map');
+            if (!mapDiv) return;
+            const mapRect = mapDiv.getBoundingClientRect();
+            const lx = e.clientX - mapRect.left;
+            const ly = e.clientY - mapRect.top;
+            const endPos = _taPixelToLatLng(lx, ly);
+
+            const dx = Math.abs(e.clientX - _taDragStart.x);
+            const dy = Math.abs(e.clientY - _taDragStart.y);
+            if (dx < 5 && dy < 5) return;  // 클릭 무시
+
+            const startPos = _taDragStart.lat_lng;
+            _taPaintInBounds({
+                minLat: Math.min(startPos.lat, endPos.lat),
+                maxLat: Math.max(startPos.lat, endPos.lat),
+                minLng: Math.min(startPos.lng, endPos.lng),
+                maxLng: Math.max(startPos.lng, endPos.lng),
+            });
+        });
+    }
+
+    // --- 영역 내 계기 배정 ---
+    function _taPaintInBounds(bounds) {
+        if (!_taTool) return;
+
+        // 경계 내 주소 수집 — 명륜 계기 좌표 기준
+        const hitAddrs = new Set();
+        _taMyungryunMeters().forEach(d => {
+            if (!d.lat || !d.lng) return;
+            if (d.lat >= bounds.minLat && d.lat <= bounds.maxLat &&
+                d.lng >= bounds.minLng && d.lng <= bounds.maxLng) {
+                hitAddrs.add(d['주소']);
+            }
+        });
+
+        if (hitAddrs.size === 0) {
+            _taSetHint('영역 안에 명륜 계기가 없습니다.');
+            return;
+        }
+
+        // undo 스냅샷 (주소 그룹의 현재 배정 저장)
+        const snapshot = {};
+        hitAddrs.forEach(addr => {
+            (_taAddrGroup[addr] || []).forEach(no => {
+                snapshot[no] = teamByMeter.get(no) || null;
+            });
+        });
+        _taUndoStack.push(snapshot);
+        if (_taUndoStack.length > 50) _taUndoStack.shift();
+        _taUpdateUndoCount();
+
+        // 배정 변경 (잠금 제외, 주소 통째)
+        const changedAddrs = new Set();
+        hitAddrs.forEach(addr => {
+            let addrChanged = false;
+            (_taAddrGroup[addr] || []).forEach(no => {
+                if (_taLockedSet.has(no)) return;
+                if (_taTool === null) teamByMeter.delete(no);
+                else teamByMeter.set(no, _taTool);
+                addrChanged = true;
+            });
+            if (addrChanged) changedAddrs.add(addr);
+        });
+
+        // 마커 색 갱신 — 변경된 주소만
+        changedAddrs.forEach(addr => {
+            if (typeof updateMarkerColor === 'function') updateMarkerColor(addr);
+        });
+
+        _taSaveToLocalStorage();
+        _taUpdateStats();
+        _taSetHint(`${hitAddrs.size}개 주소 → ${_taTool} 배정`);
+    }
+
+    // --- 되돌리기 ---
+    window.undoTeamAssign = function () {
+        if (_taUndoStack.length === 0) { _taSetHint('되돌릴 내용이 없습니다.'); return; }
+        const snapshot = _taUndoStack.pop();
+        const changedAddrs = new Set();
+
+        Object.entries(snapshot).forEach(([no, prev]) => {
+            if (prev === null || prev === undefined) teamByMeter.delete(no);
+            else teamByMeter.set(no, prev);
+            // 해당 계기의 주소 찾기 (addrGroup 역인덱스)
+            for (const [addr, nos] of Object.entries(_taAddrGroup)) {
+                if (nos.includes(no)) { changedAddrs.add(addr); break; }
+            }
+        });
+
+        changedAddrs.forEach(addr => {
+            if (typeof updateMarkerColor === 'function') updateMarkerColor(addr);
+        });
+
+        _taSaveToLocalStorage();
+        _taUpdateStats();
+        _taUpdateUndoCount();
+        _taSetHint(`되돌리기 완료 (${Object.keys(snapshot).length}개 계기)`);
+    };
+
+    // --- 통계 갱신 ---
+    function _taUpdateStats() {
+        const s = {
+            종로: { addr: new Set(), meter: 0, p1: 0, p3: 0 },
+            중구: { addr: new Set(), meter: 0, p1: 0, p3: 0 },
+        };
+        let total = 0, assigned = 0;
+
+        const myungryunMeters = _taMyungryunMeters();
+        total = myungryunMeters.length;
+
+        myungryunMeters.forEach(d => {
+            const no = d['계기번호'];
+            const t = teamByMeter.get(no);
+            if (t !== '종로' && t !== '중구') return;
+            assigned++;
+            s[t].meter++;
+            s[t].addr.add(d['주소']);
+            const phase = (typeof phaseOf === 'function') ? phaseOf(no) : null;
+            if (phase === '단상') s[t].p1++;
+            else if (phase === '삼상') s[t].p3++;
+        });
+
+        const rev = (t) => Math.round((s[t].p1 * PRICE_SINGLE + s[t].p3 * PRICE_THREE) / 10000);
+        const jRev = rev('종로'), gRev = rev('중구');
+        const totalRev = jRev + gRev;
+
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        set('ta-j-addr',  s['종로'].addr.size);
+        set('ta-j-meter', s['종로'].meter);
+        set('ta-j-1',     s['종로'].p1);
+        set('ta-j-3',     s['종로'].p3);
+        set('ta-j-rev',   jRev);
+        set('ta-g-addr',  s['중구'].addr.size);
+        set('ta-g-meter', s['중구'].meter);
+        set('ta-g-1',     s['중구'].p1);
+        set('ta-g-3',     s['중구'].p3);
+        set('ta-g-rev',   gRev);
+        const totalEl = document.getElementById('ta-total-text');
+        if (totalEl) totalEl.textContent = `배정 ${assigned} / 미배정 ${total - assigned} / 계 ${total}`;
+    }
+
+    // --- undo 카운트 표시 ---
+    function _taUpdateUndoCount() {
+        const el = document.getElementById('ta-undo-count');
+        if (el) el.textContent = _taUndoStack.length > 0 ? `(${_taUndoStack.length})` : '';
+    }
+
+    // --- 힌트 메시지 ---
+    function _taSetHint(msg) {
+        const el = document.getElementById('ta-hint');
+        if (el) el.textContent = msg;
+    }
+
+    // --- localStorage 저장 ---
+    function _taSaveToLocalStorage() {
+        const out = _taBuildOutput();
+        try { localStorage.setItem('myeongryun_assign', JSON.stringify(out)); } catch (e) {}
+    }
+
+    function _taBuildOutput() {
+        const out = { 종로: [], 중구: [] };
+        teamByMeter.forEach((team, no) => {
+            if (team === '종로') out['종로'].push(no);
+            else if (team === '중구') out['중구'].push(no);
+        });
+        out['종로'].sort();
+        out['중구'].sort();
+        return out;
+    }
+
+    // --- JSON 내보내기 ---
+    window.exportTeamAssignJSON = function () {
+        const out = _taBuildOutput();
+        const json = JSON.stringify(out, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'myeongryun-team-assign.json';
+        a.click();
+        _taSaveToLocalStorage();
+        _taSetHint(`내보내기 완료 (종로 ${out['종로'].length}, 중구 ${out['중구'].length})`);
+    };
+
+    // --- 버튼 표시 게이트 후킹 ---
+    // 기존 updateTeamFilterVisibility 호출 시 함께 갱신되도록 패치
+    const _origUpdateTeamFilterVisibility = window.updateTeamFilterVisibility;
+    // updateTeamFilterVisibility는 map.js 내부 함수라 직접 후킹 대신 DOMContentLoaded 후 타이머로 주기적 갱신
+    // (뷰 전환/그룹 변경 시 호출되므로 각 이벤트에서 간접 갱신)
+    // 실제로는 뷰 토글 클릭 이벤트 / 동그룹 변경 이벤트 이후에 자동 갱신되어야 한다.
+    // map.js 내에서 이미 updateTeamFilterVisibility 호출 후 패치 대신,
+    // 버튼은 처음엔 숨겨두고 document 이벤트로 주기적 갱신.
+    document.addEventListener('click', () => {
+        // 클릭마다 게이트 체크 (뷰 전환/그룹 변경 반응)
+        setTimeout(updateTeamAssignBtnVisibility, 100);
+    });
+
+    // 초기 표시 여부 설정 (initMap 완료 후 sampleData 준비 시점에 맞춰 지연)
+    setTimeout(updateTeamAssignBtnVisibility, 1500);
+
+    // MYUNGROON_MODE 전용: 마커 클릭 시 해당 주소 계기들 팀 토글
+    window._myungroonToggleAddr = function(address, meters) {
+        if (!_taInitDone) {
+            // 아직 초기화 안 됐으면 먼저 init 후 재시도
+            _taInit().then(() => window._myungroonToggleAddr(address, meters));
+            return;
+        }
+        // awms 잠금 주소 무시
+        if (_taLockedSet && _taLockedSet.has(address)) return;
+
+        // 해당 주소 계기번호 목록 (addrGroup 기준, 없으면 meters 인자 사용)
+        const meterNos = (_taAddrGroup && _taAddrGroup[address])
+            ? _taAddrGroup[address]
+            : (meters || []).map(m => m && m.계기번호).filter(Boolean);
+        if (!meterNos.length) return;
+
+        // 현재 팀 파악 (첫 번째 계기번호 기준)
+        const curTeam = teamByMeter.get(meterNos[0]) || '종로';
+        const nextTeam = (curTeam === '종로') ? '중구' : '종로';
+
+        // 언두 스택 push (현재 상태 스냅샷)
+        _taUndoStack.push(meterNos.map(no => ({ no, team: teamByMeter.get(no) || '종로' })));
+        if (_taUndoStack.length > 30) _taUndoStack.shift();
+
+        // 팀 변경
+        meterNos.forEach(no => teamByMeter.set(no, nextTeam));
+
+        // 마커 색 갱신
+        updateMarkerColor(address);
+
+        // 통계 갱신 + 저장
+        _taUpdateStats();
+        _taSaveToLocalStorage();
+    };
+
+})();
