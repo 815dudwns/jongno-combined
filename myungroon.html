@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>명륜 팀배분</title>
+<script src="js/config.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif; background: #f0f2f5; color: #222; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* 상단 패널 */
+#top-panel { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.12); z-index: 10; padding: 10px 14px 8px; flex-shrink: 0; }
+.panel-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.panel-row + .panel-row { margin-top: 6px; }
+
+/* 통계 2열 */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+.stat-card { background: #f7f8fa; border-radius: 10px; padding: 8px 12px; }
+.stat-card.jongno { border-left: 3px solid #3a6bc4; }
+.stat-card.junggu  { border-left: 3px solid #c9632a; }
+.stat-team { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.stat-card.jongno .stat-team { color: #3a6bc4; }
+.stat-card.junggu  .stat-team { color: #c9632a; }
+.stat-main { display: flex; gap: 10px; align-items: baseline; }
+.stat-big { font-size: 18px; font-weight: 800; }
+.stat-sub { font-size: 11px; color: #666; }
+.stat-detail { font-size: 11px; color: #888; margin-top: 2px; }
+
+/* 필터 영역 */
+.filter-label { font-size: 12px; color: #555; white-space: nowrap; }
+.filter-chips { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.chip { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; border: 1.5px solid #ccc; background: #fff; font-size: 12px; cursor: pointer; transition: background .12s, border-color .12s; user-select: none; }
+.chip.active { background: #3a6bc4; border-color: #3a6bc4; color: #fff; }
+.chip.ga-chip.active { background: #7b5ea7; border-color: #7b5ea7; }
+
+/* 버튼 */
+.btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 999px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity .12s; }
+.btn:active { opacity: .75; }
+.btn-export { background: #3a6bc4; color: #fff; }
+.btn-undo   { background: #e8ecf4; color: #3a6bc4; }
+.btn-undo:disabled { opacity: .35; cursor: default; }
+
+/* 지도 */
+#map-wrap { flex: 1; position: relative; overflow: hidden; }
+#map { width: 100%; height: 100%; }
+
+/* 범례 */
+#legend { position: absolute; bottom: 12px; left: 12px; background: rgba(255,255,255,.92); border-radius: 10px; padding: 8px 12px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.12); z-index: 5; }
+.legend-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.legend-row:last-child { margin-bottom: 0; }
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+/* 오버레이 로딩 */
+#loading { position: absolute; inset: 0; background: rgba(255,255,255,.8); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; z-index: 20; }
+
+/* 토스트 */
+#toast { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); background: rgba(30,30,30,.88); color: #fff; padding: 7px 18px; border-radius: 999px; font-size: 13px; z-index: 30; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="top-panel">
+  <!-- 통계 -->
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card jongno">
+      <div class="stat-team">종로팀</div>
+      <div class="stat-main">
+        <span class="stat-big" id="jn-meter">-</span><span class="stat-sub">계기</span>
+        <span class="stat-big" id="jn-tri">-</span><span class="stat-sub">삼상</span>
+        <span class="stat-big" id="jn-ratio">-</span><span class="stat-sub">계기/호</span>
+      </div>
+      <div class="stat-detail" id="jn-detail"></div>
+    </div>
+    <div class="stat-card junggu">
+      <div class="stat-team">중구팀</div>
+      <div class="stat-main">
+        <span class="stat-big" id="jg-meter">-</span><span class="stat-sub">계기</span>
+        <span class="stat-big" id="jg-tri">-</span><span class="stat-sub">삼상</span>
+        <span class="stat-big" id="jg-ratio">-</span><span class="stat-sub">계기/호</span>
+      </div>
+      <div class="stat-detail" id="jg-detail"></div>
+    </div>
+  </div>
+
+  <!-- 검침일 필터 -->
+  <div class="panel-row" style="margin-top:8px">
+    <span class="filter-label">검침일</span>
+    <div class="filter-chips" id="mrdd-chips">
+      <span class="chip active" data-mrdd="all">전체</span>
+      <span class="chip" data-mrdd="1">D1</span>
+      <span class="chip" data-mrdd="4">D4</span>
+      <span class="chip" data-mrdd="10">D10</span>
+      <span class="chip" data-mrdd="16">D16</span>
+      <span class="chip" data-mrdd="22">D22</span>
+      <span class="chip" data-mrdd="24">D24</span>
+    </div>
+  </div>
+
+  <!-- 가 필터 + 버튼 -->
+  <div class="panel-row">
+    <span class="filter-label">가</span>
+    <div class="filter-chips" id="ga-chips">
+      <span class="chip ga-chip active" data-ga="1">명륜1가</span>
+      <span class="chip ga-chip active" data-ga="2">명륜2가</span>
+      <span class="chip ga-chip active" data-ga="3">명륜3가</span>
+      <span class="chip ga-chip active" data-ga="4">명륜4가</span>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="btn btn-undo" id="undo-btn" disabled>되돌리기</button>
+      <button class="btn btn-export" id="export-btn">JSON 내보내기</button>
+    </div>
+  </div>
+</div>
+
+<div id="map-wrap">
+  <div id="map"></div>
+  <div id="legend">
+    <div class="legend-row"><span class="dot" style="background:#3a6bc4"></span> 종로팀</div>
+    <div class="legend-row"><span class="dot" style="background:#c9632a"></span> 중구팀</div>
+    <div class="legend-row"><span class="dot" style="background:#999"></span> awms 잠금</div>
+  </div>
+  <div id="loading">지도 불러오는 중...</div>
+</div>
+<div id="toast"></div>
+
+<script>
+// ── 상수 ─────────────────────────────────────────────────────────────
+const SITE_DATA_URL   = 'data/jongno-site-data.json';
+const TEAM_ASSIGN_URL = 'data/myeongryun-team-assign.json';
+const LOCKED_URL      = 'data/cha10-awms-locked.json';
+const LS_KEY          = 'myungroon_team_assign';
+
+const COLOR = { 종로: '#3a6bc4', 중구: '#c9632a', locked: '#999' };
+
+// ── 상태 ─────────────────────────────────────────────────────────────
+let allMeters   = [];            // 명륜 전체 계기 배열
+let addrMap     = new Map();     // 주소 → {lat,lng,meters:[],법정동,검침일}
+let teamState   = new Map();     // 주소 → '종로'|'중구'
+let lockedSet   = new Set();     // awms 잠금 계기번호 Set
+let undoStack   = [];            // [{주소→팀}...] 스냅샷 스택
+
+let markerMap   = new Map();     // 주소 → naver.maps.Marker
+let map;
+
+// 필터 상태
+let activeMrdd  = 'all';        // 'all' | 숫자
+let activeGas   = new Set(['1','2','3','4']);
+
+// ── 계기타입 파싱 ────────────────────────────────────────────────────
+function parsePhase(meter) {
+  if (meter['단상삼상']) return meter['단상삼상'];
+  const no = String(meter['계기번호'] || '');
+  const seg = no.slice(2, 4);
+  const s = parseInt(seg, 10);
+  if ([25,26,27,45,46,47].includes(s)) return s <= 27 ? '단상' : '삼상';
+  if (s === 53) return '단상';   // Amigo 단상
+  if (s === 55) return '삼상';   // Amigo 삼상
+  if (s === 17 || s === 19) return '단상';   // E, EA
+  return '단상'; // 폴백
+}
+
+// ── 데이터 로드 ──────────────────────────────────────────────────────
+async function loadData() {
+  const [siteRaw, assignRaw, lockedRaw] = await Promise.all([
+    fetch(SITE_DATA_URL).then(r => r.json()),
+    fetch(TEAM_ASSIGN_URL).then(r => r.json()),
+    fetch(LOCKED_URL).then(r => r.json()),
+  ]);
+
+  // 잠금 계기번호 집합
+  lockedSet = new Set(lockedRaw.map(x => x.WHM_NO));
+
+  // 명륜만 추출
+  allMeters = siteRaw.filter(x => x['동그룹'] === '명륜');
+  allMeters.forEach(m => { m._phase = parsePhase(m); });
+
+  // 주소→마커 그룹핑
+  allMeters.forEach(m => {
+    const addr = m['주소'];
+    if (!addrMap.has(addr)) {
+      addrMap.set(addr, {
+        lat: m.lat, lng: m.lng,
+        meters: [],
+        법정동: m['법정동'],
+        검침일: m['검침일'],
+      });
+    }
+    addrMap.get(addr).meters.push(m);
+  });
+
+  // 팀 배정 — localStorage 우선, 없으면 JSON 시드
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(LS_KEY)); } catch { return null; } })();
+  if (saved && saved.종로 && saved.중구) {
+    // 저장된 배정 복원
+    const jn = new Set(saved.종로);
+    const jg = new Set(saved.중구);
+    addrMap.forEach((_, addr) => {
+      // 해당 주소의 계기 중 첫 번째로 소속팀 결정
+      const meters = addrMap.get(addr).meters;
+      const hasJn = meters.some(m => jn.has(m['계기번호']));
+      teamState.set(addr, hasJn ? '종로' : '중구');
+    });
+  } else {
+    // JSON 시드
+    const jn = new Set(assignRaw['종로'] || []);
+    addrMap.forEach((_, addr) => {
+      const meters = addrMap.get(addr).meters;
+      const hasJn = meters.some(m => jn.has(m['계기번호']));
+      teamState.set(addr, hasJn ? '종로' : '중구');
+    });
+  }
+}
+
+// ── 필터 통과 여부 ───────────────────────────────────────────────────
+function passesFilter(addr) {
+  const info = addrMap.get(addr);
+  if (!info) return false;
+  // 가 필터
+  const ga = (info.법정동 || '').replace('명륜', '').replace('가', '');
+  if (!activeGas.has(ga)) return false;
+  // 검침일 필터
+  if (activeMrdd !== 'all' && String(info.검침일) !== activeMrdd) return false;
+  return true;
+}
+
+// ── 마커 색상 결정 ───────────────────────────────────────────────────
+function markerColor(addr) {
+  const info = addrMap.get(addr);
+  if (!info) return COLOR.locked;
+  // 해당 주소의 계기가 전부 잠금인지 확인
+  const allLocked = info.meters.every(m => lockedSet.has(m['계기번호']));
+  if (allLocked) return COLOR.locked;
+  return COLOR[teamState.get(addr)] || COLOR.locked;
+}
+
+// ── SVG 점 마커 생성 ─────────────────────────────────────────────────
+function makeMarkerIcon(color) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="7" cy="7" r="6" fill="${color}" stroke="#fff" stroke-width="1.5"/></svg>`;
+  return {
+    content: `<div style="width:14px;height:14px;cursor:pointer">${svg}</div>`,
+    size: new naver.maps.Size(14, 14),
+    anchor: new naver.maps.Point(7, 7),
+  };
+}
+
+// ── 마커 전체 렌더 ───────────────────────────────────────────────────
+function renderMarkers() {
+  // 기존 마커 제거
+  markerMap.forEach(m => m.setMap(null));
+  markerMap.clear();
+
+  addrMap.forEach((info, addr) => {
+    if (!passesFilter(addr)) return;
+    const color = markerColor(addr);
+    const marker = new naver.maps.Marker({
+      map,
+      position: new naver.maps.LatLng(info.lat, info.lng),
+      icon: makeMarkerIcon(color),
+      title: addr,
+    });
+
+    // 클릭 핸들러
+    naver.maps.Event.addListener(marker, 'click', () => handleMarkerClick(addr, marker));
+    markerMap.set(addr, marker);
+  });
+
+  updateStats();
+}
+
+// ── 마커 클릭 토글 ───────────────────────────────────────────────────
+function handleMarkerClick(addr, marker) {
+  const info = addrMap.get(addr);
+  // 주소의 모든 계기가 잠금이면 무시
+  const allLocked = info.meters.every(m => lockedSet.has(m['계기번호']));
+  if (allLocked) { showToast('awms 잠금 — 변경 불가'); return; }
+
+  // 언도 스냅샷
+  if (undoStack.length >= 50) undoStack.shift();
+  undoStack.push(new Map(teamState));
+  document.getElementById('undo-btn').disabled = false;
+
+  // 토글
+  const cur = teamState.get(addr);
+  const next = cur === '종로' ? '중구' : '종로';
+  teamState.set(addr, next);
+
+  // 색 업데이트
+  marker.setIcon(makeMarkerIcon(markerColor(addr)));
+
+  updateStats();
+  persistLS();
+}
+
+// ── 통계 업데이트 ────────────────────────────────────────────────────
+function updateStats() {
+  const stats = { 종로: { meters: 0, tri: 0, addrs: new Set() }, 중구: { meters: 0, tri: 0, addrs: new Set() } };
+
+  // 필터 무관 전체 계기 기준 (팀 배정 통계는 필터 외 전체 기준)
+  allMeters.forEach(m => {
+    const addr = m['주소'];
+    const team = teamState.get(addr);
+    if (!team) return;
+    stats[team].meters++;
+    if (m._phase === '삼상') stats[team].tri++;
+    stats[team].addrs.add(addr);
+  });
+
+  const total_rev = (stats['종로'].meters - stats['종로'].tri) * 13000 + stats['종로'].tri * 30000
+                  + (stats['중구'].meters - stats['중구'].tri) * 13000 + stats['중구'].tri * 30000;
+
+  for (const [team, detail_id, ratio_id, meter_id, tri_id] of [
+    ['종로', 'jn-detail', 'jn-ratio', 'jn-meter', 'jn-tri'],
+    ['중구', 'jg-detail', 'jg-ratio', 'jg-meter', 'jg-tri'],
+  ]) {
+    const s = stats[team];
+    const metros = s.meters;
+    const tris = s.tri;
+    const singles = metros - tris;
+    const hos = s.addrs.size;
+    const ratio = hos > 0 ? (metros / hos).toFixed(1) : '-';
+    const rev = singles * 13000 + tris * 30000;
+    const revPct = total_rev > 0 ? Math.round(rev / total_rev * 100) : 0;
+
+    document.getElementById(meter_id).textContent = metros.toLocaleString();
+    document.getElementById(tri_id).textContent   = tris.toLocaleString();
+    document.getElementById(ratio_id).textContent = ratio;
+    document.getElementById(detail_id).textContent =
+      `단상 ${singles.toLocaleString()} / 호수 ${hos.toLocaleString()} / 매출 ${Math.round(rev/10000)}만원(${revPct}%)`;
+  }
+}
+
+// ── localStorage 저장 ────────────────────────────────────────────────
+function persistLS() {
+  const jn = [], jg = [];
+  allMeters.forEach(m => {
+    const team = teamState.get(m['주소']);
+    if (team === '종로') jn.push(m['계기번호']);
+    else if (team === '중구') jg.push(m['계기번호']);
+  });
+  localStorage.setItem(LS_KEY, JSON.stringify({ 종로: jn, 중구: jg }));
+}
+
+// ── JSON 내보내기 ────────────────────────────────────────────────────
+function exportJSON() {
+  persistLS();
+  const jn = [], jg = [];
+  allMeters.forEach(m => {
+    const team = teamState.get(m['주소']);
+    if (team === '종로') jn.push(m['계기번호']);
+    else jg.push(m['계기번호']);
+  });
+  const blob = new Blob([JSON.stringify({ 종로: jn, 중구: jg }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'myeongryun-team-assign.json';
+  a.click();
+  showToast('내보내기 완료');
+}
+
+// ── 되돌리기 ─────────────────────────────────────────────────────────
+function doUndo() {
+  if (!undoStack.length) return;
+  const prev = undoStack.pop();
+  teamState = prev;
+  document.getElementById('undo-btn').disabled = undoStack.length === 0;
+  // 마커 색 전체 갱신
+  markerMap.forEach((marker, addr) => {
+    marker.setIcon(makeMarkerIcon(markerColor(addr)));
+  });
+  updateStats();
+  persistLS();
+  showToast('되돌렸습니다');
+}
+
+// ── 필터 적용 (마커 재렌더) ──────────────────────────────────────────
+function applyFilter() {
+  markerMap.forEach((marker, addr) => {
+    if (passesFilter(addr)) {
+      marker.setMap(map);
+    } else {
+      marker.setMap(null);
+    }
+  });
+}
+
+// ── 토스트 ───────────────────────────────────────────────────────────
+let _toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── 필터 UI 이벤트 ───────────────────────────────────────────────────
+document.getElementById('mrdd-chips').addEventListener('click', e => {
+  const chip = e.target.closest('.chip[data-mrdd]');
+  if (!chip) return;
+  document.querySelectorAll('#mrdd-chips .chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  activeMrdd = chip.dataset.mrdd;
+  applyFilter();
+});
+
+document.getElementById('ga-chips').addEventListener('click', e => {
+  const chip = e.target.closest('.chip[data-ga]');
+  if (!chip) return;
+  const ga = chip.dataset.ga;
+  if (activeGas.has(ga)) {
+    if (activeGas.size === 1) return; // 최소 1개 유지
+    activeGas.delete(ga);
+    chip.classList.remove('active');
+  } else {
+    activeGas.add(ga);
+    chip.classList.add('active');
+  }
+  applyFilter();
+});
+
+document.getElementById('undo-btn').addEventListener('click', doUndo);
+document.getElementById('export-btn').addEventListener('click', exportJSON);
+
+// ── 네이버 지도 SDK 로드 ─────────────────────────────────────────────
+function loadNaverSdk() {
+  const key = (typeof NAVER_MAPS_NCP_KEY_ID !== 'undefined') ? NAVER_MAPS_NCP_KEY_ID : '';
+  return new Promise((resolve, reject) => {
+    if (window.naver && window.naver.maps) return resolve();
+    const script = document.createElement('script');
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(key)}`;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+// ── 앱 초기화 ────────────────────────────────────────────────────────
+async function init() {
+  try {
+    await Promise.all([loadNaverSdk(), loadData()]);
+
+    map = new naver.maps.Map('map', {
+      center: new naver.maps.LatLng(37.5893, 126.9935), // 명륜동 중심
+      zoom: 16,
+      minZoom: 10,
+      zoomControl: false,
+      mapDataControl: false,
+      scaleControl: false,
+    });
+
+    renderMarkers();
+    document.getElementById('loading').style.display = 'none';
+
+  } catch (err) {
+    document.getElementById('loading').textContent = '로드 실패: ' + err.message;
+    console.error(err);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
