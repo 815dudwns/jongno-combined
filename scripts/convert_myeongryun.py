@@ -6,16 +6,22 @@ import openpyxl, json, re, requests, threading, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 API_KEY = 'e46ada1811d067b4acf77d992a13b52e'
-EXCEL = '/Users/woodelight/Library/Mobile Documents/com~apple~CloudDocs/TalkFile_명륜동19-1019.xlsx'
+EXCEL = '/Users/woodelight/Downloads/명륜동.xlsx'
 OUT = '/Users/woodelight/Projects/jongno-combined/data/myeongryun-converted.json'
 WORKERS = 10
 DONG_CENTER = (37.5859, 126.9986)  # 명륜동(성균관대 일대) 대략 중심 폴백
 
-# 컬럼 인덱스 (헤더 row=2 기준, 명시)
-C_RANK=2; C_CUST=3; C_NAME=4; C_JIBUN=5; C_APT=8; C_SANGHO=9
-C_DAY=11; C_PHONE=13; C_GYEYAK=15; C_POWER=16; C_SUPPLY=17
-C_METER=19; C_LOC=25; C_BDJ_NUM=30; C_BDJ_LBL=31; C_INIB_NUM=32
-C_INIB_LBL=33; C_INSEON=34; C_GMETHOD=35; C_GWON=37; C_GWON_TEL=38
+# 컬럼 인덱스 (헤더 row=2 기준, 새 2576 파일 기준)
+# 새 파일은 idx6에 "지번/도로명" 병합열이 추가되어 기존 대비 1칸씩 당겨짐
+# idx: 0순번 1순위 2고객번호 3고객명 4지번주소 5도로명주소 6지번/도로명병합 7공동주택명
+#      8상호 9공동주택명/상호 10검침일 11전화번호 12휴대폰번호 13전화번호/휴대폰병합
+#      14계약종별 15계약전력 16공급방식(숫자) 17공급방식(텍스트) 18계기번호
+#      24계기위치 29변대주전산화번호 30변대주번호 31인입주전산화번호 32인입주번호
+#      33인입선상태 34검침방법 36검침원 37검침원연락처
+C_RANK=1; C_CUST=2; C_NAME=3; C_JIBUN=4; C_APT=7; C_SANGHO=8
+C_DAY=10; C_PHONE=13; C_GYEYAK=14; C_POWER=15; C_SUPPLY=16
+C_METER=18; C_LOC=24; C_BDJ_NUM=29; C_BDJ_LBL=30; C_INIB_NUM=31
+C_INIB_LBL=32; C_INSEON=33; C_GMETHOD=34; C_GWON=36; C_GWON_TEL=37
 
 def parse_type(meter_no):
     code = str(meter_no)[2:4]
@@ -172,7 +178,7 @@ def main():
             'DCUID': '',
             '법정동': beopjeong(jb),
             '번지': beonji(jb),
-            '동그룹': '명륜동',
+            '동그룹': '명륜',
             '검침일': day_i,
             '검침일그룹': day_group(day_i if isinstance(day_i,int) else -1),
             '순위': rank,
