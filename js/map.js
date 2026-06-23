@@ -275,10 +275,12 @@ async function initMap() {
 
     populateDongGroups();
     populateCheckdayFilter();
+    populateGaFilter();
     initCommMissingFilter();
     initHideDoneFilter();
     initPhaseFilter();
     updateCheckdayFilterVisibility();
+    updateGaFilterVisibility();
     // ★즉시 렌더(렌더-우선): siteData(IDB) + workStatus 미러(loadStatusLocal, 완료 포함)로 마커를 먼저 그림.
     //   아이폰 PWA 재진입 시 "빈 화면→Firebase 응답 후 마커"의 빈 화면 구간 제거.
     //   미러는 마지막 FB 동기화 스냅샷 → 완료 첫 화면 표시(빈 렌더 아님). Firebase가 권위로 곧 갱신.
@@ -334,6 +336,7 @@ async function initMap() {
                     localStorage.setItem('jongno_admin_view_role', adminViewRole);
                     viewToggle.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.view === adminViewRole));
                     updateCheckdayFilterVisibility();
+                    updateGaFilterVisibility();
                     // 검침일 필터 적용/해제 → 후보 재계산 + 화면 렌더
                     clearAllMarkers();
                     loadMarkers();
@@ -448,9 +451,79 @@ function onDongGroupChange() {
     saveSelectedGroups(checked);
     _dongToggleLabel([...checked][0] || '');
     panel.classList.remove('open');   // 선택 후 패널 닫기
+    updateGaFilterVisibility();   // 명륜 선택 여부에 따라 가 필터 표시/숨김
     clearAllMarkers();
     loadMarkers();   // 후보 재계산(buildAddrCandidates) + 화면 렌더(renderViewport)
     fitToCandidates();   // 선택 동그룹 영역으로 지도 이동(이동 시 idle→renderViewport 재렌더)
+}
+
+// ── 명륜 가(街) 필터 상수 ─────────────────────────────────────────
+const MYUNGRYUN_GA = ['명륜1가', '명륜2가', '명륜3가', '명륜4가'];
+
+// ── 명륜 가 필터 저장/로드 (계기팀 시각 + 동그룹=명륜 전용) ──────
+function loadSelectedGa() {
+    try {
+        const saved = localStorage.getItem('jongno_selected_myungryun_ga');
+        if (saved) return new Set(JSON.parse(saved));
+    } catch {}
+    return new Set(MYUNGRYUN_GA);  // 기본: 4가 전부 체크
+}
+
+function saveSelectedGa(set) {
+    localStorage.setItem('jongno_selected_myungryun_ga', JSON.stringify([...set]));
+}
+
+function populateGaFilter() {
+    const panel = document.getElementById('ga-filter-panel');
+    const toggleBtn = document.getElementById('ga-toggle');
+    if (!panel || !toggleBtn) return;
+
+    const selected = loadSelectedGa();
+    MYUNGRYUN_GA.forEach(ga => {
+        const lbl = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = ga;
+        cb.checked = selected.has(ga);
+        cb.addEventListener('change', onGaChange);
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode(ga));
+        panel.appendChild(lbl);
+    });
+
+    toggleBtn.addEventListener('click', () => {
+        panel.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+        const filter = document.getElementById('ga-filter');
+        if (filter && !filter.contains(e.target)) {
+            panel.classList.remove('open');
+        }
+    });
+}
+
+function onGaChange() {
+    const panel = document.getElementById('ga-filter-panel');
+    if (!panel) return;
+    const checked = new Set();
+    panel.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        if (cb.checked) checked.add(cb.value);
+    });
+    saveSelectedGa(checked);
+    clearAllMarkers();
+    loadMarkers();
+}
+
+// 계기팀 시각 + 동그룹=명륜일 때만 가 필터 UI 표시
+function updateGaFilterVisibility() {
+    const role = getEffectiveRole();
+    const filterEl = document.getElementById('ga-filter');
+    if (!filterEl) return;
+    const selectedGroups = loadSelectedGroups();
+    const isMeter = (role === 'meter');
+    const isMyungryun = selectedGroups.has('명륜');
+    filterEl.style.display = (isMeter && isMyungryun) ? '' : 'none';
 }
 
 // ── 검침일 필터 (계기팀 시각 전용) ──────────────────────────────
@@ -547,6 +620,7 @@ function hasCommPartialMissing(addr) {
 function buildAddrCandidates() {
     const selectedGroups = loadSelectedGroups();
     const selectedCheckdays = loadSelectedCheckdays();
+    const selectedGa = loadSelectedGa();
     const role = getEffectiveRole();
     const applyCheckdayFilter = (role === 'meter');
     // 미연계(통신팀 누락만)는 통신팀 개념 — 계기팀 시각에서는 적용 안 함
@@ -560,6 +634,8 @@ function buildAddrCandidates() {
             if (!selectedGroups.has(item.동그룹)) return;
             // 계기팀 시각에서만 검침일 그룹 필터 적용 (통신팀/admin-comm은 무시)
             if (applyCheckdayFilter && !selectedCheckdays.has(item.검침일그룹)) return;
+            // 명륜 가 필터: 계기팀 시각 + 명륜 동그룹에만 적용 (타 동 영향 없음)
+            if (applyCheckdayFilter && item.동그룹 === '명륜' && !selectedGa.has(item.법정동)) return;
         }
         const addr = item.주소;
         if (!grouped[addr]) {

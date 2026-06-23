@@ -342,6 +342,11 @@
     accent-color: var(--mint-ink);
 }
 
+/* 명륜 가 필터 — 검침일 필터(top:50px) 아래 stack. clay 토큰은 .checkday-* 재사용 */
+#ga-filter {
+    top: 90px;
+}
+
 /* 시각 토글 (admin 전용) — 계기팀 / 통신팀 — cseg 세그먼트 */
 .view-role-toggle {
     position: absolute;
