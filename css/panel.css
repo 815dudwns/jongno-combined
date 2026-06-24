@@ -347,6 +347,33 @@
     top: 90px;
 }
 
+/* [임시] 명륜 팀 필터 — 가 필터(top:90px) 아래 */
+#team-filter {
+    top: 130px;
+}
+
+/* [임시] 팀 필터 세그먼트 버튼 */
+.team-seg-btn {
+    display: block;
+    width: 100%;
+    padding: 7px 9px;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font);
+    transition: background 0.12s;
+}
+.team-seg-btn:active { background: var(--bg-deep); }
+.team-seg-btn.active {
+    background: var(--mint-soft, rgba(72,200,150,0.15));
+    color: var(--mint-strong);
+}
+
 /* 시각 토글 (admin 전용) — 계기팀 / 통신팀 — cseg 세그먼트 */
 .view-role-toggle {
     position: absolute;

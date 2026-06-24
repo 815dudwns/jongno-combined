@@ -15,7 +15,7 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260623.1';
+        const APP_VERSION = '20260625.1';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
           ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_selected_myungryun_ga', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab', 'jongno_work_status', 'jongno_checked_meters'].forEach(k => {
@@ -92,6 +92,219 @@
             <!-- 체크박스 4개. JS에서 동적으로 생성 -->
         </div>
     </div>
+
+    <!-- [임시] 명륜 팀 배분 필터 (계기팀 시각 + 동그룹=명륜일 때만 표시) -->
+    <div class="checkday-filter" id="team-filter" style="display:none;">
+        <button class="checkday-toggle" id="team-toggle">팀 ▾</button>
+        <div class="checkday-panel" id="team-filter-panel">
+            <!-- 세그먼트 버튼 3개. JS에서 동적으로 생성 -->
+        </div>
+    </div>
+
+    <!-- 팀 할당 토글 버튼 (계기팀 시각 + 동그룹=명륜 + admin 전용) -->
+    <button id="team-assign-toggle-btn" class="team-assign-toggle-btn" style="display:none;" onclick="toggleTeamAssignMode()">팀 할당</button>
+
+    <!-- 팀 할당 패널 (할당 모드 ON일 때만 표시) -->
+    <div id="team-assign-panel" class="team-assign-panel" style="display:none;">
+        <div class="ta-header">
+            <span class="ta-title">팀 할당</span>
+            <button class="ta-close-btn" onclick="toggleTeamAssignMode()">×</button>
+        </div>
+        <div class="ta-palette">
+            <button id="ta-btn-jongno" class="ta-palette-btn ta-jongno" onclick="setTeamAssignTool('종로')">종로</button>
+            <button id="ta-btn-junggu" class="ta-palette-btn ta-junggu" onclick="setTeamAssignTool('중구')">중구</button>
+        </div>
+        <div class="ta-stats" id="ta-stats">
+            <div class="ta-stat-row">
+                <span class="ta-stat-label ta-col-jongno">종로</span>
+                <span class="ta-stat-val" id="ta-j-addr">-</span>주소
+                <span class="ta-stat-val" id="ta-j-meter">-</span>계기
+                <span class="ta-stat-sub">(단상<span id="ta-j-1">-</span> 삼상<span id="ta-j-3">-</span>)</span>
+                <span class="ta-stat-rev" id="ta-j-rev">-</span>만원
+            </div>
+            <div class="ta-stat-row">
+                <span class="ta-stat-label ta-col-junggu">중구</span>
+                <span class="ta-stat-val" id="ta-g-addr">-</span>주소
+                <span class="ta-stat-val" id="ta-g-meter">-</span>계기
+                <span class="ta-stat-sub">(단상<span id="ta-g-1">-</span> 삼상<span id="ta-g-3">-</span>)</span>
+                <span class="ta-stat-rev" id="ta-g-rev">-</span>만원
+            </div>
+            <div class="ta-stat-row ta-stat-total">
+                <span class="ta-stat-label">전체</span>
+                <span id="ta-total-text">-</span>
+            </div>
+        </div>
+        <div class="ta-actions">
+            <button class="ta-action-btn ta-undo-btn" onclick="undoTeamAssign()">되돌리기 <span id="ta-undo-count"></span></button>
+            <button class="ta-action-btn ta-export-btn" onclick="exportTeamAssignJSON()">JSON 내보내기</button>
+        </div>
+        <div class="ta-hint" id="ta-hint">팔레트 선택 후 지도에서 드래그하세요</div>
+    </div>
+
+    <!-- 팀 할당 드래그 선택 영역 표시 -->
+    <div id="ta-selection-rect" class="ta-selection-rect"></div>
+
+    <style>
+    /* 팀 할당 토글 버튼 */
+    .team-assign-toggle-btn {
+        position: fixed;
+        top: 54px;
+        right: 64px;
+        z-index: 300;
+        padding: 6px 14px;
+        border-radius: var(--radius-pill, 999px);
+        border: none;
+        background: var(--surface-2, #2a3a50);
+        color: var(--ink-2, #9fb2c6);
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: var(--clay-sm);
+        transition: all 0.15s;
+        white-space: nowrap;
+    }
+    .team-assign-toggle-btn.active {
+        background: linear-gradient(145deg, var(--mint-l), var(--mint));
+        color: var(--bg-deep, #0f1720);
+        box-shadow: var(--clay-mint);
+    }
+
+    /* 팀 할당 패널 */
+    .team-assign-panel {
+        position: fixed;
+        top: 90px;
+        right: 8px;
+        z-index: 400;
+        width: 260px;
+        background: var(--surface, #1a2330);
+        border-radius: var(--radius, 22px);
+        box-shadow: var(--clay);
+        padding: 14px 16px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .ta-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .ta-title {
+        font-size: 14px;
+        font-weight: 800;
+        color: var(--ink, #eaf2fb);
+    }
+    .ta-close-btn {
+        border: none;
+        background: transparent;
+        color: var(--ink-3, #5a7a9a);
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-pill, 999px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .ta-close-btn:hover { color: var(--ink, #eaf2fb); }
+
+    .ta-palette {
+        display: flex;
+        gap: 8px;
+    }
+    .ta-palette-btn {
+        flex: 1;
+        padding: 8px 0;
+        border-radius: var(--radius-pill, 999px);
+        border: 2px solid transparent;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        background: var(--surface-2, #2a3a50);
+        color: var(--ink-2, #9fb2c6);
+        box-shadow: var(--clay-sm);
+        transition: all 0.15s;
+    }
+    .ta-palette-btn.active { box-shadow: var(--clay-inset-sm); }
+    .ta-palette-btn.ta-jongno.active {
+        background: #1a3068;
+        border-color: #3a6bc4;
+        color: #7aa8ff;
+    }
+    .ta-palette-btn.ta-junggu.active {
+        background: #3d1a0a;
+        border-color: #c9632a;
+        color: #ff9a6a;
+    }
+
+    .ta-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        font-size: 12px;
+        background: var(--surface-2, #2a3a50);
+        border-radius: var(--radius-sm, 14px);
+        padding: 10px 12px;
+    }
+    .ta-stat-row {
+        display: flex;
+        align-items: baseline;
+        gap: 5px;
+        flex-wrap: wrap;
+        line-height: 1.5;
+    }
+    .ta-stat-label { font-weight: 700; min-width: 26px; }
+    .ta-stat-val { font-weight: 700; color: var(--ink, #eaf2fb); }
+    .ta-stat-sub { color: var(--ink-3, #5a7a9a); font-size: 11px; }
+    .ta-stat-rev { font-weight: 700; color: var(--mint, #3dd6b0); }
+    .ta-stat-total { border-top: 1px solid var(--surface, #1a2330); margin-top: 3px; padding-top: 5px; color: var(--ink-2, #9fb2c6); }
+    .ta-col-jongno { color: #7aa8ff; }
+    .ta-col-junggu { color: #ff9a6a; }
+
+    .ta-actions {
+        display: flex;
+        gap: 8px;
+    }
+    .ta-action-btn {
+        flex: 1;
+        padding: 7px 0;
+        border-radius: var(--radius-pill, 999px);
+        border: none;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: var(--clay-sm);
+        transition: all 0.15s;
+    }
+    .ta-undo-btn {
+        background: var(--surface-2, #2a3a50);
+        color: var(--ink-2, #9fb2c6);
+    }
+    .ta-export-btn {
+        background: linear-gradient(145deg, var(--mint-l), var(--mint));
+        color: var(--bg-deep, #0f1720);
+        box-shadow: var(--clay-mint);
+    }
+    .ta-hint {
+        font-size: 11px;
+        color: var(--ink-3, #5a7a9a);
+        text-align: center;
+        min-height: 14px;
+    }
+
+    /* 드래그 선택 사각형 */
+    .ta-selection-rect {
+        position: fixed;
+        border: 2px dashed rgba(255,255,255,0.8);
+        background: rgba(255,255,255,0.06);
+        pointer-events: none;
+        display: none;
+        z-index: 500;
+    }
+    </style>
 
     <!-- 우상단: [검색 + 메뉴] 윗줄, 작업정보는 메뉴 아래 줄 (좌측 검침일 필터 가림 방지) -->
     <div class="topbar">
@@ -207,7 +420,7 @@
             <span class="am-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M9 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/></svg></span>
             <span class="am-txt">로그아웃</span>
         </button>
-        <div style="padding:8px 16px 12px;text-align:right;font-size:10px;color:var(--text-muted,#888);opacity:0.6;letter-spacing:0.03em;">v20260623.1</div>
+        <div style="padding:8px 16px 12px;text-align:right;font-size:10px;color:var(--text-muted,#888);opacity:0.6;letter-spacing:0.03em;">v20260625.1</div>
     </div>
 
     <!-- 통계 모달 (iframe — 페이지 이동 없이 지도 유지: 닫으면 즉시 원상태, Firebase 동기화 안 끊김) -->
@@ -450,7 +663,7 @@
     <script src="js/firebase.js?v=20260621a"></script>
     <script src="js/detail.js?v=20260616d"></script>
     <script src="js/idb.js?v=20260618b"></script>
-    <script src="js/map.js?v=20260623a"></script>
+    <script src="js/map.js?v=20260625a"></script>
     <script src="js/awms-parseValue.js?v=20260602a"></script>
     <script src="js/qr-scanner.js?v=20260608ios"></script>
     <script src="js/photo-uploader.js?v=20260617thumb"></script>

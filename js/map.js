@@ -560,13 +560,21 @@ function updateGaFilterVisibility() {
 function loadSelectedTeam() {
     try {
         const saved = localStorage.getItem('jongno_team_filter_temp');
-        if (saved && ['종로', '중구', 'both'].includes(saved)) return saved;
+        if (saved) {
+            // 옛 형식(문자열) 마이그레이션
+            if (saved === 'both') return new Set(['종로', '중구']);
+            if (saved === '종로') return new Set(['종로']);
+            if (saved === '중구') return new Set(['중구']);
+            // 새 형식(JSON 배열)
+            const arr = JSON.parse(saved);
+            if (Array.isArray(arr)) return new Set(arr);
+        }
     } catch {}
-    return 'both';   // 기본: 둘 다
+    return new Set(['종로', '중구']);  // 기본: 둘 다 체크
 }
 
-function saveSelectedTeam(val) {
-    try { localStorage.setItem('jongno_team_filter_temp', val); } catch {}
+function saveSelectedTeam(set) {
+    try { localStorage.setItem('jongno_team_filter_temp', JSON.stringify([...set])); } catch {}
 }
 
 function populateTeamFilter() {
@@ -575,23 +583,16 @@ function populateTeamFilter() {
     if (!panel || !toggleBtn) return;
 
     const selected = loadSelectedTeam();
-    const opts = [
-        { val: 'both', label: '둘 다' },
-        { val: '종로', label: '종로' },
-        { val: '중구', label: '중구' },
-    ];
-    opts.forEach(opt => {
-        const btn = document.createElement('button');
-        btn.className = 'team-seg-btn' + (opt.val === selected ? ' active' : '');
-        btn.textContent = opt.label;
-        btn.dataset.val = opt.val;
-        btn.addEventListener('click', () => {
-            saveSelectedTeam(opt.val);
-            panel.querySelectorAll('.team-seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val === opt.val));
-            clearAllMarkers();
-            loadMarkers();
-        });
-        panel.appendChild(btn);
+    ['종로', '중구'].forEach(team => {
+        const lbl = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = team;
+        cb.checked = selected.has(team);
+        cb.addEventListener('change', onTeamChange);
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode(team));
+        panel.appendChild(lbl);
     });
 
     toggleBtn.addEventListener('click', () => {
@@ -604,6 +605,18 @@ function populateTeamFilter() {
             panel.classList.remove('open');
         }
     });
+}
+
+function onTeamChange() {
+    const panel = document.getElementById('team-filter-panel');
+    if (!panel) return;
+    const checked = new Set();
+    panel.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        if (cb.checked) checked.add(cb.value);
+    });
+    saveSelectedTeam(checked);
+    clearAllMarkers();
+    loadMarkers();
 }
 
 // 계기팀 시각 + 동그룹=명륜일 때만 팀 필터 UI 표시
@@ -746,10 +759,10 @@ function buildAddrCandidates() {
             if (applyCheckdayFilter && !selectedCheckdays.has(item.검침일그룹)) return;
             // 명륜 가 필터: 계기팀 시각 + 명륜 동그룹에만 적용 (타 동 영향 없음)
             if (applyCheckdayFilter && item.동그룹 === '명륜' && !selectedGa.has(item.법정동)) return;
-            // [임시] 명륜 팀 필터: 계기팀 시각 + 명륜 동그룹 + 팀 매핑 있을 때 (둘다='both'면 통과)
-            if (applyCheckdayFilter && item.동그룹 === '명륜' && selectedTeam !== 'both' && teamByMeter.size > 0) {
+            // [임시] 명륜 팀 필터: 계기팀 시각 + 명륜 동그룹 + 팀 매핑 있을 때 (체크박스 집합 필터)
+            if (applyCheckdayFilter && item.동그룹 === '명륜' && teamByMeter.size > 0) {
                 const _t = teamByMeter.get(item.계기번호);
-                if (_t && _t !== selectedTeam) return;
+                if (_t && !selectedTeam.has(_t)) return;
             }
         }
         const addr = item.주소;
