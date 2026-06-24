@@ -294,12 +294,11 @@ async function initMap() {
     renderViewport();
     // Firebase = 권위. 첫 콜백이 workStatus를 정확한 FB 집합으로 교체 → 재색칠로 미러 보정.
     await initFirebase();
+    // ★명륜 팀 배분 매핑을 마커 생성 전에 로드 → 첫 렌더부터 종로/중구 색 적용(레이스 방지)
+    await loadTeamAssign();
     buildAddrCandidates();
     // bounds 준비됐으면 즉시, 아니면 첫 idle(attachMapViewSaveListener)이 렌더 — 새로고침 직후 빈 지도 방지
     refreshAllMarkers();
-
-    // [임시] 명륜 팀 배분 매핑 비동기 로드 (렌더-우선 후 색 반영)
-    loadTeamAssign();
 
     // MYUNGROON_MODE: 팀 배분 패널 자동 열기 + 불필요 UI 숨김
     if (window.MYUNGROON_MODE) {
@@ -634,16 +633,19 @@ function updateTeamFilterVisibility() {
 
 // 팀 매핑 JSON 비동기 로드 (앱 초기화 후 백그라운드)
 function loadTeamAssign() {
-    fetch('./data/myeongryun-team-assign.json')
+    // ★마커 생성 전에 await로 호출 → 첫 렌더부터 팀색 입힘(레이스 방지). promise 반환.
+    return fetch('./data/myeongryun-team-assign.json')
         .then(r => r.json())
         .then(data => {
             teamByMeter.clear();
             (data['종로'] || []).forEach(no => teamByMeter.set(no, '종로'));
             (data['중구'] || []).forEach(no => teamByMeter.set(no, '중구'));
             console.log('[teamAssign] 로드 완료:', teamByMeter.size, '개');
-            // 매핑 로드 후 색 반영을 위해 재렌더
-            clearAllMarkers();
-            loadMarkers();
+            // 이미 마커가 그려진 뒤(필터 변경 등)면 재렌더로 색 반영
+            if (typeof markers !== 'undefined' && markers.length) {
+                clearAllMarkers();
+                loadMarkers();
+            }
         })
         .catch(e => console.warn('[teamAssign] 로드 실패:', e));
 }
