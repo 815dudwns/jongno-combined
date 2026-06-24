@@ -1933,6 +1933,17 @@ initMap();
         set('ta-g-rev',   gRev);
         const totalEl = document.getElementById('ta-total-text');
         if (totalEl) totalEl.textContent = `배정 ${assigned} / 미배정 ${total - assigned} / 계 ${total}`;
+        const ratioEl = document.getElementById('ta-ratio-text');
+        if (ratioEl) {
+            const jm = s['종로'].meter, gm = s['중구'].meter, sum = jm + gm;
+            if (sum > 0) {
+                const jp = ((jm / sum) * 100).toFixed(1);
+                const gp = ((gm / sum) * 100).toFixed(1);
+                ratioEl.textContent = `종로 : 중구 = ${jm} : ${gm}  (${jp}% : ${gp}%)`;
+            } else {
+                ratioEl.textContent = '종로 : 중구 = - : -  (-% : -%)';
+            }
+        }
     }
 
     // --- undo 카운트 표시 ---

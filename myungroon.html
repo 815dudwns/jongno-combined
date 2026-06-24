@@ -104,6 +104,9 @@
             <button id="ta-btn-junggu" class="ta-palette-btn ta-junggu" onclick="setTeamAssignTool('중구')">중구</button>
         </div>
         <div class="ta-stats" id="ta-stats">
+            <div class="ta-stat-row ta-ratio-row">
+                <span id="ta-ratio-text" class="ta-ratio-text">종로 : 중구 = - : -  (-% : -%)</span>
+            </div>
             <div class="ta-stat-row">
                 <span class="ta-stat-label ta-col-jongno">종로</span>
                 <span class="ta-stat-val" id="ta-j-addr">-</span>주소
@@ -250,6 +253,8 @@
     .ta-stat-sub { color: var(--ink-3, #5a7a9a); font-size: 11px; }
     .ta-stat-rev { font-weight: 700; color: var(--mint, #3dd6b0); }
     .ta-stat-total { border-top: 1px solid var(--surface, #1a2330); margin-top: 3px; padding-top: 5px; color: var(--ink-2, #9fb2c6); }
+    .ta-ratio-row { border-bottom: 1px solid var(--surface, #1a2330); margin-bottom: 3px; padding-bottom: 6px; }
+    .ta-ratio-text { font-size: 13px; font-weight: 700; color: var(--ink, #eaf2fb); letter-spacing: 0.01em; }
     .ta-col-jongno { color: #7aa8ff; }
     .ta-col-junggu { color: #ff9a6a; }
 
