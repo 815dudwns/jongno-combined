@@ -1271,6 +1271,7 @@ function createMarker(position, address, meters) {
     });
     naver.maps.Event.addListener(customOverlay, 'click', () => {
         if (window.MYUNGROON_MODE) {
+            if (window.MYUNGROON_READONLY) return;   // 배분 확정 — 토글 고정(변경 불가)
             _myungroonToggleAddr(address, meters);
         } else {
             showDetail(address, meters);
