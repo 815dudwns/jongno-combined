@@ -1251,8 +1251,8 @@ function createMarker(position, address, meters) {
         styleStatus = sc.vStatus;
     }
     const style = decideMarkerStyle(styleMeters, { ...styleStatus, address }, session);
-    // 명륜 팀 배분 색 오버라이드: MYUNGROON_MODE면 role 무관, 일반모드면 계기팀 시각만
-    if ((window.MYUNGROON_MODE || getEffectiveRole() === 'meter') && meters && meters.length > 0) {
+    // 명륜 팀 배분 색 오버라이드: myungroon 공개페이지(MYUNGROON_MODE)에서만. 작업자 map.html은 검침일색 유지 + 종로/중구 체크박스 필터로 거름(영준님 2026-06-25).
+    if (window.MYUNGROON_MODE && meters && meters.length > 0) {
         const _firstMeterNo = meters[0] && meters[0].계기번호;
         if (_firstMeterNo && teamByMeter.has(_firstMeterNo)) {
             const _team = teamByMeter.get(_firstMeterNo);
