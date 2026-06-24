@@ -12,7 +12,7 @@
     <title>명륜 팀배분</title>
     <!-- MYUNGROON_MODE 플래그 — 반드시 최초 script 실행 전에 세팅 -->
     <script>window.MYUNGROON_MODE = true; window.MYUNGROON_READONLY = true;</script>
-    <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
+    <!-- 자동 캐시 마이그레이션 (인증 체크 없음 — 명륜 팀배분은 공개 읽기전용) -->
     <script>
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       (function () {
@@ -23,18 +23,7 @@
           localStorage.setItem('myungroon_app_version', APP_VERSION);
         }
       })();
-      // 인증 체크 (즉시)
-      if (!localStorage.getItem('jongno_auth')) {
-        document.documentElement.style.visibility = 'hidden';
-        window.location.replace('login.html');
-      }
-      // bfcache 복귀(뒤로가기) 시 재검사 — 로그아웃 후 뒤로가기로 맵 노출 차단
-      window.addEventListener('pageshow', function (e) {
-        if (e.persisted && !localStorage.getItem('jongno_auth')) {
-          document.documentElement.style.visibility = 'hidden';
-          window.location.replace('login.html');
-        }
-      });
+      // MYUNGROON_MODE: 인증 불필요 — 로그인 없이 팀 배분 공개 접근 허용
     </script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -588,8 +577,7 @@
     <script src="js/auth.js"></script>
     <script src="js/theme.js?v=20260608dark"></script>
     <script>
-        // 로그인 체크 — 미인증이면 login.html로 이동
-        authRequire();
+        // MYUNGROON_MODE: 인증 불필요 (authRequire 생략)
 
         // 사용자 이름 표시 + 어드민 버튼
         (function () {
