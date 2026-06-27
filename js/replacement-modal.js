@@ -643,15 +643,17 @@ const RplModal = (() => {
       console.warn('압축 실패, 원본 사용', e);
       setPhoto(slotId, mem);
     }
-    // 지침칸이면 LCD 영역 편집기 — 즉시 열고, YOLO 검출은 백그라운드로 (기다리지 않음)
-    if (field && RV_FIELDS[field]) {
-      // 검출 프로미스 — 편집기 열기를 막지 않음. 끝나면 박스 자동 스냅(유저 미조작 시)
-      const detectPromise = (typeof LcdYolo !== 'undefined')
-        ? LcdYolo.detect(mem).catch(err => { console.warn('[LcdYolo] 검출 실패', err); return null; })
-        : Promise.resolve(null);
+    // 지침칸이면 YOLO로 검침값(LCD) 위치 자동 검출 → region 자동 세팅.
+    //   편집기 강제 단계 제거(영준님 2026-06-27): 작업자는 사진만 찍으면 되고, 크롭 위치는 YOLO가 자동으로 잡음.
+    //   검출 실패/미탑재면 region 비움 → 저장 때 LcdCrop이 기본영역으로 폴백. 수동 보정은 openLcdEditor로(수정용).
+    if (field && RV_FIELDS[field] && typeof LcdYolo !== 'undefined') {
       try {
-        await openLcdEditor(field, mem, detectPromise);
-      } catch (e) { console.warn('LCD편집기', e); }
+        const bbox = await LcdYolo.detect(mem);
+        if (bbox) removalPhotoRegions[field] = {
+          x0: Math.max(0, Math.min(1, bbox.x0)), y0: Math.max(0, Math.min(1, bbox.y0)),
+          x1: Math.max(0, Math.min(1, bbox.x1)), y1: Math.max(0, Math.min(1, bbox.y1)),
+        };
+      } catch (err) { console.warn('[LcdYolo] 자동검출 실패 — 기본영역 사용', err); }
     }
   }
 
@@ -1172,40 +1174,23 @@ const RplModal = (() => {
       //   (영준님 2026-06-09: 전부 폴백. 입력 유실 0 — 부분작업도 draft로 영속화.)
       if (!isDraft) {
         const missing = [];
-        // 이번 세션에 새 원본이 들어온 활성칸(원본 있음)만 region 필수
-        const needRegion = activeFields.filter(fid => removalPhotoOriginals[fid] && !removalPhotoRegions[fid]);
-        if (needRegion.length) missing.push(`LCD영역 ${needRegion.length}칸`);
+        // LCD영역은 YOLO 자동검출로 처리 — 작업자 수동지정 불요(영준님 2026-06-27). draft 트리거에서 제외.
         if (!hasFirstActivePhoto) missing.push('주간 계기판 사진');
         if (!hasNewPhoto) missing.push('새 계기 사진');
         if (!newMeterId || newMeterId.length !== 11) missing.push('새 계기번호 11자리');
         // [QR 강화 백스톱] 새 계기번호 타입코드(3~4자리) 검증 — 잘못 스캔/입력된 비계기번호 차단
         else if (!['17', '19', '25', '26', '27', '45', '46', '47', '53', '55'].includes(newMeterId.slice(2, 4))) missing.push(`새 계기번호 형식이상(${newMeterId})`);
         if (!y || !m) missing.push('제조년월');
-        // 값을 입력한 칸은 사진 필수. 값 없는 칸은 사진 불필요(부분완료 허용 — 검침값 1개만 완료 가능)
+        // 검침값(숫자) 미입력 칸 → '이어서'(영준님 2026-06-27). 0은 유효값이라 미입력 아님.
+        //   다지침(2종·20kW)은 활성칸 전부 채워야 완료, 하나라도 비면 draft. 단상/단일지침도 동일.
+        const emptyVals = activeFields.filter(fid => removalValues[fid] == null);
+        if (emptyVals.length) missing.push(`검침값 ${emptyVals.length}칸`);
+        // 값을 입력한 칸은 사진 필수
         const valNoPhoto = activeFields.slice(1).filter(fid => removalValues[fid] != null && !removalPhotoBlobs[fid] && !keepRemovalPhotoUrls[fid]);
         if (valNoPhoto.length) missing.push(`칸사진 ${valNoPhoto.length}`);
         if (missing.length) {
-          isDraft = true;   // 사진/계기번호/제조 등 필수 누락 → 이어서(draft) 폴백
+          isDraft = true;   // 사진/검침값/계기번호/제조 등 필수 누락 → 이어서(draft) 폴백
           toast(`값 누락(${missing.join(', ')}) — 완료 대신 '이어서'로 저장합니다`);
-        } else {
-          // 다지침(2종·20kW 등) 계기인데 검침값 일부만 입력 → 경고 후 완료 허용 (영준님 2026-06-10)
-          const emptyCount = activeFields.filter(fid => removalValues[fid] == null).length;
-          if (emptyCount > 0 && activeFields.length > 1) {
-            const filledN = activeFields.length - emptyCount;
-            const ok = confirm(
-              `이 계기는 ${activeFields.length}지침(2종·20kW 등) 대상입니다.\n` +
-              `검침값을 ${filledN}칸만 입력했습니다 (${emptyCount}칸 비어 있음).\n\n` +
-              `나머지 칸 없이 이대로 완료할까요?`
-            );
-            if (!ok) {
-              // 아니오 → 완료 중단. 작업자가 추가 입력하도록 폼 잠금 해제
-              saveBtn.disabled = false;
-              saveBtn.textContent = '저장';
-              _setFormDisabled(false);
-              return;
-            }
-            // 예 → 빈 칸은 그대로 두고(null) 완료 진행
-          }
         }
       }
 

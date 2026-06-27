@@ -961,8 +961,8 @@ function decideMarkerStyle(meters, status, session) {
             colorClass = (status.address === meterLatestAddress) ? 'comm-last' : 'comm-target';
             labelMain = String(activeCount);
         } else if (activeCount > 0) {
-            // 계기팀 부분 완료 → 일부만 활성 + 분수 (계기팀 진행률)
-            colorClass = 'comm-target';
+            // 계기팀 부분 완료(임시저장 포함) → 일부만 활성 + 분수. 최근 작업지면 찐초록(여기까지)
+            colorClass = (status.address === meterLatestAddress) ? 'comm-last' : 'comm-target';
             labelMain = `${activeCount}/${totalAll}`;
         } else {
             // 계기팀 미작업 — 검침일 색 + 옅게 (비활성)
@@ -1065,18 +1065,39 @@ function priLabel(p) {
     return '';
 }
 
-// ── 계기팀 가장 최근 완료 주소 갱신 (통신팀 화면 찐초록) ──────────
-// meter_state='complete' AND comm_state≠'complete' 중 meter_updatedAt 최대
+// ── 계기팀 가장 최근 "작업지" 갱신 (통신팀 화면 찐초록 "다음 갈 곳") ──────────
+// 영준님 2026-06-27: 완료뿐 아니라 임시저장(할당)만 해도 통신팀에 "여기까지" 공유.
+//   판정 = replacement_list 활동(완료/draft 무관) 중 replaced_at/last_edited_at 최대 시각.
+//   comm_state='complete'(통신까지 끝난 곳)은 "다음 갈 곳" 아님 → 제외.
 let _meterLatestCache = { address: null, ts: 0 };
 let _meterLatestSeeded = false;   // 전체 계산 1회 이상 완료 여부
+
+// 한 주소의 계기팀 최근 작업시각(ms) — replacement_list 항목들 + 완료확정시각 중 최대
+function _meterActivityTs(st) {
+    if (!st) return 0;
+    let t = 0;
+    const rl = st.replacement_list;
+    if (rl) {
+        for (const k in rl) {
+            const r = rl[k]; if (!r) continue;
+            const v = (typeof r.last_edited_at === 'number') ? r.last_edited_at
+                    : (typeof r.replaced_at === 'number') ? r.replaced_at : 0;
+            if (v > t) t = v;
+        }
+    }
+    if (st.meter_updatedAt) {
+        const mu = new Date(st.meter_updatedAt).getTime();
+        if (!isNaN(mu) && mu > t) t = mu;
+    }
+    return t;
+}
 
 function updateMeterLatestAddress() {
     let latest = null, latestTs = 0;
     Object.entries(workStatus).forEach(([addr, st]) => {
-        if (st.meter_state === 'complete' && st.comm_state !== 'complete' && st.meter_updatedAt) {
-            const ts = new Date(st.meter_updatedAt).getTime();
-            if (ts > latestTs) { latestTs = ts; latest = addr; }
-        }
+        if (st.comm_state === 'complete') return;   // 통신까지 끝난 곳은 제외
+        const ts = _meterActivityTs(st);
+        if (ts > 0 && ts > latestTs) { latestTs = ts; latest = addr; }
     });
     meterLatestAddress = latest;
     _meterLatestCache = { address: latest, ts: latestTs };
@@ -1094,15 +1115,14 @@ function updateMeterLatestAddressIncremental(addr) {
     }
     const st = workStatus[addr];
     if (!st) return;
-    const isCand = st.meter_state === 'complete' && st.comm_state !== 'complete' && st.meter_updatedAt;
-    if (isCand) {
-        const ts = new Date(st.meter_updatedAt).getTime();
+    const ts = (st.comm_state === 'complete') ? 0 : _meterActivityTs(st);
+    if (ts > 0) {
         if (ts > _meterLatestCache.ts) {
             _meterLatestCache = { address: addr, ts };
             meterLatestAddress = addr;
         }
     } else if (meterLatestAddress === addr) {
-        // 기존 최신 주소가 조건 불만족으로 변경됨 → 전체 재계산
+        // 기존 최신 주소가 조건 불만족으로 변경됨(통신완료 등) → 전체 재계산
         updateMeterLatestAddress();
     }
 }
