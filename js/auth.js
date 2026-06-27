@@ -1,8 +1,9 @@
 // auth.js — 인증 관련 로직 (하드코딩 계정)
 
-// 계정 목록 (종로 합동시공 전용: 관리자 1 + 계기팀 + 통신팀)
+// 계정 목록 (종로 합동시공 전용: 관리자 + 계기팀 + 통신팀)
 const ACCOUNTS = [
     { id: 'admin',  pw: '1201', name: '우영준', role: 'admin' },
+    { id: 'admin2', pw: '1234', name: '관리자2', role: 'admin' },
     { id: 'meter1', pw: '1111', name: '계기팀', role: 'meter' },
     { id: 'comm1',  pw: '1111', name: '통신팀', role: 'comm'  },
 ];
