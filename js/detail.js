@@ -918,6 +918,11 @@ function updateSortBtnUI() {
 // 상세 패널 닫기
 function closeDetail() {
     document.getElementById('fullpage-overlay').classList.remove('active');
+    // 검색/딥링크로 연 모달이면, 닫는 순간 해당 위치 빨간 펄스 10초 표시
+    if (window._searchPulseLatlng) {
+        if (typeof showSearchPulse === 'function') showSearchPulse(window._searchPulseLatlng);
+        window._searchPulseLatlng = null;
+    }
 }
 
 // 주소의 작업 상태 업데이트 후 마커 색상 갱신

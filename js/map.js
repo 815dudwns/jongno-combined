@@ -1558,6 +1558,22 @@ function runSearch() {
     });
 }
 
+// 검색/딥링크 대상 계기가 지도에 보이도록 필터를 자동 활성화:
+// 동그룹 = 그 계기 동그룹(단일선택), 검침일 = 전체(다 표시). UI도 같이 동기화.
+function applySearchFilters(it) {
+    if (it.동그룹) saveSelectedGroups(new Set([it.동그룹]));
+    saveSelectedCheckdays(new Set(Object.keys(CHECKDAY_GROUPS)));   // 검침일 다 표시
+    const dp = document.getElementById('dong-group-panel');
+    if (dp) dp.querySelectorAll('input[type="radio"]').forEach(rb => { rb.checked = (rb.value === it.동그룹); });
+    _dongToggleLabel(it.동그룹 || '');
+    const cp = document.getElementById('checkday-panel');
+    if (cp) cp.querySelectorAll('input[type="checkbox"]').forEach(c => { c.checked = true; });
+    if (typeof updateGaFilterVisibility === 'function') updateGaFilterVisibility();
+    if (typeof updateTeamFilterVisibility === 'function') updateTeamFilterVisibility();
+    clearAllMarkers();
+    loadMarkers();
+}
+
 function gotoSearchResult(r) {
     const it = r.item;
     if (it.lat == null || it.lng == null) {
@@ -1565,17 +1581,23 @@ function gotoSearchResult(r) {
         return;
     }
     closeSearch();
+
+    applySearchFilters(it);   // 동그룹·검침일 필터 자동 활성화 → 대상 계기 마커 노출
+
     const latlng = makeLatLng(it.lat, it.lng);
     map.setZoom(18);
     map.setCenter(latlng);
 
-    showSearchPulse(latlng);
-
     if (r.type === 'meter') {
+        // 모달 열고, 모달을 닫는 순간 해당 위치 빨간 펄스 10초 (closeDetail에서 트리거)
+        window._searchPulseLatlng = latlng;
         setTimeout(() => {
             const groupMeters = sampleData.filter(s => s.주소 === it.주소);
             if (typeof showDetail === 'function') showDetail(it.주소, groupMeters);
         }, 200);
+    } else {
+        // 주소 검색(모달 없음) = 즉시 펄스
+        showSearchPulse(latlng);
     }
 }
 
@@ -1602,8 +1624,24 @@ function escapeSearchHtml(s) {
     return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// 네이버 지도 SDK 로드 후 지도 초기화 실행
-initMap();
+// 딥링크 진입 — 다른 앱(검증 포털 등)에서 map.html?q=계기번호(또는 주소)로 들어오면
+// 자동으로 해당 위치로 이동 + 빨간 펄스 10초 + (계기면) 상세모달. 기존 검색 로직 재사용.
+function handleDeeplink() {
+    const q = (new URLSearchParams(location.search).get('q') || '').trim();
+    if (!q || !Array.isArray(sampleData) || !sampleData.length) return;
+    let it = sampleData.find(s => String(s.계기번호) === q);
+    let type = 'meter';
+    if (!it) it = sampleData.find(s => String(s.계기번호 || '').includes(q));
+    if (!it) {
+        it = sampleData.find(s => String(s.주소 || '').includes(q) || String(s.도로명주소 || '').includes(q));
+        type = 'address';
+    }
+    if (!it) return;
+    gotoSearchResult({ type, item: it });
+}
+
+// 네이버 지도 SDK 로드 후 지도 초기화 실행 → 완료되면 딥링크 처리
+initMap().then(handleDeeplink).catch(() => {});
 
 // ── [임시] 명륜 팀 할당 (admin + 계기팀 시각 + 동그룹=명륜 전용) ────────────
 (function () {

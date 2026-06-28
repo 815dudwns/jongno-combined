@@ -15,7 +15,7 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260627.3';
+        const APP_VERSION = '20260628.1';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
           ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_selected_myungryun_ga', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab', 'jongno_work_status', 'jongno_checked_meters'].forEach(k => {
@@ -415,7 +415,7 @@
             <span class="am-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M9 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/></svg></span>
             <span class="am-txt">로그아웃</span>
         </button>
-        <div style="padding:8px 16px 12px;text-align:right;font-size:10px;color:var(--text-muted,#888);opacity:0.6;letter-spacing:0.03em;">v20260627.3</div>
+        <div style="padding:8px 16px 12px;text-align:right;font-size:10px;color:var(--text-muted,#888);opacity:0.6;letter-spacing:0.03em;">v20260628.1</div>
     </div>
 
     <!-- 통계 모달 (iframe — 페이지 이동 없이 지도 유지: 닫으면 즉시 원상태, Firebase 동기화 안 끊김) -->
@@ -636,6 +636,14 @@
         // 검증 포털 주소 — v2 맥미니 배포 시 이 상수만 교체
         const VALIDATE_PORTAL_URL = 'http://localhost:8080/admin-validate.html';
 
+        // 무적 admin/admin2 URL 자동로그인 — 다른 앱(검증 포털 등)에서 ?auth= 딥링크로 진입 시
+        // 세션 없을 때만 심음(이미 로그인됐으면 무시). 비번은 auth.js ACCOUNTS와 동일.
+        (function () {
+            const a = new URLSearchParams(location.search).get('auth');
+            const PW = { admin: '1201', admin2: '1234' };
+            if (PW[a] && !authGetSession()) authLogin(a, PW[a]);
+        })();
+
         // 로그인 체크 — 미인증이면 login.html로 이동
         authRequire();
 
@@ -661,9 +669,9 @@
     <script src="js/config.js?v=20260606darkmap"></script>
     <script src="js/utils.js?v=20260615a"></script>
     <script src="js/firebase.js?v=20260621a"></script>
-    <script src="js/detail.js?v=20260616d"></script>
+    <script src="js/detail.js?v=20260628a"></script>
     <script src="js/idb.js?v=20260618b"></script>
-    <script src="js/map.js?v=20260627b"></script>
+    <script src="js/map.js?v=20260628a"></script>
     <script src="js/awms-parseValue.js?v=20260602a"></script>
     <script src="js/qr-scanner.js?v=20260608ios"></script>
     <script src="js/photo-uploader.js?v=20260617thumb"></script>
