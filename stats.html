@@ -667,6 +667,35 @@ function renderSummary() {
   `;
 }
 
+// 중구 제외 — jungguSet(계기번호), jungguAddrs(주소) 두 경로
+let _jungguSet = null;
+async function loadJunggu() {
+  if (_jungguSet) return _jungguSet;
+  try {
+    const r = await fetch('./data/myeongryun-team-assign.json');
+    const d = await r.json();
+    _jungguSet = new Set((d['중구'] || []).map(x => String(x).trim()));
+  } catch (e) { _jungguSet = new Set(); }
+  return _jungguSet;
+}
+// ws(raw Firebase 값) 기반 중구작업 주소 집합 생성 (decodeKey 주소로 저장)
+function buildJungguAddrs(ws) {
+  const jungguAddrs = new Set();
+  Object.entries(ws).forEach(([k, v]) => {
+    if (v && /중구/.test(String(v.meter_updatedByName || '')))
+      jungguAddrs.add(decodeKey(k).trim());
+  });
+  return jungguAddrs;
+}
+// 헬퍼: 작업기록(replacement_list r)이 중구분인지
+function isJungguWork(r, decodedAddr, jungguSet, jungguAddrs) {
+  return jungguSet.has(String(r.old_meter_id || '').trim()) || jungguAddrs.has(String(decodedAddr || '').trim());
+}
+// 헬퍼: site-data 계기가 중구분인지 (잔여 분모 계산용)
+function isJungguSite(mid, rec, jungguSet, jungguAddrs) {
+  return jungguSet.has(String(mid).trim()) || jungguAddrs.has(String(rec && rec.주소 || '').trim());
+}
+
 // site-data 캐시 (한 번만 fetch)
 let siteDataByMeterId = null;
 async function loadSiteData() {
@@ -703,22 +732,26 @@ async function loadData() {
   try { localStorage.setItem('jongno_stats_date', dateVal); } catch (e) {}
   const { start, end } = dayRange(dateVal);
 
-  const [ws, sdMap, awmsDone] = await Promise.all([
+  const [ws, sdMap, awmsDone, jungguSet] = await Promise.all([
     getAllWs(),   // ★캐시 공유 — 날짜 변경마다 workStatus 3MB 재다운로드하던 것 제거(0). 분석탭(getAllWs)과 같은 캐시. 최신 반영은 페이지 새로고침.
     loadSiteData(),
     loadAwmsDone(),
+    loadJunggu(),
   ]);
+  const jungguAddrs = buildJungguAddrs(ws);
 
   // workStatus 순회하며 그날 replacement_list 추출
   // 좌표·주소 = 기존 계기번호로 site-data 매칭
+  // ★중구분 제외: jungguSet(계기번호) 또는 jungguAddrs(주소) 해당 건 skip
   const items = [];
   Object.entries(ws).forEach(([addrKey, val]) => {
     const rl = val.replacement_list;
     if (!rl) return;
+    const decoded = decodeKey(addrKey);
     Object.values(rl).forEach(r => {
       const ts = r.replaced_at;
       if (typeof ts !== 'number' || ts < start || ts > end) return;
-      const decoded = decodeKey(addrKey);
+      if (isJungguWork(r, decoded, jungguSet, jungguAddrs)) return;   // 중구 제외
       const matched = sdMap[String(r.old_meter_id)] || {};
       items.push({
         ...r,
@@ -893,7 +926,8 @@ function anaTable(title, cntMap, totalLabel) {
 async function renderAnalysis() {
   const content = document.getElementById('ana-content');
   content.innerHTML = '<div class="empty">집계 중...</div>';
-  const [ws, sd] = await Promise.all([getAllWs(), loadSiteData()]);
+  const [ws, sd, jungguSet] = await Promise.all([getAllWs(), loadSiteData(), loadJunggu()]);
+  const jungguAddrs = buildJungguAddrs(ws);
   const { start, end, label } = anaPeriod();
   document.getElementById('ana-period').textContent = label;
   // 전체 모드는 기간 이동(< >) 숨김
@@ -901,12 +935,16 @@ async function renderAnalysis() {
   document.getElementById('ana-prev').style.display = navDisp;
   document.getElementById('ana-next').style.display = navDisp;
 
-  const replacedOld = new Set();   // 전체 교체된 구계기 (잔여 계산용)
-  const repCnt = {};               // 기간 내 교체분 type5 카운트 (신계기 기준)
-  Object.values(ws).forEach(v => {
+  const replacedOld = new Set();   // 전체 교체된 구계기 중 중구 제외분 (잔여 계산용)
+  const repCnt = {};               // 기간 내 교체분 type5 카운트 (신계기 기준, 중구 제외)
+  // ★Object.entries 사용 — 주소 키가 있어야 isJungguWork(주소 경로) 판별 가능
+  Object.entries(ws).forEach(([addrKey, v]) => {
     const rl = v && v.replacement_list; if (!rl) return;
+    const decoded = decodeKey(addrKey);
     Object.values(rl).forEach(r => {
-      if (r.old_meter_id) replacedOld.add(String(r.old_meter_id).trim());
+      if (isJungguWork(r, decoded, jungguSet, jungguAddrs)) return;   // 중구 제외
+      // 완료 기준 = 신설계기번호 있음 (포털 /stats·일별모달과 통일, 2026-06-28). 철거만 한 건은 잔여 유지.
+      if (r.old_meter_id && String(r.new_meter_id || '').trim()) replacedOld.add(String(r.old_meter_id).trim());
       const ts = r.replaced_at;
       if (typeof ts === 'number' && ts >= start && ts <= end) {
         const t = anaType(r.new_meter_id);
@@ -914,9 +952,10 @@ async function renderAnalysis() {
       }
     });
   });
-  // 잔여 = site-data 전체 − 교체된 구계기 (현재 시점, 기간 무관)
+  // 잔여 = site-data 전체 − 교체된 구계기 − 중구분 (현재 시점, 기간 무관)
   const remCnt = {};
   Object.keys(sd).forEach(mid => {
+    if (isJungguSite(mid, sd[mid], jungguSet, jungguAddrs)) return;   // 중구 분모 제외
     if (replacedOld.has(String(mid).trim())) return;
     const t = anaType(mid);
     remCnt[t] = (remCnt[t] || 0) + 1;
