@@ -670,9 +670,8 @@ function renderSummary() {
   // 총작업 = daily_seq 개수 그 자체 (그날 배정+추가 전체). 추가계기도 주소모달에서 daily_seq 받아 포함됨.
   //   같은 daily_seq 중복은 1건으로.
   const seqs = new Set();
-  let noSeq = 0;
-  arr.forEach(i => { const s = i.daily_seq; if (s != null && s !== '') seqs.add(String(s)); else noSeq++; });
-  const n = seqs.size + noSeq;   // daily_seq 없는 건(한전 import분 등)은 항목 단위 집계 — 종로는 noSeq=0이라 기존과 동일
+  arr.forEach(i => { const s = i.daily_seq; if (s != null && s !== '') seqs.add(String(s)); });
+  const n = seqs.size;
 
   // 단상/삼상 = 신설계기(new_meter_id) 기준 — 우리가 단 표준계기(AE/G/Amigo)라 분류 완전.
   //   구계기 기준은 한전 옛 타입 중 코드 외(E/EA/G/Amigo 아님)가 미분류로 빠져 단+삼≠총 (2026-06-09 검증).
