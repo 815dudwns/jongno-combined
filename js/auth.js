@@ -5,10 +5,11 @@
 // (regions.js resolveRegionId: 세션 region 있으면 그 지역, 없으면 mcs_region 토글)
 const ACCOUNTS = [
     { id: 'admin',  pw: '1201', name: '우영준', role: 'admin' },                    // 무적 — 지역토글
-    { id: 'admin2', pw: '1234', name: '관리자2', role: 'admin' },                   // 무적 — 지역토글
+    { id: 'admin2', pw: '1234', name: '김창숙', role: 'admin' },                    // 구로 사장님 — 지역토글
     { id: 'meter1', pw: '1111', name: '계기팀', role: 'meter', region: 'jongno' },  // 종로 작업자
     { id: 'comm1',  pw: '1111', name: '통신팀', role: 'comm',  region: 'jongno' },  // 종로 작업자
-    // 구로 작업자 계정은 발급 시 region: 'guro'로 추가
+    { id: 'meter2', pw: '1111', name: '구로 계기팀', role: 'meter', region: 'guro' }, // 구로 작업자(지역 고정)
+    { id: 'comm2',  pw: '1111', name: '구로 통신팀', role: 'comm',  region: 'guro' }, // 구로 작업자(지역 고정)
 ];
 
 const AUTH_KEY = 'jongno_auth';
