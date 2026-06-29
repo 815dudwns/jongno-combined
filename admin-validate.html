@@ -1732,11 +1732,16 @@ async function initApp() {
             if (di) di.value = `${qDate.slice(0,4)}-${qDate.slice(4,6)}-${qDate.slice(6,8)}`;
             updateDateLabel();
         }
-        window._deeplinkReview = _q.get('review') || '';   // 'need' = need_human만 강조(후속)
+        window._deeplinkReview = _q.get('review') || '';   // 'need' = 니드휴먼 전용 뷰로 진입
     } catch (e) { /* 딥링크 파라미터 무시 */ }
 
-    // 첫 결과 로드 (최근 작업일·드라이런 / 딥링크 있으면 그 dataset·date)
-    _loadResultsAndSummary();
+    // 첫 결과 로드. 딥링크 review=need면 로드 끝나고 '확인필요'(니드휴먼) 뷰로 자동 진입
+    if (window._deeplinkReview === 'need') {
+        await _loadResultsAndSummary();
+        setFilter('need');
+    } else {
+        _loadResultsAndSummary();
+    }
 }
 
 // Air Datepicker 초기화
