@@ -1658,6 +1658,17 @@ const adpKoLocale = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 딥링크 자동로그인 — ?auth=admin|admin2 (무적계정, 폰에서 URL 한 번에 진입)
+    try {
+        const _dl = new URLSearchParams(location.search);
+        const _au = _dl.get('auth');
+        const _PW = { admin: '1201', admin2: '1234' };
+        if (_au && _PW[_au] && !authGetSession() && typeof avLogin === 'function') {
+            avLogin(_au, _PW[_au]);
+            _session = authGetSession();
+        }
+    } catch (e) { /* 자동로그인 실패 시 일반 로그인 폼으로 폴백 */ }
+
     // 로그인 폼 엔터키 제출
     const pwEl = document.getElementById('avLoginPw');
     if (pwEl) pwEl.addEventListener('keydown', e => { if (e.key === 'Enter') avDoLogin(); });
@@ -1707,7 +1718,24 @@ async function initApp() {
         _loadResultsAndSummary();
     });
 
-    // 첫 결과 로드 (최근 작업일·드라이런 기준)
+    // 딥링크 dataset/date 오버라이드 — ?dataset=jongno&date=YYYYMMDD (스킬이 주는 need 검증 URL)
+    try {
+        const _q = new URLSearchParams(location.search);
+        const qDs = _q.get('dataset'), qDate = _q.get('date');
+        const dsSel = document.getElementById('datasetSel');
+        if (qDs && dsSel && [...dsSel.options].some(o => o.value === qDs)) {
+            dsSel.value = qDs;
+            await _loadWorkDates(qDs);
+        }
+        if (qDate && /^\d{8}$/.test(qDate)) {
+            const di = document.getElementById('dateInput');
+            if (di) di.value = `${qDate.slice(0,4)}-${qDate.slice(4,6)}-${qDate.slice(6,8)}`;
+            updateDateLabel();
+        }
+        window._deeplinkReview = _q.get('review') || '';   // 'need' = need_human만 강조(후속)
+    } catch (e) { /* 딥링크 파라미터 무시 */ }
+
+    // 첫 결과 로드 (최근 작업일·드라이런 / 딥링크 있으면 그 dataset·date)
     _loadResultsAndSummary();
 }
 
