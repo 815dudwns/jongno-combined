@@ -8,8 +8,8 @@ const ACCOUNTS = [
     { id: 'admin2', pw: '1234', name: '김창숙', role: 'admin' },                    // 구로 사장님 — 지역토글
     { id: 'meter1', pw: '1111', name: '계기팀', role: 'meter', region: 'jongno' },  // 종로 작업자
     { id: 'comm1',  pw: '1111', name: '통신팀', role: 'comm',  region: 'jongno' },  // 종로 작업자
-    { id: 'meter2', pw: '1111', name: '구로 계기팀', role: 'meter', region: 'guro' }, // 구로 작업자(지역 고정)
-    { id: 'comm2',  pw: '1111', name: '구로 통신팀', role: 'comm',  region: 'guro' }, // 구로 작업자(지역 고정)
+    { id: 'gurometer', pw: '1111', name: '구로 계기팀', role: 'meter', region: 'guro' }, // 구로 작업자(지역 고정)
+    { id: 'gurocomm',  pw: '1111', name: '구로 통신팀', role: 'comm',  region: 'guro' }, // 구로 작업자(지역 고정)
 ];
 
 const AUTH_KEY = 'jongno_auth';
