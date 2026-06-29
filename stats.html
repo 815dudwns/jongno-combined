@@ -14,17 +14,19 @@
   <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
   <script>
     (function () {
-      const APP_VERSION = '20260621.1';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      const APP_VERSION = '20260630.1';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
       window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
       // iframe(통계 모달)으로 열리면 부모(map.html)가 이미 캐시 관리 — 여기서 clear/reload하면
       // 같은 오리진 공유라 부모 localStorage(지도 미러)까지 날아감. 마이그레이션 skip.
       if (window.parent !== window) return;
       if (localStorage.getItem('app_version') !== APP_VERSION) {
         const keep = {};
-        ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
-          const v = localStorage.getItem(k);
-          if (v !== null) keep[k] = v;
-        });
+        // map.html과 동일 — 종로/구로 지역 데이터·설정(jongno_*/guro_*) + 지역선택(mcs_region) 보존
+        const KEEP_RE = /^(jongno|guro)_|^mcs_region$/;
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && KEEP_RE.test(k)) keep[k] = localStorage.getItem(k);
+        }
         localStorage.clear();
         Object.entries(keep).forEach(([k, v]) => localStorage.setItem(k, v));
         localStorage.setItem('app_version', APP_VERSION);
@@ -170,8 +172,39 @@
   <div class="header">
     <a href="map.html" onclick="if(window.parent!==window){event.preventDefault();parent.postMessage('jongno-close-stats','*');}">← 지도</a>
     <h1>작업 통계</h1>
+    <div id="region-seg" style="display:none;gap:2px;margin-left:auto;background:rgba(255,255,255,0.18);border-radius:999px;padding:2px;">
+      <button data-rg="jongno" onclick="statsSwitchRegion('jongno')" style="padding:5px 11px;border:none;border-radius:999px;background:transparent;color:inherit;font-size:12px;font-weight:700;cursor:pointer;">종로</button>
+      <button data-rg="guro" onclick="statsSwitchRegion('guro')" style="padding:5px 11px;border:none;border-radius:999px;background:transparent;color:inherit;font-size:12px;font-weight:700;cursor:pointer;">구로</button>
+    </div>
     <button data-theme-toggle onclick="jongnoCycleTheme()" style="padding:6px 10px;border:none;border-radius:999px;background:rgba(255,255,255,0.18);color:inherit;font-size:12px;font-weight:700;cursor:pointer;">시스템</button>
   </div>
+  <script>
+    // 지역 전환 토글 (관리자 전용 — 작업자는 자기 지역 고정이라 무의미). regions.js의 REGION_ID 사용.
+    (function () {
+      try {
+        var raw = localStorage.getItem('jongno_auth');
+        var s = raw ? JSON.parse(raw) : null;
+        var seg = document.getElementById('region-seg');
+        if (!seg) return;
+        if (s && s.role === 'admin') {
+          seg.style.display = 'flex';
+          var cur = (window.REGION_ID || 'jongno');
+          seg.querySelectorAll('button[data-rg]').forEach(function (b) {
+            var on = b.getAttribute('data-rg') === cur;
+            b.style.background = on ? 'linear-gradient(145deg,var(--mint-l),var(--mint))' : 'transparent';
+            b.style.color = on ? 'var(--mint-deep)' : 'inherit';
+            b.style.boxShadow = on ? 'var(--clay-sm)' : 'none';
+          });
+        }
+      } catch (e) {}
+    })();
+    // self-reload: iframe(지도 오버레이) 안이면 통계만 새 지역으로 다시 로드(지도는 그대로). mcs_region은 같은 오리진 공유.
+    window.statsSwitchRegion = function (id) {
+      if (window.REGION_ID === id) return;
+      try { localStorage.setItem('mcs_region', id); } catch (e) {}
+      window.location.reload();
+    };
+  </script>
 
   <div class="container">
     <div class="tabs">
@@ -637,8 +670,9 @@ function renderSummary() {
   // 총작업 = daily_seq 개수 그 자체 (그날 배정+추가 전체). 추가계기도 주소모달에서 daily_seq 받아 포함됨.
   //   같은 daily_seq 중복은 1건으로.
   const seqs = new Set();
-  arr.forEach(i => { const s = i.daily_seq; if (s != null && s !== '') seqs.add(String(s)); });
-  const n = seqs.size;
+  let noSeq = 0;
+  arr.forEach(i => { const s = i.daily_seq; if (s != null && s !== '') seqs.add(String(s)); else noSeq++; });
+  const n = seqs.size + noSeq;   // daily_seq 없는 건(한전 import분 등)은 항목 단위 집계 — 종로는 noSeq=0이라 기존과 동일
 
   // 단상/삼상 = 신설계기(new_meter_id) 기준 — 우리가 단 표준계기(AE/G/Amigo)라 분류 완전.
   //   구계기 기준은 한전 옛 타입 중 코드 외(E/EA/G/Amigo 아님)가 미분류로 빠져 단+삼≠총 (2026-06-09 검증).
