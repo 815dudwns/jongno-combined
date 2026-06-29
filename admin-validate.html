@@ -1119,6 +1119,8 @@
         onchange="_loadResultsAndSummary()">
         <option value="">불러오는 중...</option>
     </select>
+    <button class="cbtn cbtn-sm" id="regionMapBtn" onclick="openRegionMap()"
+        style="font-size:12px;padding:6px 14px" title="이 데이터셋 지역의 지도 열기">지도</button>
     <div class="search-wrap" id="searchWrap">
         <div class="search-bar">
             <input type="text" id="searchInput" placeholder="계기번호·주소 검색"
@@ -3262,13 +3264,24 @@ function openModal(rowIdx, filteredIdxs) {
 // 현재 모달 계기를 종로맵에서 열기 — 철거계기번호로 딥링크 진입.
 // 종로맵이 자동 검색 → 해당 위치 빨간 펄스 10초 + 상세모달. ?auth=admin = 무적 자동로그인.
 const JONGNO_MAP_URL = 'https://815dudwns.github.io/jongno-combined/map.html';
+// 데이터셋 → 지도 지역. guro만 구로, 나머지(jongno/jongno_dryrun 등)는 종로.
+function regionOf(ds) { return ds === 'guro' ? 'guro' : 'jongno'; }
+
 function openMapForCurrent() {
     const g = _modalGroup;
     const mid = g && g.mid ? String(g.mid)
               : (g && g.ri && g.ri.old_meter_id ? String(g.ri.old_meter_id) : '');
     if (!mid) { showErr('계기번호가 없어 지도를 열 수 없습니다.'); return; }
-    const url = `${JONGNO_MAP_URL}?q=${encodeURIComponent(mid)}&auth=admin`;
+    const region = regionOf(_currentDataset || document.getElementById('datasetSel').value);
+    const url = `${JONGNO_MAP_URL}?q=${encodeURIComponent(mid)}&auth=admin&region=${region}`;
     window.open(url, '_blank', 'noopener');
+}
+
+// 헤더 지도 버튼 — 현재 선택된 데이터셋 지역의 지도 전체 열기(계기 지정 없음).
+function openRegionMap() {
+    const ds = document.getElementById('datasetSel').value || 'jongno';
+    const region = regionOf(ds);
+    window.open(`${JONGNO_MAP_URL}?auth=admin&region=${region}`, '_blank', 'noopener');
 }
 
 // 그룹 상세(현장정보·정합성·스왑패널·철거/신설/검침 판정블록)를 container에 채움.
