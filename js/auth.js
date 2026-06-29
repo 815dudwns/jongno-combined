@@ -1,11 +1,14 @@
 // auth.js — 인증 관련 로직 (하드코딩 계정)
 
-// 계정 목록 (종로 합동시공 전용: 관리자 + 계기팀 + 통신팀)
+// 계정 목록.
+// region: 작업자 계정은 지역 고정(구로 아이디=구로). admin/admin2는 region 없음 = 지역토글(모드) 따라감.
+// (regions.js resolveRegionId: 세션 region 있으면 그 지역, 없으면 mcs_region 토글)
 const ACCOUNTS = [
-    { id: 'admin',  pw: '1201', name: '우영준', role: 'admin' },
-    { id: 'admin2', pw: '1234', name: '관리자2', role: 'admin' },
-    { id: 'meter1', pw: '1111', name: '계기팀', role: 'meter' },
-    { id: 'comm1',  pw: '1111', name: '통신팀', role: 'comm'  },
+    { id: 'admin',  pw: '1201', name: '우영준', role: 'admin' },                    // 무적 — 지역토글
+    { id: 'admin2', pw: '1234', name: '관리자2', role: 'admin' },                   // 무적 — 지역토글
+    { id: 'meter1', pw: '1111', name: '계기팀', role: 'meter', region: 'jongno' },  // 종로 작업자
+    { id: 'comm1',  pw: '1111', name: '통신팀', role: 'comm',  region: 'jongno' },  // 종로 작업자
+    // 구로 작업자 계정은 발급 시 region: 'guro'로 추가
 ];
 
 const AUTH_KEY = 'jongno_auth';
@@ -22,6 +25,7 @@ function authLogin(id, pw) {
         return { ok: false, error: '아이디 또는 비밀번호가 올바르지 않습니다.' };
     }
     const session = { id: account.id, name: account.name, role: account.role };
+    if (account.region) session.region = account.region;   // 작업자 지역 고정(어드민은 없음=토글)
     localStorage.setItem(AUTH_KEY, JSON.stringify(session));
     return { ok: true };
 }

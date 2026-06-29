@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>명륜 팀 배분 편집기</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+
+  #toolbar {
+    background: #16213e;
+    border-bottom: 1px solid #0f3460;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  #toolbar h1 { font-size: 15px; font-weight: 700; color: #e0e0e0; white-space: nowrap; }
+
+  .tool-group { display: flex; align-items: center; gap: 6px; }
+  .tool-sep { width: 1px; height: 28px; background: #0f3460; }
+
+  .tbtn {
+    padding: 6px 14px;
+    border: 1.5px solid #0f3460;
+    border-radius: 999px;
+    background: #1a1a2e;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .tbtn:hover { border-color: #a0a0c0; color: #ddd; }
+  .tbtn.active-jongno { background: #1a3068; border-color: #3a6bc4; color: #7aa8ff; }
+  .tbtn.active-junggu { background: #3d1a0a; border-color: #c9632a; color: #ff9a6a; }
+  .tbtn.disabled-tool { background: #2a2a2a; color: #555; cursor: default; }
+  .tbtn.danger { border-color: #883; color: #cc9; }
+  .tbtn.danger:hover { background: #332200; }
+
+  .filter-label { font-size: 12px; color: #888; }
+  .day-check { display: flex; align-items: center; gap: 3px; cursor: pointer; font-size: 12px; color: #bbb; }
+  .day-check input { cursor: pointer; accent-color: #5a8fff; }
+
+  #stats-panel {
+    background: #16213e;
+    border-bottom: 1px solid #0f3460;
+    padding: 8px 14px;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+
+  .stat-block { display: flex; flex-direction: column; gap: 2px; }
+  .stat-title { font-size: 11px; color: #888; font-weight: 600; letter-spacing: 0.5px; }
+  .stat-row { display: flex; gap: 12px; align-items: baseline; }
+  .stat-val { font-weight: 700; font-size: 14px; }
+  .stat-sub { font-size: 11px; color: #999; }
+  .col-jongno { color: #7aa8ff; }
+  .col-junggu { color: #ff9a6a; }
+  .col-locked { color: #888; }
+
+  #map-container { flex: 1; position: relative; }
+  #map { width: 100%; height: 100%; }
+
+  #selection-rect {
+    position: absolute;
+    border: 2px dashed #fff;
+    background: rgba(255,255,255,0.08);
+    pointer-events: none;
+    display: none;
+    z-index: 200;
+  }
+
+  #status-bar {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(22,33,62,0.92);
+    border: 1px solid #0f3460;
+    border-radius: 8px;
+    padding: 4px 14px;
+    font-size: 12px;
+    color: #bbb;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 300;
+  }
+
+  .legend {
+    position: absolute;
+    bottom: 36px;
+    right: 10px;
+    background: rgba(22,33,62,0.92);
+    border: 1px solid #0f3460;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 11px;
+    z-index: 300;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+  #undo-count {
+    font-size: 11px;
+    color: #888;
+    margin-left: -6px;
+  }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <h1>명륜 팀 배분 편집기</h1>
+
+  <div class="tool-sep"></div>
+
+  <div class="tool-group">
+    <button class="tbtn" id="btn-jongno" onclick="setTool('종로')">종로 칠하기</button>
+    <button class="tbtn" id="btn-junggu" onclick="setTool('중구')">중구 칠하기</button>
+    <button class="tbtn disabled-tool" id="btn-none" onclick="setTool(null)">칠하기 끄기</button>
+  </div>
+
+  <div class="tool-sep"></div>
+
+  <div class="tool-group">
+    <button class="tbtn" id="btn-undo" onclick="undo()">되돌리기</button>
+    <span id="undo-count"></span>
+  </div>
+
+  <div class="tool-sep"></div>
+
+  <div class="tool-group">
+    <span class="filter-label">검침일:</span>
+    <label class="day-check"><input type="checkbox" class="day-filter" value="1" checked> D1</label>
+    <label class="day-check"><input type="checkbox" class="day-filter" value="4" checked> D4</label>
+    <label class="day-check"><input type="checkbox" class="day-filter" value="10" checked> D10</label>
+    <label class="day-check"><input type="checkbox" class="day-filter" value="16" checked> D16</label>
+    <label class="day-check"><input type="checkbox" class="day-filter" value="22" checked> D22</label>
+    <label class="day-check"><input type="checkbox" class="day-filter" value="24" checked> D24</label>
+  </div>
+
+  <div class="tool-sep"></div>
+
+  <button class="tbtn danger" onclick="exportJSON()">JSON 내보내기</button>
+</div>
+
+<div id="stats-panel">
+  <div class="stat-block">
+    <div class="stat-title col-jongno">종로</div>
+    <div class="stat-row">
+      <span class="stat-val col-jongno" id="s-j-addr">-</span><span class="stat-sub">호</span>
+      <span class="stat-val col-jongno" id="s-j-meter">-</span><span class="stat-sub">계기</span>
+      <span class="stat-val col-jongno" id="s-j-1">-</span><span class="stat-sub">단상</span>
+      <span class="stat-val col-jongno" id="s-j-3">-</span><span class="stat-sub">삼상</span>
+      <span class="stat-val col-jongno" id="s-j-rev">-</span><span class="stat-sub">만원</span>
+      <span class="stat-sub" id="s-j-pct"></span>
+    </div>
+  </div>
+  <div class="stat-block">
+    <div class="stat-title col-junggu">중구</div>
+    <div class="stat-row">
+      <span class="stat-val col-junggu" id="s-g-addr">-</span><span class="stat-sub">호</span>
+      <span class="stat-val col-junggu" id="s-g-meter">-</span><span class="stat-sub">계기</span>
+      <span class="stat-val col-junggu" id="s-g-1">-</span><span class="stat-sub">단상</span>
+      <span class="stat-val col-junggu" id="s-g-3">-</span><span class="stat-sub">삼상</span>
+      <span class="stat-val col-junggu" id="s-g-rev">-</span><span class="stat-sub">만원</span>
+      <span class="stat-sub" id="s-g-pct"></span>
+    </div>
+  </div>
+  <div class="stat-block">
+    <div class="stat-title col-locked">잠금(awms고정)</div>
+    <div class="stat-row">
+      <span class="stat-val col-locked" id="s-l-meter">-</span><span class="stat-sub">계기</span>
+    </div>
+  </div>
+  <div class="stat-block" style="margin-left:auto;">
+    <div class="stat-title" style="color:#555;">전체</div>
+    <div class="stat-row">
+      <span class="stat-val" style="color:#777;" id="s-total">-</span><span class="stat-sub">계기</span>
+      <span class="stat-sub" id="s-assigned"></span>
+    </div>
+  </div>
+</div>
+
+<div id="map-container">
+  <div id="map"></div>
+  <div id="selection-rect"></div>
+  <div id="status-bar">데이터 로딩 중...</div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#3a6bc4"></div> 종로</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#c9632a"></div> 중구</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#555"></div> awms 잠금(중구)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#888; border: 1px solid #bbb;"></div> 미배정</div>
+  </div>
+</div>
+
+<script>
+// ============================
+// 설정
+// ============================
+const NAVER_KEY = 'dxuz48sk06';
+const PRICE_SINGLE = 13000;
+const PRICE_THREE  = 30000;
+
+// ============================
+// 상태
+// ============================
+let meters = [];           // 명륜 전체 계기 [{계기번호, lat, lng, 주소, 단상삼상, 검침일, ...}]
+let assign = {};           // {계기번호 -> '종로'|'중구'|null}
+let lockedSet = new Set(); // awms 잠금 계기번호
+let addrGroup = {};        // {주소 -> [계기번호,...]}
+let markerMap = {};        // {계기번호 -> naver.Marker}
+let visibleFilter = new Set(['1','4','10','16','22','24']);
+let currentTool = null;    // '종로' | '중구' | null
+let undoStack = [];        // [{계기번호 -> 이전팀}]
+let naverReady = false;
+let mapObj = null;
+
+// 드래그 상태
+let isDragging = false;
+let dragStart = null; // {x, y, lat, lng}
+let dragRect = null;  // {minLat, maxLat, minLng, maxLng}
+
+// ============================
+// 네이버 지도 SDK 로드
+// ============================
+function loadNaverMap() {
+  return new Promise((resolve, reject) => {
+    if (window.naver && window.naver.maps) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(NAVER_KEY)}`;
+    s.dataset.naverMapSdk = '1';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('네이버 지도 SDK 로드 실패'));
+    document.head.appendChild(s);
+  });
+}
+
+// ============================
+// 데이터 로드
+// ============================
+async function loadData() {
+  setStatus('사이트 데이터 로딩...');
+  const [siteRes, assignRes, awmsRes] = await Promise.all([
+    fetch('data/jongno-site-data.json'),
+    fetch('data/myeongryun-team-assign.json').catch(() => null),
+    fetch('data/cha10-awms-locked.json').catch(() => null),
+  ]);
+
+  const siteData = await siteRes.json();
+  // 명륜 필터
+  meters = siteData.filter(d => {
+    const dong = d['법정동'] || '';
+    const grp  = d['동그룹'] || '';
+    return grp === '명륜' || dong.startsWith('명륜');
+  });
+
+  // 주소 그룹 구성
+  addrGroup = {};
+  meters.forEach(d => {
+    const addr = d['주소'] || '';
+    if (!addrGroup[addr]) addrGroup[addr] = [];
+    addrGroup[addr].push(d['계기번호']);
+  });
+
+  // awms 잠금
+  if (awmsRes && awmsRes.ok) {
+    const awmsData = await awmsRes.json();
+    awmsData.forEach(d => lockedSet.add(d['WHM_NO']));
+  }
+
+  // 초기 배정 로드 (localStorage 우선, 없으면 파일)
+  const saved = localStorage.getItem('myeongryun_assign');
+  let initAssign = { 종로: [], 중구: [] };
+  if (saved) {
+    try { initAssign = JSON.parse(saved); } catch(e) {}
+  } else if (assignRes && assignRes.ok) {
+    initAssign = await assignRes.json();
+  }
+
+  // assign 맵 초기화
+  meters.forEach(d => { assign[d['계기번호']] = null; });
+  (initAssign['종로'] || []).forEach(no => { if (assign.hasOwnProperty(no)) assign[no] = '종로'; });
+  (initAssign['중구'] || []).forEach(no => { if (assign.hasOwnProperty(no)) assign[no] = '중구'; });
+
+  // awms 잠금은 강제로 중구
+  lockedSet.forEach(no => { if (assign.hasOwnProperty(no)) assign[no] = '중구'; });
+
+  setStatus(`명륜 ${meters.length}개 로드 완료 (잠금 ${lockedSet.size}개)`);
+}
+
+// ============================
+// 지도 초기화
+// ============================
+function initMap() {
+  mapObj = new naver.maps.Map('map', {
+    center: new naver.maps.LatLng(37.5895, 126.9960),
+    zoom: 15,
+    mapTypeControl: true,
+    scaleControl: false,
+    logoControl: false,
+    mapDataControl: false,
+  });
+
+  renderMarkers();
+  setupDraw();
+  updateStats();
+}
+
+// ============================
+// 마커 색
+// ============================
+function getMarkerColor(no) {
+  if (lockedSet.has(no)) return '#555';
+  const t = assign[no];
+  if (t === '종로') return '#3a6bc4';
+  if (t === '중구') return '#c9632a';
+  return '#888'; // 미배정
+}
+
+function makeMarkerIcon(no) {
+  const col = getMarkerColor(no);
+  const isLocked = lockedSet.has(no);
+  const r = isLocked ? 5 : 6;
+  return {
+    content: `<div style="width:${r*2}px;height:${r*2}px;border-radius:50%;background:${col};border:1.5px solid ${col === '#888' ? '#bbb' : col};opacity:0.85;"></div>`,
+    anchor: new naver.maps.Point(r, r)
+  };
+}
+
+function renderMarkers() {
+  const active = visibleFilter;
+  meters.forEach(d => {
+    const no = d['계기번호'];
+    const day = String(d['검침일'] || '');
+    const visible = active.has(day);
+
+    if (markerMap[no]) {
+      markerMap[no].setMap(visible ? mapObj : null);
+      return;
+    }
+    if (!d.lat || !d.lng) return;
+
+    const marker = new naver.maps.Marker({
+      position: new naver.maps.LatLng(d.lat, d.lng),
+      map: visible ? mapObj : null,
+      icon: makeMarkerIcon(no),
+      title: `${no} | ${d['주소']} | ${d['단상삼상'] || ''} | D${day}`,
+      clickable: false,
+    });
+    markerMap[no] = marker;
+  });
+}
+
+function recolorMarkers(changedNos) {
+  changedNos.forEach(no => {
+    const m = markerMap[no];
+    if (m) m.setIcon(makeMarkerIcon(no));
+  });
+}
+
+// ============================
+// 드래그 칠하기 (사각형 영역)
+// ============================
+function setupDraw() {
+  const mapDiv = document.getElementById('map');
+  const selRect = document.getElementById('selection-rect');
+
+  mapDiv.addEventListener('mousedown', e => {
+    if (!currentTool || e.button !== 0) return;
+    e.preventDefault();
+    isDragging = true;
+    const mapRect = mapDiv.getBoundingClientRect();
+    dragStart = {
+      x: e.clientX - mapRect.left,
+      y: e.clientY - mapRect.top,
+      pos: pixelToLatLng(e.clientX - mapRect.left, e.clientY - mapRect.top),
+    };
+    selRect.style.left   = dragStart.x + 'px';
+    selRect.style.top    = dragStart.y + 'px';
+    selRect.style.width  = '0px';
+    selRect.style.height = '0px';
+    selRect.style.display = 'block';
+    // draggable 비활성화는 setTool에서 이미 처리됨
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const mapRect = document.getElementById('map').getBoundingClientRect();
+    const cx = e.clientX - mapRect.left;
+    const cy = e.clientY - mapRect.top;
+    selRect.style.left   = Math.min(cx, dragStart.x) + 'px';
+    selRect.style.top    = Math.min(cy, dragStart.y) + 'px';
+    selRect.style.width  = Math.abs(cx - dragStart.x) + 'px';
+    selRect.style.height = Math.abs(cy - dragStart.y) + 'px';
+  });
+
+  document.addEventListener('mouseup', e => {
+    if (!isDragging) return;
+    isDragging = false;
+    selRect.style.display = 'none';
+    // draggable 복원은 setTool(null) 호출 시 처리됨 — 여기선 그대로 유지
+
+    const mapRect = document.getElementById('map').getBoundingClientRect();
+    const cx = e.clientX - mapRect.left;
+    const cy = e.clientY - mapRect.top;
+    const endPos = pixelToLatLng(cx, cy);
+
+    const minLat = Math.min(dragStart.pos.lat, endPos.lat);
+    const maxLat = Math.max(dragStart.pos.lat, endPos.lat);
+    const minLng = Math.min(dragStart.pos.lng, endPos.lng);
+    const maxLng = Math.max(dragStart.pos.lng, endPos.lng);
+
+    const dx = Math.abs(cx - dragStart.x);
+    const dy = Math.abs(cy - dragStart.y);
+    if (dx < 5 && dy < 5) return; // 클릭은 무시
+
+    paintInBounds({ minLat, maxLat, minLng, maxLng });
+  });
+}
+
+function pixelToLatLng(px, py) {
+  const mapDiv = document.getElementById('map');
+  const proj = mapObj.getProjection();
+  const point = new naver.maps.Point(px, py);
+  // 화면 좌표 -> 지도 좌표 변환
+  const mapBounds = mapObj.getBounds();
+  const mapSize = mapObj.getSize();
+  const sw = mapBounds.getSW();
+  const ne = mapBounds.getNE();
+  const lat = ne.lat() - (py / mapSize.height) * (ne.lat() - sw.lat());
+  const lng = sw.lng() + (px / mapSize.width)  * (ne.lng() - sw.lng());
+  return { lat, lng };
+}
+
+function paintInBounds(bounds) {
+  // 현재 보이는 검침일 필터 대상만
+  const hitAddrs = new Set();
+  meters.forEach(d => {
+    if (!visibleFilter.has(String(d['검침일'] || ''))) return;
+    if (d.lat >= bounds.minLat && d.lat <= bounds.maxLat &&
+        d.lng >= bounds.minLng && d.lng <= bounds.maxLng) {
+      hitAddrs.add(d['주소']);
+    }
+  });
+
+  if (hitAddrs.size === 0) {
+    setStatus('영역 안에 계기가 없습니다.');
+    return;
+  }
+
+  // undo 스냅샷: 해당 주소 내 계기 이전 배정 저장
+  const snapshot = {};
+  hitAddrs.forEach(addr => {
+    (addrGroup[addr] || []).forEach(no => {
+      snapshot[no] = assign[no];
+    });
+  });
+  undoStack.push(snapshot);
+  if (undoStack.length > 50) undoStack.shift();
+  updateUndoCount();
+
+  // 배정 변경 (잠금 제외)
+  const changedNos = [];
+  hitAddrs.forEach(addr => {
+    (addrGroup[addr] || []).forEach(no => {
+      if (lockedSet.has(no)) return;
+      assign[no] = currentTool;
+      changedNos.push(no);
+    });
+  });
+
+  recolorMarkers(changedNos);
+  updateStats();
+  saveToLocalStorage();
+  setStatus(`${hitAddrs.size}개 주소(${changedNos.length}개 계기) -> ${currentTool} 배정`);
+}
+
+// ============================
+// 도구 선택
+// ============================
+function setTool(tool) {
+  currentTool = tool;
+  document.getElementById('btn-jongno').className = 'tbtn' + (tool === '종로' ? ' active-jongno' : '');
+  document.getElementById('btn-junggu').className = 'tbtn' + (tool === '중구' ? ' active-junggu' : '');
+  document.getElementById('btn-none').className   = 'tbtn' + (tool === null ? ' disabled-tool' : '');
+  if (tool) {
+    document.getElementById('map').style.cursor = 'crosshair';
+    // 칠하기 모드: 지도 드래그 비활성화 (pan과 충돌 방지)
+    if (mapObj) mapObj.setOptions({ draggable: false, scrollWheel: false });
+    setStatus(tool === '종로' ? '종로 칠하기: 드래그로 영역 선택' : '중구 칠하기: 드래그로 영역 선택');
+  } else {
+    document.getElementById('map').style.cursor = '';
+    // 탐색 모드: 지도 드래그 복원
+    if (mapObj) mapObj.setOptions({ draggable: true, scrollWheel: true });
+    setStatus('칠하기 끄기 — 지도 탐색 모드');
+  }
+}
+
+// ============================
+// 되돌리기
+// ============================
+function undo() {
+  if (undoStack.length === 0) { setStatus('되돌릴 내용이 없습니다.'); return; }
+  const snapshot = undoStack.pop();
+  const changedNos = [];
+  Object.entries(snapshot).forEach(([no, prev]) => {
+    assign[no] = prev;
+    changedNos.push(no);
+  });
+  recolorMarkers(changedNos);
+  updateStats();
+  saveToLocalStorage();
+  updateUndoCount();
+  setStatus(`되돌리기 완료 (${changedNos.length}개 계기)`);
+}
+
+function updateUndoCount() {
+  const el = document.getElementById('undo-count');
+  el.textContent = undoStack.length > 0 ? `(${undoStack.length})` : '';
+}
+
+// ============================
+// 통계 업데이트
+// ============================
+function updateStats() {
+  const s = { 종로: { addr: new Set(), meter: 0, p1: 0, p3: 0 },
+               중구: { addr: new Set(), meter: 0, p1: 0, p3: 0 } };
+
+  meters.forEach(d => {
+    const no = d['계기번호'];
+    const t = assign[no];
+    if (t !== '종로' && t !== '중구') return;
+
+    s[t].meter++;
+    s[t].addr.add(d['주소']);
+
+    let phase = d['단상삼상'] || '';
+    if (!phase) {
+      // 계기번호 3~4자리 파싱
+      const code = parseInt((no || '').substring(2, 4));
+      if ([17, 19, 25, 26, 27, 53].includes(code)) phase = '단상';
+      else if ([45, 46, 47, 55].includes(code)) phase = '삼상';
+    }
+    if (phase === '단상') s[t].p1++;
+    else if (phase === '삼상') s[t].p3++;
+  });
+
+  const rev = (t) => Math.round((s[t].p1 * PRICE_SINGLE + s[t].p3 * PRICE_THREE) / 10000);
+  const jRev = rev('종로');
+  const gRev = rev('중구');
+  const totalRev = jRev + gRev;
+
+  document.getElementById('s-j-addr').textContent  = s['종로'].addr.size;
+  document.getElementById('s-j-meter').textContent = s['종로'].meter;
+  document.getElementById('s-j-1').textContent     = s['종로'].p1;
+  document.getElementById('s-j-3').textContent     = s['종로'].p3;
+  document.getElementById('s-j-rev').textContent   = jRev;
+  document.getElementById('s-j-pct').textContent   = totalRev > 0 ? `(${Math.round(jRev/totalRev*100)}%)` : '';
+
+  document.getElementById('s-g-addr').textContent  = s['중구'].addr.size;
+  document.getElementById('s-g-meter').textContent = s['중구'].meter;
+  document.getElementById('s-g-1').textContent     = s['중구'].p1;
+  document.getElementById('s-g-3').textContent     = s['중구'].p3;
+  document.getElementById('s-g-rev').textContent   = gRev;
+  document.getElementById('s-g-pct').textContent   = totalRev > 0 ? `(${Math.round(gRev/totalRev*100)}%)` : '';
+
+  document.getElementById('s-l-meter').textContent = lockedSet.size;
+
+  const assigned = Object.values(assign).filter(v => v !== null).length;
+  document.getElementById('s-total').textContent    = meters.length;
+  document.getElementById('s-assigned').textContent = `배정 ${assigned} / 미배정 ${meters.length - assigned}`;
+}
+
+// ============================
+// 검침일 필터
+// ============================
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.day-filter').forEach(cb => {
+    cb.addEventListener('change', () => {
+      visibleFilter = new Set(
+        Array.from(document.querySelectorAll('.day-filter:checked')).map(c => c.value)
+      );
+      renderMarkers();
+      setStatus(`검침일 필터: ${Array.from(visibleFilter).sort().map(d=>'D'+d).join(' ')}`);
+    });
+  });
+});
+
+// ============================
+// localStorage 저장
+// ============================
+function saveToLocalStorage() {
+  const out = buildAssignOutput();
+  try { localStorage.setItem('myeongryun_assign', JSON.stringify(out)); } catch(e) {}
+}
+
+function buildAssignOutput() {
+  const out = { 종로: [], 중구: [] };
+  Object.entries(assign).forEach(([no, t]) => {
+    if (t === '종로') out['종로'].push(no);
+    else if (t === '중구') out['중구'].push(no);
+  });
+  out['종로'].sort();
+  out['중구'].sort();
+  return out;
+}
+
+// ============================
+// JSON 내보내기
+// ============================
+function exportJSON() {
+  const out = buildAssignOutput();
+  const json = JSON.stringify(out, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'myeongryun-team-assign.json';
+  a.click();
+  saveToLocalStorage();
+  setStatus(`JSON 내보내기 완료 (종로 ${out['종로'].length}, 중구 ${out['중구'].length})`);
+}
+
+// ============================
+// 상태바
+// ============================
+function setStatus(msg) {
+  document.getElementById('status-bar').textContent = msg;
+}
+
+// ============================
+// 메인 초기화
+// ============================
+async function main() {
+  try {
+    setStatus('네이버 지도 SDK 로딩...');
+    await loadNaverMap();
+    setStatus('데이터 로딩...');
+    await loadData();
+    setStatus('지도 초기화...');
+    initMap();
+    setStatus(`준비 완료 — 명륜 ${meters.length}개 계기 렌더됨. 팔레트 선택 후 드래그로 배분`);
+  } catch(err) {
+    setStatus('오류: ' + err.message);
+    console.error(err);
+  }
+}
+
+main();
+</script>
+</body>
+</html>

@@ -47,9 +47,9 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <script src="js/auth.js?v=20260627a"></script>
+  <script src="js/auth.js?v=20260629c"></script>
   <script src="js/theme.js?v=20260608dark"></script>
-  <script src="js/regions.js?v=20260629b"></script>
+  <script src="js/regions.js?v=20260629c"></script>
     <script src="js/config.js?v=20260606naver"></script>
   <script src="js/utils.js?v=20260615a"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
@@ -366,7 +366,7 @@ authRequire();
 const fbApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
 window.db = fbApp.database();
 const db = window.db;
-window.statusRef = db.ref('workStatus/jongno');
+window.statusRef = db.ref('workStatus/' + REGION.id);
 
 // RplModal 의존성 stub (firebase.js 안 로드해도 동작하게)
 window.encodeKey = function (str) {
@@ -619,7 +619,7 @@ function renderList() {
       //   workStatus는 디코드 주소 보관 → RTDB 키는 인코드형이라 encodeKey 필수(안 하면 null).
       let existing = null;
       try {
-        const snap = await db.ref('workStatus/jongno/' + encodeKey(addr) + '/replacement_list/' + oldId).once('value');
+        const snap = await db.ref('workStatus/' + REGION.id + '/' + encodeKey(addr) + '/replacement_list/' + oldId).once('value');
         existing = snap.val();
       } catch (err) { console.error('[모달 1건 fetch]', err); }
       if (!existing) existing = (window.workStatus[addr] && window.workStatus[addr].replacement_list || {})[oldId]; // 폴백(캐시)
@@ -701,7 +701,7 @@ function isJungguSite(mid, rec, jungguSet, jungguAddrs) {
 let siteDataByMeterId = null;
 async function loadSiteData() {
   if (siteDataByMeterId) return siteDataByMeterId;
-  const res = await fetch('./data/jongno-site-data.json', { cache: 'force-cache' });  // 페이지 네비(map↔stats) 재다운로드 방지
+  const res = await fetch(REGION.siteData, { cache: 'force-cache' });  // 페이지 네비(map↔stats) 재다운로드 방지
   const arr = await res.json();
   siteDataByMeterId = {};
   arr.forEach(m => {
@@ -866,7 +866,7 @@ let _allWsCache = null;
 
 async function getAllWs() {
   if (_allWsCache) return _allWsCache;
-  const snap = await db.ref('workStatus/jongno').once('value');
+  const snap = await db.ref('workStatus/' + REGION.id).once('value');
   _allWsCache = snap.val() || {};
   return _allWsCache;
 }

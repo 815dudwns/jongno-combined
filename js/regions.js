@@ -65,6 +65,11 @@ const REGIONS = {
 // 현재 지역 — 전역 키(mcs_region). auth와 무관, 지역 토글로만 변경.
 const REGION_ID = (() => {
     try {
+        // 1) 작업자 계정(role≠admin + region 지정) = 계정 지역 고정. 구로 아이디=구로.
+        const raw = localStorage.getItem('jongno_auth');   // auth.js AUTH_KEY (전역 세션)
+        const sess = raw ? JSON.parse(raw) : null;
+        if (sess && sess.role !== 'admin' && sess.region && REGIONS[sess.region]) return sess.region;
+        // 2) 어드민·세션없음 = 지역토글(mcs_region) 모드
         const r = localStorage.getItem('mcs_region');
         return (r && REGIONS[r]) ? r : 'jongno';
     } catch (e) { return 'jongno'; }
