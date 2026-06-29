@@ -15,13 +15,16 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260628.2';
+        const APP_VERSION = '20260629.1';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
-          ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_selected_myungryun_ga', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab', 'jongno_work_status', 'jongno_checked_meters'].forEach(k => {
-            const v = localStorage.getItem(k);
-            if (v !== null) keep[k] = v;
-          });
+          // 지역 데이터·설정 전부 보존(종로/구로 모든 jongno_/guro_ 키 + 지역선택 mcs_region)
+          // — 버전업에 작업자 데이터·지역설정 유실 금지
+          const KEEP_RE = /^(jongno|guro)_|^mcs_region$/;
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && KEEP_RE.test(k)) keep[k] = localStorage.getItem(k);
+          }
           localStorage.clear();
           Object.entries(keep).forEach(([k, v]) => localStorage.setItem(k, v));
           localStorage.setItem('app_version', APP_VERSION);
@@ -387,6 +390,13 @@
                     <span class="am-go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
                 </a>
                 <div class="am-sub">
+                    <span class="am-sub-label">지역</span>
+                    <div class="view-role-toggle" id="region-toggle">
+                        <button data-region="jongno" onclick="switchRegion('jongno')">종로</button>
+                        <button data-region="guro" onclick="switchRegion('guro')">구로</button>
+                    </div>
+                </div>
+                <div class="am-sub">
                     <span class="am-sub-label">시각</span>
                     <div class="view-role-toggle" id="view-role-toggle">
                         <button data-view="meter" class="active">계기팀</button>
@@ -405,7 +415,7 @@
         </div>
 
         <div class="am-sep"></div>
-        <button class="am-row" type="button" onclick="if(confirm('작업 캐시를 비우고 새로고침합니다.\n(서버 데이터는 안전 — 폰에 남은 임시 캐시만 삭제)')){localStorage.removeItem('jongno_work_status');location.reload();}">
+        <button class="am-row" type="button" onclick="if(confirm('작업 캐시를 비우고 새로고침합니다.\n(서버 데이터는 안전 — 폰에 남은 임시 캐시만 삭제)')){localStorage.removeItem(STORAGE_KEY);location.reload();}">
             <span class="am-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>
             <span class="am-txt">캐시 비우기</span>
         </button>
@@ -415,7 +425,7 @@
             <span class="am-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M9 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/></svg></span>
             <span class="am-txt">로그아웃</span>
         </button>
-        <div style="padding:8px 16px 12px;text-align:right;font-size:10px;color:var(--text-muted,#888);opacity:0.6;letter-spacing:0.03em;">v20260628.2</div>
+        <div style="padding:8px 16px 12px;text-align:right;font-size:10px;color:var(--text-muted,#888);opacity:0.6;letter-spacing:0.03em;">v20260629.1</div>
     </div>
 
     <!-- 통계 모달 (iframe — 페이지 이동 없이 지도 유지: 닫으면 즉시 원상태, Firebase 동기화 안 끊김) -->
@@ -666,12 +676,13 @@
             }
         })();
     </script>
-    <script src="js/config.js?v=20260606darkmap"></script>
+    <script src="js/regions.js?v=20260629a"></script>
+    <script src="js/config.js?v=20260629a"></script>
     <script src="js/utils.js?v=20260615a"></script>
-    <script src="js/firebase.js?v=20260621a"></script>
+    <script src="js/firebase.js?v=20260629a"></script>
     <script src="js/detail.js?v=20260628a"></script>
     <script src="js/idb.js?v=20260618b"></script>
-    <script src="js/map.js?v=20260628a"></script>
+    <script src="js/map.js?v=20260629a"></script>
     <script src="js/awms-parseValue.js?v=20260602a"></script>
     <script src="js/qr-scanner.js?v=20260608ios"></script>
     <script src="js/photo-uploader.js?v=20260617thumb"></script>

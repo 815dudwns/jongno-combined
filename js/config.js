@@ -11,10 +11,11 @@ const firebaseConfig = {
     appId: "1:393038393348:web:1e0bfa92164554c3d24551"
 };
 
-const STORAGE_KEY = 'jongno_work_status';
-const CHECKED_KEY = 'jongno_checked_meters';
+// 지역 파생 키 (regions.js의 REGION). region='jongno'면 기존 문자열과 byte 동일 → 종로 무손상.
+const STORAGE_KEY = regionKey('_work_status');     // 'jongno_work_status' | 'guro_work_status'
+const CHECKED_KEY = regionKey('_checked_meters');
 const PENDING_KEY = 'ami_pending_sync';   // 하위호환용, 미사용
-const EVENTS_KEY  = 'jongno_event_queue';
+const EVENTS_KEY  = regionKey('_event_queue');
 
 
 // 네이버 지도 Web Dynamic Map NCP Key ID

@@ -137,9 +137,9 @@ function initFirebaseApp() {
             ? firebase.app()
             : firebase.initializeApp(firebaseConfig);
         db = firebase.database(app);
-        statusRef = db.ref('workStatus/jongno');
-        settingsRef = db.ref('appSettings/jongno');
-        console.log('[Firebase] 초기화 완료');
+        statusRef = db.ref('workStatus/' + REGION.id);      // workStatus/jongno | workStatus/guro
+        settingsRef = db.ref('appSettings/' + REGION.id);
+        console.log('[Firebase] 초기화 완료 — 지역:', REGION.id);
         return true;
     } catch (e) {
         console.warn('[Firebase] 초기화 실패:', e.message);

@@ -33,10 +33,10 @@ function getNaverMapsStyleId() {
 }
 
 function getSavedMapViewOptions() {
-    const saved = (() => { try { return JSON.parse(localStorage.getItem('jongno_map_view')); } catch { return null; } })();
+    const saved = (() => { try { return JSON.parse(localStorage.getItem(regionKey('_map_view'))); } catch { return null; } })();
     return {
-        center: makeLatLng(saved ? saved.lat : 37.578, saved ? saved.lng : 126.983),
-        zoom: saved ? (saved.zoom || (saved.level ? 18 - saved.level : 15)) : 15,
+        center: makeLatLng(saved ? saved.lat : REGION.center.lat, saved ? saved.lng : REGION.center.lng),
+        zoom: saved ? (saved.zoom || (saved.level ? 18 - saved.level : REGION.zoom)) : REGION.zoom,
         minZoom: 7,
         zoomControl: false,
         mapDataControl: false,
@@ -70,7 +70,7 @@ function getNaverMapOptions(baseOptions) {
 function attachMapViewSaveListener() {
     naver.maps.Event.addListener(map, 'idle', () => {
         const c = map.getCenter();
-        localStorage.setItem('jongno_map_view', JSON.stringify({ lat: c.lat(), lng: c.lng(), zoom: map.getZoom() }));
+        localStorage.setItem(regionKey('_map_view'), JSON.stringify({ lat: c.lat(), lng: c.lng(), zoom: map.getZoom() }));
         scheduleRenderViewport();   // 지도 이동/줌 후 화면 안 마커 증분 갱신 (뷰포트 컬링)
     });
 }
@@ -133,27 +133,10 @@ let locationOverlay = null;
 let locationWatchId = null;
 let locationActive = false;
 
-// ── 동그룹 상수 ──────────────────────────────────────────────────
-// 좌표추출 스크립트와 동일한 매핑
-const DONG_GROUPS = {
-    '북촌·삼청':       ['가회동','삼청동','화동','안국동','소격동','팔판동','사간동','재동','계동','원서동','송현동'],
-    '부암·평창':       ['부암동','신영동','홍지동','평창동','구기동'],
-    '청운효자·사직':   ['청운동','효자동','창성동','통의동','적선동','통인동','누상동','누하동','옥인동','신교동','궁정동','사직동','도렴동','당주동','내수동','내자동','신문로1가','신문로2가','필운동','체부동','세종로'],
-    '무악·교남':       ['무악동','교남동','교북동','행촌동','평동','송월동','홍파동'],
-    '종로 도심':       ['종로1가','종로2가','종로3가','종로4가','종로5가','종로6가','청진동','견지동','서린동','수송동','중학동','관철동','관수동','익선동','돈의동','봉익동','묘동','권농동','와룡동','인사동','관훈동','경운동','낙원동','운니동','공평동','인의동','예지동','장사동','훈정동'],
-    '혜화·이화':       ['혜화동','이화동','동숭동','연건동','충신동','원남동','효제동','연지동'],
-    '창신':            ['창신동'],
-    '숭인':            ['숭인동'],
-    '명륜':            ['명륜1가','명륜2가','명륜3가','명륜4가'],
-};
-
-// 검침일 그룹 라벨 — G1~G4 (한 주 단위)
-const CHECKDAY_GROUPS = {
-    'G1': '1주차 (D1~D5)',
-    'G2': '2주차 (D8~D12)',
-    'G3': '3주차 (D15~D19)',
-    'G4': '4주차 (D22~D26)',
-};
+// ── 동그룹/검침일 상수 ───────────────────────────────────────────
+// 지역별 설정(regions.js). 데이터의 '동그룹' 필드와 직접 매칭(buildAddrCandidates).
+const DONG_GROUPS = REGION.dongGroups;
+const CHECKDAY_GROUPS = REGION.checkdayGroups;
 
 // 마커 모드: 'checkday' | 'priority' | 'both'
 let markerMode = localStorage.getItem('jongno_marker_mode') || 'checkday';
@@ -210,13 +193,13 @@ function setupNaverMapThemeSync() {
 async function loadSiteDataCached(file) {
     let ver = null;
     try {
-        const vr = await fetch('./data/jongno-site-data.version.json', { cache: 'no-cache' });
+        const vr = await fetch(REGION.siteVersion, { cache: 'no-cache' });
         if (vr.ok) ver = (await vr.json()).version;
     } catch (e) { /* 버전 못 받음(오프라인 등) — 아래서 IDB 캐시 폴백 */ }
 
     // IDB 캐시 미리 읽어둠 — 어떤 실패에도 최후 폴백으로 쓸 수 있게(ver 게이트 뒤에 두지 않음)
     let cached = null;
-    try { cached = await idbGet('jongno-site-data'); } catch (e) { /* IDB 실패 무시 */ }
+    try { cached = await idbGet(regionIdbKey()); } catch (e) { /* IDB 실패 무시 */ }
 
     // 1) 버전 일치 캐시 → 즉시 사용(재다운로드 0)
     if (ver && cached && cached.version === ver && typeof cached.text === 'string') {
@@ -231,7 +214,7 @@ async function loadSiteDataCached(file) {
         const text = await r.text();
         if (ver) {
             try {
-                await idbSet('jongno-site-data', { version: ver, text });
+                await idbSet(regionIdbKey(), { version: ver, text });
                 console.log('[siteData] 풀 fetch + IDB 캐시 갱신, ver', ver);
             } catch (e) { console.warn('[siteData] IDB 저장 실패(무시):', e); }
         }
@@ -270,7 +253,7 @@ async function initMap() {
 
     // 현장 데이터 로드 — IndexedDB 캐시-우선(아이폰 사파리 PWA 재진입 시 11MB 재다운로드 방지)
     try {
-        sampleData = await loadSiteDataCached('./data/jongno-site-data.json');
+        sampleData = await loadSiteDataCached(REGION.siteData);
     } catch (e) {
         console.error('[siteData] 로드 실패:', e);
         sampleData = [];
@@ -350,6 +333,13 @@ async function initMap() {
             });
         }
 
+        // 지역 토글 — 현재 지역 활성표시 (전환=switchRegion, regions.js / 관리자만 왕복)
+        const regionToggle = document.getElementById('region-toggle');
+        if (regionToggle) {
+            regionToggle.querySelectorAll('button').forEach(btn =>
+                btn.classList.toggle('active', btn.dataset.region === REGION_ID));
+        }
+
         // 시각 토글 — 계기팀 시각 / 통신팀 시각
         const viewToggle = document.getElementById('view-role-toggle');
         if (viewToggle) {
@@ -379,7 +369,7 @@ function loadSelectedGroups() {
     // MYUNGROON_MODE: 명륜 동그룹 고정 (다른 동 표시 안 함)
     if (window.MYUNGROON_MODE) return new Set(['명륜']);
     try {
-        const saved = localStorage.getItem('jongno_selected_groups');
+        const saved = localStorage.getItem(regionKey('_selected_groups'));
         if (saved) {
             const arr = JSON.parse(saved);
             return new Set(arr);
@@ -390,7 +380,7 @@ function loadSelectedGroups() {
 }
 
 function saveSelectedGroups(groupSet) {
-    localStorage.setItem('jongno_selected_groups', JSON.stringify([...groupSet]));
+    localStorage.setItem(regionKey('_selected_groups'), JSON.stringify([...groupSet]));
 }
 
 // ── 동그룹 라디오 패널 생성 (단일선택 — 마커 과다 방지, ami맵 방식) ──
@@ -653,14 +643,14 @@ function loadTeamAssign() {
 // ── 검침일 필터 (계기팀 시각 전용) ──────────────────────────────
 function loadSelectedCheckdays() {
     try {
-        const saved = localStorage.getItem('jongno_selected_checkdays');
+        const saved = localStorage.getItem(regionKey('_selected_checkdays'));
         if (saved) return new Set(JSON.parse(saved));
     } catch {}
-    return new Set(Object.keys(CHECKDAY_GROUPS));  // 기본: 6개 전부 체크
+    return new Set(Object.keys(CHECKDAY_GROUPS));  // 기본: 전부 체크
 }
 
 function saveSelectedCheckdays(set) {
-    localStorage.setItem('jongno_selected_checkdays', JSON.stringify([...set]));
+    localStorage.setItem(regionKey('_selected_checkdays'), JSON.stringify([...set]));
 }
 
 function populateCheckdayFilter() {
