@@ -248,7 +248,7 @@
             </div>
             <div class="sw" id="sw-yolo" data-opt="yolo"><span class="knob"></span></div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260621.4</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">보조앱 v20260630.1</div>
     </div>
 
     <!-- 철거 검침 (종로앱과 동일: 철거사진 칸 없음. 주/야/무효/최대 검침사진이 전부, 대표=old_meter_photo) -->
@@ -341,7 +341,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260621.4</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">종로 보조앱 v20260630.1</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -381,14 +381,16 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260621.4";
+      const APP_VER = "20260630.1";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
       firebase.initializeApp(firebaseConfig);
       const db = firebase.database();
-      const statusRef = db.ref('workStatus/jongno');
-      const tempRef   = db.ref('tempPhotos/jongno');
+      // 작업자 아이디별 지역(regions.js REGION_ID: gurometer=guro, meter1=jongno 등). 종로면 'jongno'로 기존과 byte 동일=무손상.
+      const RG = (window.REGION && window.REGION.id) || 'jongno';
+      const statusRef = db.ref('workStatus/' + RG);
+      const tempRef   = db.ref('tempPhotos/' + RG);
 
       function dayKST(){
         return new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Seoul',
@@ -410,12 +412,14 @@
       function hideLogin(){ $('login').classList.add('hide'); }
       function doLogin(){
         const r = authLogin($('lg-id').value.trim(), $('lg-pw').value);
-        if (r.ok){ startApp(); }
+        // 로그인 성공 = reload. RG/statusRef/tempRef가 로드시점 const라, 인페이지 startApp으로는
+        // 새 세션의 지역(구로 아이디 등)이 반영 안 됨. reload하면 regions.js가 새 세션으로 REGION 재계산 → RG 정확.
+        if (r.ok){ location.reload(); }
         else { $('lg-err').textContent = r.error || '로그인 실패'; $('lg-pw').value=''; $('lg-pw').focus(); }
       }
       $('lg-btn').onclick = doLogin;
       $('lg-pw').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
-      // 로그아웃 — 세션 비우고 로그인 화면으로 (아이디 전환용). 데이터는 아이디 무관 공유라 누구로 재로그인해도 동일.
+      // 로그아웃 — 세션 비우고 로그인 화면으로 (아이디 전환용). 재로그인 시 doLogin이 reload → 그 아이디 지역(종로/구로) 데이터로 진입.
       $('logout').onclick = () => {
         authLogout(); session = null;
         $('lg-id').value = ''; $('lg-pw').value = ''; $('lg-err').textContent = '';
@@ -440,7 +444,7 @@
         try {
           const fmt = (d) => new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit' }).format(d);
           const yesterday = fmt(new Date(Date.now() - 86400000));
-          const ref = db.ref('saveLog/jongno');
+          const ref = db.ref('saveLog/' + RG);
           const snap = await ref.once('value');
           snap.forEach(ch => { if (ch.key < yesterday) ref.child(ch.key).remove().catch(()=>{}); });
         } catch(e){ console.warn('[pruneSaveLog snap]', e); }
@@ -623,7 +627,7 @@
         ujRender();
         if (slot === 'qr') return;   // QR=동기 write(워커 없음) — uploadJobs 구독 불필요, 호출측이 즉시 ujSet
         try {
-          const ref = db.ref('uploadJobs/jongno/' + jobId);
+          const ref = db.ref('uploadJobs/' + RG + '/' + jobId);
           _ujJobs[jobId].ref = ref;
           ref.on('value', sn => {
             const val = sn.val(); const st = val && val.status;
@@ -687,7 +691,7 @@
       function ujRetry(jobId){
         const j = _ujJobs[jobId]; if (!j) return;
         if (j.ref) j.ref.off();
-        try { db.ref('uploadJobs/jongno/' + jobId).remove().catch(()=>{}); } catch(e){}
+        try { db.ref('uploadJobs/' + RG + '/' + jobId).remove().catch(()=>{}); } catch(e){}
         const retrySeq = j.seq, retrySlot = j.slot;
         ujRemove(jobId);
         seq = retrySeq; renderSeq();      // 그 작업번호로 이동
@@ -705,12 +709,12 @@
       // 앱 시작 시 orphan job 노드 정리(앱이 죽어 리스너 detach 못한 done/묵은 노드)
       async function ujSweep(){
         try {
-          const sn = await db.ref('uploadJobs/jongno').once('value');
+          const sn = await db.ref('uploadJobs/' + RG).once('value');
           const v = sn.val(); if (!v) return;
           const now = Date.now();
           for (const [id, job] of Object.entries(v)){
             const stale = job.done_at && (now - job.done_at > 6*3600*1000);
-            if (job.status === 'done' || stale) db.ref('uploadJobs/jongno/' + id).remove().catch(()=>{});
+            if (job.status === 'done' || stale) db.ref('uploadJobs/' + RG + '/' + id).remove().catch(()=>{});
           }
         } catch(e){ console.warn('[uj sweep 실패]', e); }
       }
@@ -809,7 +813,7 @@
         // 저장이력(append-only) — RTDB가 동시저장/번호중복으로 덮여도, 고유 Storage path로 사진을 추적·복구.
         //   다다음날 prune으로 자동삭제. push키라 어떤 동시쓰기에도 절대 안 겹친다.
         try {
-          db.ref('saveLog/jongno/' + day).push({
+          db.ref('saveLog/' + RG + '/' + day).push({
             src: 'snap',
             day, seq: s, slot,
             fid: (slot.indexOf('rv_') === 0) ? slot.slice(3) : null,
@@ -845,7 +849,7 @@
             // 시나리오 A: 할당된 계기에 직접
             // addr(한글/공백)·meterId를 인코딩 — 워커가 new URL(DATABASE_URL+path) 시 깨지지 않게.
             // Firebase RTDB는 URL을 디코드한 값을 키로 저장하므로 기존 한글 키와 정확히 매칭된다.
-            const base = `/workStatus/jongno/${encodeURIComponent(hit.addr)}/replacement_list/${encodeURIComponent(hit.meterId)}`;
+            const base = `/workStatus/${RG}/${encodeURIComponent(hit.addr)}/replacement_list/${encodeURIComponent(hit.meterId)}`;
             // ★부모우선(ifEmpty) 제거 — 사진이 "성공인데 종로 계기에 안 들어가는" 문제 차단.
             //   보조앱 사진을 그 계기에 무조건 저장한다(작업자가 찍은 사진이 항상 우선).
             if (slot.indexOf('rv_') === 0){
@@ -871,13 +875,13 @@
             if (slot.indexOf('rv_') === 0){
               const fid = slot.slice(3);   // 검침 LCD 사진 → temp.removal_photos[fid] 머지
               rtdbOps = [
-                { path: `/tempPhotos/jongno/${encS}/removal_photos.json`, body: { [fid]: '__UPLOAD_URL__' } },
-                { path: `/tempPhotos/jongno/${encS}.json`, body: meta }
+                { path: `/tempPhotos/${RG}/${encS}/removal_photos.json`, body: { [fid]: '__UPLOAD_URL__' } },
+                { path: `/tempPhotos/${RG}/${encS}.json`, body: meta }
               ];
             } else {
               const field = (slot === 'old') ? 'removal_photo' : 'new_meter_photo';
               rtdbOps = [
-                { path: `/tempPhotos/jongno/${encS}.json`, body: Object.assign({ [field]: '__UPLOAD_URL__' }, meta) }
+                { path: `/tempPhotos/${RG}/${encS}.json`, body: Object.assign({ [field]: '__UPLOAD_URL__' }, meta) }
               ];
             }
           }

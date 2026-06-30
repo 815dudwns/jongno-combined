@@ -1,5 +1,5 @@
 {
-  "versionName": "20260621.4",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260621.4.apk",
-  "notes": "신설 사진 칸과 QR 스캔 칸 위치 교환 + 간격 정리(겹침 수정)"
+  "versionName": "20260630.1",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260630.1.apk",
+  "notes": "아이디별 지역 대응 — 종로/구로 작업자 계정에 따라 데이터 자동 분리(구로 보조앱 지원)"
 }
