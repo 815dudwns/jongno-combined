@@ -388,6 +388,7 @@
         .st-err     { background: var(--rose-soft);   color: var(--a-rose); }
         .st-ocrfail { background: var(--gray-soft);   color: var(--ink-2); }
         .st-unverified { background: var(--gray-soft); color: var(--ink-3); }
+        .st-kepco   { background: var(--surface-2);   color: var(--ink-2); }
 
         /* ── 완료상태 배지 ── */
         .ms {
@@ -868,6 +869,26 @@
             background: var(--mint-soft);
             color: var(--mint-strong);
             font-weight: 700;
+        }
+        /* ── 준공 집계 모드 ── */
+        .kepco-group-row {
+            cursor: pointer;
+            background: var(--surface-2);
+        }
+        .kepco-group-row:hover {
+            background: var(--surface-2);
+            filter: brightness(0.95);
+        }
+        .kepco-group-row td {
+            padding: 10px 12px;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--ink);
+        }
+        .kepco-item-row td {
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--ink-2);
         }
         /* ── 검침값 LCD 확대 (need_human 검수) ── */
         .lcd-zoom {
@@ -1640,6 +1661,7 @@ let _currentDataset = '';
 let _currentDate    = '';
 let _pollTimer      = null;
 let _groups         = [];     // daily_seq 단위 그룹 배열 (렌더용)
+let _kepcoGroups    = null;   // 구로 준공 집계 데이터 (/kepco_summary 응답) — guro 전용
 let _filter         = 'all'; // 기본: 전체(리스트 다 보임)
 let _datePickerMain = null;  // Air Datepicker 인스턴스 (검증탭)
 let _datePickerAudit = null; // Air Datepicker 인스턴스 (이력탭 — 검증탭과 동일 위젯)
@@ -2247,6 +2269,30 @@ async function loadResults() {
     // 드라이런 데이터셋일 때만 초기화 버튼 노출
     document.getElementById('resetDryrunBtn').classList.toggle('hidden', !/dryrun/i.test(dataset));
 
+    // ── 구로(guro) = 준공 집계 모드 ─────────────────────────
+    if (dataset === 'guro') {
+        _groups = [];  // 검증 그룹 비움 (jongno 잔재 제거)
+        try {
+            const resp = await fetch(`${API_BASE}/kepco_summary?dataset=guro`);
+            if (!resp.ok) {
+                const b = await resp.json().catch(() => ({}));
+                throw new Error(b.detail || `HTTP ${resp.status}`);
+            }
+            _kepcoGroups = await resp.json();
+        } catch (e) {
+            _kepcoGroups = null;
+            showErr('준공 집계 로드 실패: ' + e.message);
+            return;
+        }
+        clearErr();
+        renderAll();
+        document.getElementById('resultsSection').classList.remove('hidden');
+        return;
+    }
+
+    // ── 비-guro: kepco 상태 리셋(guro→jongno 전환 시 잔재 방지) ──
+    _kepcoGroups = null;
+
     try {
         const qs = `dataset=${encodeURIComponent(dataset)}${date ? '&date=' + date : ''}`;
         const resp = await fetch(`${API_BASE}/results?${qs}`);
@@ -2587,6 +2633,7 @@ const BUCKET_LABEL = {
     need:    '확인필요',
     ocrfail: 'OCR미판독',
     unverified: '미검증',
+    kepco:   '준공반영',
 };
 
 // 상태 → CSS 클래스
@@ -2766,6 +2813,19 @@ function renderAll() {
 }
 
 function renderSummaryBadges() {
+    const el = document.getElementById('summaryBadges');
+    const filterSeg = document.querySelector('#resultsSection .filter-seg');
+
+    // 구로 준공 집계 모드 — 검증 카운트 배지 숨기고 준공 건수만 표시
+    if (_currentDataset === 'guro' && _kepcoGroups) {
+        el.innerHTML = `<span class="sbadge sb-total">준공반영: ${_kepcoGroups.total || 0}건</span>`;
+        if (filterSeg) filterSeg.style.display = 'none';
+        return;
+    }
+
+    // 비-guro: 필터 세그 복원
+    if (filterSeg) filterSeg.style.display = '';
+
     let pass = 0, need = 0, ocrfail = 0, done = 0, skip = 0, swap = 0, validated = 0, unverified = 0;
     for (const g of _groups) {
         const b = groupBucket(g);
@@ -2778,7 +2838,6 @@ function renderSummaryBadges() {
         if (g._swapPartner != null) swap++;
         if (isVerified(g) || g.validated) validated++;
     }
-    const el = document.getElementById('summaryBadges');
     el.innerHTML = `
         <span class="sbadge sb-total">전체: ${_groups.length}</span>
         ${unverified ? `<span class="sbadge sb-skip">미검증: ${unverified}</span>` : ''}
@@ -2799,6 +2858,20 @@ function renderTable() {
     const tableWrap = document.getElementById('tableWrap');
     const needPage = document.getElementById('needHumanPage');
     const banner = document.getElementById('gateBanner');
+    const thead = tableWrap ? tableWrap.querySelector('thead') : null;
+
+    // 구로 준공 집계 모드 — 기존 검증 테이블 대신 날짜별 집계 뷰
+    if (_currentDataset === 'guro' && _kepcoGroups) {
+        tableWrap.classList.remove('hidden');
+        needPage.classList.add('hidden');
+        banner.classList.add('hidden');
+        if (thead) thead.style.display = 'none';  // 기존 13컬럼 헤더 숨김
+        renderKepcoAggregation(tbody);
+        return;
+    }
+
+    // 비-guro: thead 복원
+    if (thead) thead.style.display = '';
 
     // 니드휴먼(확인필요 한번에 보기) 모드 — 인라인 편집 페이지
     if (_filter === 'need') {
@@ -2871,6 +2944,71 @@ function renderTable() {
                 : '<span style="color:var(--ink-3);font-size:12px">-</span>'}</td>
         </tr>`;
     }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// 준공 집계 뷰 (구로/guro 전용) — 날짜별 그룹 헤더 + 펼침 항목
+// ══════════════════════════════════════════════════════
+function renderKepcoAggregation(tbody) {
+    if (!_kepcoGroups || !_kepcoGroups.records || !_kepcoGroups.records.length) {
+        tbody.innerHTML = '<tr><td colspan="13" class="empty">준공 데이터가 없습니다.</td></tr>';
+        return;
+    }
+
+    // 접힘 상태 관리 — 날짜 키 → true(펼침)/false(접힘)
+    // 첫 렌더는 전부 접힘
+    const rows = [];
+    for (const group of _kepcoGroups.records) {
+        const dateKey = group.date;  // "2025-12-09"
+        const dateLabel = dateKey
+            ? new Date(dateKey + 'T00:00:00+09:00').toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
+            : dateKey;
+        const count = group.count;
+        const toggleId = `kepco-group-${dateKey.replace(/-/g, '')}`;
+
+        // 그룹 헤더 행
+        rows.push(`
+        <tr class="kepco-group-row" onclick="
+            var items = document.querySelectorAll('.${toggleId}');
+            var isHidden = items.length && items[0].style.display === 'none';
+            items.forEach(function(el){ el.style.display = isHidden ? '' : 'none'; });
+        ">
+            <td colspan="13">
+                ${esc(dateLabel)} &mdash; ${count}건
+                <span class="st st-kepco" style="margin-left:10px">${BUCKET_LABEL.kepco}</span>
+            </td>
+        </tr>`);
+
+        // 항목 헤더 행 (접힘 기본)
+        rows.push(`
+        <tr class="${toggleId}" style="display:none">
+            <td colspan="13" style="padding:0">
+                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                    <thead>
+                        <tr style="background:var(--bg-deep)">
+                            <th style="padding:5px 10px;text-align:left;color:var(--ink-2);font-weight:600">고객번호</th>
+                            <th style="padding:5px 10px;text-align:left;color:var(--ink-2);font-weight:600">주소</th>
+                            <th style="padding:5px 10px;text-align:left;color:var(--ink-2);font-weight:600">철거계기번호</th>
+                            <th style="padding:5px 10px;text-align:left;color:var(--ink-2);font-weight:600">신설계기번호</th>
+                            <th style="padding:5px 10px;text-align:left;color:var(--ink-2);font-weight:600">차수</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(group.items || []).map(item => `
+                        <tr class="kepco-item-row">
+                            <td>${esc(item.cust_no) || '<span style="color:var(--ink-3)">-</span>'}</td>
+                            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.addr) || '<span style="color:var(--ink-3)">-</span>'}</td>
+                            <td>${esc(item.old_meter_id) || '<span style="color:var(--ink-3)">-</span>'}</td>
+                            <td>${esc(item.new_meter_id) || '<span style="color:var(--ink-3)">-</span>'}</td>
+                            <td>${esc(item.cha) || '<span style="color:var(--ink-3)">-</span>'}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </td>
+        </tr>`);
+    }
+
+    tbody.innerHTML = rows.join('');
 }
 
 // ══════════════════════════════════════════════════════
