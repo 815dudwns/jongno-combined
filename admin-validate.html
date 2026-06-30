@@ -4741,6 +4741,13 @@ function fmtAuditTs(ts) {
     });
 }
 
+// 판정자 표기 통일 — 이름만/사유붙음/제각각을 "이름(admin)"으로 (현재 단독 관리자=우영준)
+function normActor(a) {
+    if (!a) return '우영준(admin)';
+    const name = String(a).split(/[\(\[]/)[0].trim() || '우영준';
+    return `${name}(admin)`;
+}
+
 async function loadAudit() {
     const dataset = document.getElementById('auditDatasetSel').value;
     const dateRaw = document.getElementById('auditDateInput').value;
@@ -4761,7 +4768,9 @@ async function loadAudit() {
             throw new Error(b.detail || `HTTP ${resp.status}`);
         }
         const data = await resp.json();
-        const logs = data.logs || [];
+        // ★ 이력은 "실제로 고친 것"만 — 검증완료 마킹(field 없음)·값 안 바뀐 것(old==new) 제외
+        const logs = (data.logs || []).filter(l =>
+            l.field && l.new != null && String(l.old) !== String(l.new));
 
         if (!logs.length) {
             document.getElementById('auditTableCard').classList.add('hidden');
@@ -4792,7 +4801,7 @@ async function loadAudit() {
             return `<tr class="audit-row">
                 <td style="white-space:nowrap;font-size:12px">${fmtAuditTs(log.ts)}</td>
                 <td>${kindBadge}</td>
-                <td style="font-size:12px">${esc(log.actor || '-')}</td>
+                <td style="font-size:12px">${esc(normActor(log.actor))}</td>
                 <td style="font-size:12px;text-align:left;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(log.addr || '-')}</td>
                 <td class="mid-col">${midHtml(log.mid || '')}</td>
                 <td><span class="audit-field-label">${fieldLabel}</span></td>
