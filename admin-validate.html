@@ -1639,6 +1639,7 @@ let _pollTimer      = null;
 let _groups         = [];     // daily_seq 단위 그룹 배열 (렌더용)
 let _filter         = 'all'; // 기본: 전체(리스트 다 보임)
 let _datePickerMain = null;  // Air Datepicker 인스턴스 (검증탭)
+let _datePickerAudit = null; // Air Datepicker 인스턴스 (이력탭 — 검증탭과 동일 위젯)
 let _workDates      = new Set(); // GET /dates 결과 YYYYMMDD 집합
 let _workCounts     = new Map(); // YYYYMMDD → 작업 건수 (daily_stats)
 
@@ -1792,6 +1793,30 @@ function _initDatePicker(todayDate, todayStr) {
         },
     });
     updateDateLabel();   // 초기 라벨
+
+    // 이력 탭 날짜도 동일 Air Datepicker로 통일 (검증 탭과 같은 위젯)
+    const auditEl = document.getElementById('auditDateInput');
+    if (auditEl && typeof AirDatepicker !== 'undefined') {
+        auditEl.type = 'text';
+        auditEl.style.cursor = 'pointer';
+        _datePickerAudit = new AirDatepicker(auditEl, {
+            locale:     adpKoLocale,
+            dateFormat: 'yyyy-MM-dd',
+            autoClose:  true,
+            selectedDates: [todayDate],
+            onRenderCell({ date, cellType }) {
+                if (cellType !== 'day') return {};
+                const key = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+                return _workDates.has(key) ? { classes: 'adp-has-work' } : {};
+            },
+            onSelect({ date }) {
+                const d = Array.isArray(date) ? date[0] : date;
+                if (!d) return;
+                auditEl.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                loadAudit();
+            },
+        });
+    }
 }
 
 // 날짜 라벨 갱신 (input value는 스크린샷에 안 찍혀도 라벨은 항상 보임)
@@ -1912,7 +1937,14 @@ function syncTabSelectors(prefix) {
     if (dsSel  && mainDataset && dsSel.querySelector(`option[value="${CSS.escape(mainDataset)}"]`)) {
         dsSel.value = mainDataset;
     }
-    if (dateSel && mainDate) dateSel.value = mainDate;
+    if (dateSel && mainDate) {
+        dateSel.value = mainDate;
+        // 이력 탭 datepicker 달력 하이라이트도 맞춤(onSelect 억제 — loadAudit는 진입 시 한 번만)
+        if (prefix === 'audit' && _datePickerAudit && /^\d{4}-\d{2}-\d{2}$/.test(mainDate)) {
+            const [y, m, d] = mainDate.split('-').map(Number);
+            try { _datePickerAudit.selectDate(new Date(y, m - 1, d), { silent: true }); } catch (_) {}
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════
@@ -4741,6 +4773,27 @@ function fmtAuditTs(ts) {
     });
 }
 
+// 이력 행 클릭 → 검증 탭에서 그 계기 상세 모달 열기
+async function openFromAudit(mid) {
+    if (!mid) return;
+    const ds = document.getElementById('auditDatasetSel').value;
+    const dt = document.getElementById('auditDateInput').value;
+    switchMainTab('validate');   // panel만 전환(자동 로드 없음)
+    const dsSel = document.getElementById('datasetSel');
+    if (ds && dsSel.querySelector(`option[value="${CSS.escape(ds)}"]`)) dsSel.value = ds;
+    _currentDataset = ds;
+    if (dt && /^\d{4}-\d{2}-\d{2}$/.test(dt)) {
+        const [y, m, d] = dt.split('-').map(Number);
+        if (_datePickerMain) { try { _datePickerMain.selectDate(new Date(y, m - 1, d), { silent: true }); } catch (_) {} }
+        document.getElementById('dateInput').value = dt;
+        updateDateLabel();
+    }
+    await _loadResultsAndSummary();
+    const i = _groups.findIndex(g => String(g.mid) === String(mid));
+    if (i >= 0) { openModal(i, null); }
+    else { alert(`계기 ${mid}\n이 날짜(${dt}) 작업분에 없습니다.\n작업일과 판정일이 다를 수 있어요 — 검증 탭에서 작업일을 직접 고르면 보입니다.`); }
+}
+
 // 판정자 표기 통일 — 이름만/사유붙음/제각각을 "이름(admin)"으로 (현재 단독 관리자=우영준)
 function normActor(a) {
     if (!a) return '우영준(admin)';
@@ -4797,8 +4850,8 @@ async function loadAudit() {
             const actionCell = isRollback
                 ? '<span style="color:var(--ink-3);font-size:11px">-</span>'
                 : `<button class="cbtn cbtn-sm" style="font-size:11px;padding:4px 10px"
-                       onclick='doRollback(${JSON.stringify(log.push_key)}, ${JSON.stringify(log.dataset || _currentDataset)}, this)'>되돌리기</button>`;
-            return `<tr class="audit-row">
+                       onclick='event.stopPropagation();doRollback(${JSON.stringify(log.push_key)}, ${JSON.stringify(log.dataset || _currentDataset)}, this)'>되돌리기</button>`;
+            return `<tr class="audit-row" style="cursor:pointer" onclick="openFromAudit('${esc(String(log.mid || ''))}')" title="클릭 = 이 계기 상세 보기">
                 <td style="white-space:nowrap;font-size:12px">${fmtAuditTs(log.ts)}</td>
                 <td>${kindBadge}</td>
                 <td style="font-size:12px">${esc(normActor(log.actor))}</td>
