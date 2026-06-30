@@ -1341,18 +1341,27 @@
          이력 탭
     ════════════════════════════════════════════════ -->
     <div class="main-panel" id="panel-history">
-        <!-- 컨트롤 -->
+        <!-- 컨트롤 (검증 탭과 동일한 날짜 네비) -->
         <div class="card">
-            <div class="control-bar">
+            <div class="control-bar" style="align-items:center;gap:10px;flex-wrap:wrap">
                 <div class="form-group">
                     <label>자료(dataset)</label>
                     <select id="auditDatasetSel" onchange="loadAudit()">
                         <option value="">불러오는 중...</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>날짜</label>
-                    <input type="date" id="auditDateInput" onchange="loadAudit()">
+                <div class="date-nav">
+                    <span style="font-size:12px;color:var(--ink-2);font-weight:700;margin-right:2px">날짜</span>
+                    <button type="button" class="date-arrow" onclick="shiftAuditDate(-1)" title="이전 날">‹</button>
+                    <div class="date-display">
+                        <span id="auditDateLabel">날짜 선택</span>
+                        <input type="date" id="auditDateInput" class="date-input-overlay">
+                    </div>
+                    <span class="date-work-badge none" id="auditDateWorkBadge"></span>
+                    <button type="button" class="date-arrow" onclick="shiftAuditDate(1)" title="다음 날">›</button>
+                    <button type="button" class="preset-btn" onclick="presetAuditDate('today')">오늘</button>
+                    <button type="button" class="preset-btn" onclick="presetAuditDate('yesterday')">어제</button>
+                    <button type="button" class="preset-btn" onclick="presetAuditDate('lastwork')">최근 작업일</button>
                 </div>
                 <button class="cbtn cbtn-sm" onclick="loadAudit()">새로고침</button>
             </div>
@@ -1813,6 +1822,7 @@ function _initDatePicker(todayDate, todayStr) {
                 const d = Array.isArray(date) ? date[0] : date;
                 if (!d) return;
                 auditEl.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                updateAuditDateLabel();
                 loadAudit();
             },
         });
@@ -1944,6 +1954,7 @@ function syncTabSelectors(prefix) {
             const [y, m, d] = mainDate.split('-').map(Number);
             try { _datePickerAudit.selectDate(new Date(y, m - 1, d), { silent: true }); } catch (_) {}
         }
+        if (prefix === 'audit' && typeof updateAuditDateLabel === 'function') updateAuditDateLabel();
     }
 }
 
@@ -4773,11 +4784,56 @@ function fmtAuditTs(ts) {
     });
 }
 
-// 이력 행 클릭 → 검증 탭에서 그 계기 상세 모달 열기
-async function openFromAudit(mid) {
+// ── 이력 탭 날짜 네비 (검증 탭과 동일 동작) ──────────────────────────
+function _curAuditDate() {
+    const v = document.getElementById('auditDateInput').value;
+    if (v && /^\d{4}-\d{2}-\d{2}$/.test(v)) { const [y, m, d] = v.split('-').map(Number); return new Date(y, m - 1, d); }
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+}
+function _selectAuditDate(dateObj) {
+    const yy = dateObj.getFullYear(), mon = String(dateObj.getMonth() + 1).padStart(2, '0'), dy = String(dateObj.getDate()).padStart(2, '0');
+    if (_datePickerAudit) { try { _datePickerAudit.selectDate(dateObj, { silent: true }); } catch (_) {} }
+    document.getElementById('auditDateInput').value = `${yy}-${mon}-${dy}`;
+    updateAuditDateLabel();
+    loadAudit();
+}
+function shiftAuditDate(delta) { const d = _curAuditDate(); d.setDate(d.getDate() + delta); _selectAuditDate(d); }
+function presetAuditDate(kind) {
+    if (kind === 'today') { _selectAuditDate(new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }))); return; }
+    if (kind === 'yesterday') { const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' })); d.setDate(d.getDate() - 1); _selectAuditDate(d); return; }
+    if (kind === 'lastwork') {
+        const keys = [..._workDates].sort();
+        if (!keys.length) { alert('작업일 정보가 없습니다.'); return; }
+        const k = keys[keys.length - 1];
+        _selectAuditDate(new Date(+k.slice(0, 4), +k.slice(4, 6) - 1, +k.slice(6, 8)));
+    }
+}
+function updateAuditDateLabel() {
+    const el = document.getElementById('auditDateLabel'); if (!el) return;
+    const v = document.getElementById('auditDateInput').value;
+    let ymd = '';
+    if (v && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        const [y, m, d] = v.split('-').map(Number);
+        el.textContent = `${v} (${_DOW_KO[new Date(y, m - 1, d).getDay()]})`;
+        ymd = v.replace(/-/g, '');
+    } else { el.textContent = v || '날짜 선택'; }
+    const badge = document.getElementById('auditDateWorkBadge');
+    if (badge) {
+        const c = _workCounts.get(ymd);
+        if (c != null && c > 0) { badge.textContent = `작업 ${c}건`; badge.className = 'date-work-badge has'; }
+        else if (_workDates.has(ymd)) { badge.textContent = '작업일'; badge.className = 'date-work-badge has'; }
+        else { badge.textContent = '작업 없음'; badge.className = 'date-work-badge none'; }
+    }
+}
+
+// 이력 행 클릭 → 검증 탭에서 그 계기 상세 모달 열기 (그 계기의 '작업일'로 로드 — 판정일 아님)
+async function openFromAudit(mid, workDate) {
     if (!mid) return;
     const ds = document.getElementById('auditDatasetSel').value;
-    const dt = document.getElementById('auditDateInput').value;
+    // 작업일 우선(이력에 backend가 붙여줌). 없으면 이력탭 선택 날짜로 폴백.
+    let dt = (workDate && /^\d{8}$/.test(String(workDate)))
+        ? `${String(workDate).slice(0,4)}-${String(workDate).slice(4,6)}-${String(workDate).slice(6,8)}`
+        : document.getElementById('auditDateInput').value;
     switchMainTab('validate');   // panel만 전환(자동 로드 없음)
     const dsSel = document.getElementById('datasetSel');
     if (ds && dsSel.querySelector(`option[value="${CSS.escape(ds)}"]`)) dsSel.value = ds;
@@ -4791,7 +4847,7 @@ async function openFromAudit(mid) {
     await _loadResultsAndSummary();
     const i = _groups.findIndex(g => String(g.mid) === String(mid));
     if (i >= 0) { openModal(i, null); }
-    else { alert(`계기 ${mid}\n이 날짜(${dt}) 작업분에 없습니다.\n작업일과 판정일이 다를 수 있어요 — 검증 탭에서 작업일을 직접 고르면 보입니다.`); }
+    else { alert(`계기 ${mid}\n작업일(${dt}) 데이터를 불러오지 못했습니다 — 잠시 후 다시 시도하거나 검증 탭에서 직접 확인해주세요.`); }
 }
 
 // 판정자 표기 통일 — 이름만/사유붙음/제각각을 "이름(admin)"으로 (현재 단독 관리자=우영준)
@@ -4851,7 +4907,7 @@ async function loadAudit() {
                 ? '<span style="color:var(--ink-3);font-size:11px">-</span>'
                 : `<button class="cbtn cbtn-sm" style="font-size:11px;padding:4px 10px"
                        onclick='event.stopPropagation();doRollback(${JSON.stringify(log.push_key)}, ${JSON.stringify(log.dataset || _currentDataset)}, this)'>되돌리기</button>`;
-            return `<tr class="audit-row" style="cursor:pointer" onclick="openFromAudit('${esc(String(log.mid || ''))}')" title="클릭 = 이 계기 상세 보기">
+            return `<tr class="audit-row" style="cursor:pointer" onclick="openFromAudit('${esc(String(log.mid || ''))}','${esc(String(log.work_date || ''))}')" title="클릭 = 이 계기 상세 보기">
                 <td style="white-space:nowrap;font-size:12px">${fmtAuditTs(log.ts)}</td>
                 <td>${kindBadge}</td>
                 <td style="font-size:12px">${esc(normActor(log.actor))}</td>
