@@ -1687,7 +1687,7 @@ let _appInited = false;
 async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1749 (검증완료=완료+자동통과·확인완료 / 판정자 우영준 통일 / 안내문구 정리)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1750 (니드휴먼 크롭실패 토글·원본보기·crop_fail기록 + 마지막판정 이벤트버그 수정)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -2879,6 +2879,8 @@ function renderTable() {
 // ══════════════════════════════════════════════════════
 let _nhQueue = [];
 let _nhIdx   = 0;
+let _nhCropFail = false;   // 크롭실패 토글 — ON이면 원본 전체사진 표시(YOLO 크롭 대신). 판정 시 crop_fail 기록
+function nhToggleCrop() { _nhCropFail = !_nhCropFail; renderNhCard(); }
 let _nhBuf   = '';   // 검침값/번호 입력 버퍼
 let _nhKeepQueue = false;   // true면 큐 재구성 안 함(액션 후 — 이전으로 수정건 재방문 가능)
 const _NH_FID_LABEL = { whme_day:'주간 유효전력', whme_mngt:'야간 유효전력', var_day:'무효전력', dm_mt_day:'최대전력' };
@@ -3077,10 +3079,14 @@ function g_addr(mid) { const g = _nhFindGroup(mid); return g ? (g.addr || '') : 
 // ── 검침·신설 값 카드 ──
 function nhValueHtml(g, item) {
     let row, label, photoUrl, dbVal, ocrVal;
+    let _cropUrl = '', _hasCrop = false;
     if (item.section === 'mv') {
         row = g.mv[item.fid];
         label = '② ' + (_NH_FID_LABEL[item.fid] || item.fid);
-        photoUrl = row.lcd_photo_url || (row.lcd_crop_ts ? `${API_BASE}/lcd_crop?ts=${encodeURIComponent(row.lcd_crop_ts)}` : '') || row.photo_url || '';
+        _cropUrl = row.lcd_photo_url || (row.lcd_crop_ts ? `${API_BASE}/lcd_crop?ts=${encodeURIComponent(row.lcd_crop_ts)}` : '');
+        _hasCrop = !!_cropUrl;
+        // 크롭실패 토글 ON이면 원본 전체사진, 아니면 크롭 우선(크롭 없으면 원본)
+        photoUrl = (_nhCropFail || !_cropUrl) ? (row.photo_url || _cropUrl) : _cropUrl;
         dbVal  = fmtReading(row.worker_val, item.fid);
         ocrVal = '';   // mv는 아래에서 OCR1/OCR2로 분리 표시 (자동 보정·통과 안 함 — §37)
     } else {
@@ -3143,9 +3149,18 @@ function nhValueHtml(g, item) {
           </div>
         </div>`;
 
+    // 크롭실패 토글 버튼 (검침값 + YOLO 크롭 있을 때만) — 누르면 원본 전체사진 표시, 다음으로 안 넘어감
+    const cropToggle = (item.section === 'mv' && _hasCrop)
+        ? `<button class="cbtn cbtn-sm" onclick="nhToggleCrop()" style="margin-bottom:8px;${_nhCropFail ? 'background:var(--a-amber-soft);color:var(--a-amber);font-weight:700' : ''}">${_nhCropFail ? '↩ YOLO 크롭 보기' : '크롭 실패 → 원본 전체사진 보기'}</button>`
+        : '';
+    const cropNote = _nhCropFail
+        ? '<div style="font-size:11px;color:var(--a-amber);font-weight:700;margin-bottom:4px">원본 전체사진 (YOLO 크롭 실패 표시됨 — 값 선택 시 학습데이터로 기록)</div>'
+        : '';
     return `
         <div style="font-size:14px;font-weight:800;margin-bottom:4px">${esc(label)}</div>
         <div style="font-size:12px;color:var(--ink-3);margin-bottom:8px">철거 ${esc(g.mid)} · 신설 ${esc(g.mi ? g.mi.new_meter_id : '-')}</div>
+        ${cropToggle}
+        ${cropNote}
         ${_nhPhoto(photoUrl)}
         <div style="font-size:12px;color:var(--ink-3);margin:8px 0 6px">맞는 값 클릭 = 즉시 적용 · 다 틀리면 직접 입력</div>
         ${candBtns}
@@ -3165,16 +3180,18 @@ function nhSubmitInput(mid, field) {
 
 // ── 액션: 값 적용 / 완료 / 스왑 ──
 async function nhApplyVal(mid, field, value) {
+    const cropFail = _nhCropFail;   // 크롭실패 토글 상태(원본으로 판정했는지) — 학습데이터 기록용
+    const actor = cropFail ? `${_nhActor()} [크롭실패]` : _nhActor();
     try {
         const resp = await fetch(`${API_BASE}/apply`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dataset: _currentDataset, mid, field, verdict_value: value, actor: _nhActor(), dry_run: false }),
+            body: JSON.stringify({ dataset: _currentDataset, mid, field, verdict_value: value, actor, dry_run: false, crop_fail: cropFail }),
         });
         const d = await resp.json();
         if (!resp.ok) throw new Error(d.detail || `HTTP ${resp.status}`);
         await fetch(`${API_BASE}/set_validated`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dataset: _currentDataset, mids: [mid], actor: _nhActor(), validated: true }),
+            body: JSON.stringify({ dataset: _currentDataset, mids: [mid], actor, validated: true }),
         }).catch(() => {});
         await nhAfterAction();
     } catch (e) { alert('적용 실패: ' + e.message); }
@@ -3229,17 +3246,24 @@ async function nhDoSwap(midA, midB) {
     } catch (e) { alert('맞바꾸기 실패: ' + e.message); }
 }
 async function nhAfterAction() {
-    _nhKeepQueue = true;              // 큐 유지(처리한 건도 큐에 남아 [이전]으로 재방문·수정 가능)
-    await _loadResultsAndSummary();   // 데이터만 갱신, 큐는 그대로
-    if (!buildNhQueue().length) {     // 남은 확인필요 0 → 전부 완료 화면
+    _nhCropFail = false;              // 다음 건 넘어가며 크롭실패 토글 초기화
+    await _loadResultsAndSummary();   // 데이터 갱신
+    const remain = buildNhQueue();
+    if (!remain.length) {             // 남은 확인필요 0 → 전부 완료 화면
         _nhKeepQueue = false;
         renderNeedHumanPage();        // → "전부 확인 완료"
+    } else if (_nhIdx >= _nhQueue.length - 1) {
+        // ★마지막 카드에서 판정 → 남은 게 있으면 큐 재구성해 첫 미처리 건으로 (멈춤 방지)
+        _nhKeepQueue = false;
+        _nhIdx = 0;
+        renderNeedHumanPage();
     } else {
+        _nhKeepQueue = true;          // 중간 건: 큐 유지([이전] 재방문 가능)
         nhNext();                      // 다음 건으로 이동
     }
 }
-function nhPrev() { if (_nhIdx > 0) { _nhIdx--; renderNhCard(); } }
-function nhNext() { if (_nhIdx < _nhQueue.length - 1) { _nhIdx++; renderNhCard(); } }
+function nhPrev() { if (_nhIdx > 0) { _nhCropFail = false; _nhIdx--; renderNhCard(); } }
+function nhNext() { if (_nhIdx < _nhQueue.length - 1) { _nhCropFail = false; _nhIdx++; renderNhCard(); } }
 
 // 계기번호 타입 자리 강조 HTML
 // index 0,1 = 앞 2자리(지역코드), index 2,3 = 타입코드 자리, 나머지 = 일련번호
