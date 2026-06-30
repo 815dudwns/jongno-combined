@@ -1687,7 +1687,7 @@ let _appInited = false;
 async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1750 (니드휴먼 크롭실패 토글·원본보기·crop_fail기록 + 마지막판정 이벤트버그 수정)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1751 (판정자=로그인 세션 아이디 / 니드휴먼 크롭실패 토글·원본·crop_fail / 마지막판정 버그수정)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -4876,9 +4876,11 @@ async function openFromAudit(mid, workDate) {
     else { alert(`계기 ${mid}\n작업일(${dt}) 데이터를 불러오지 못했습니다 — 잠시 후 다시 시도하거나 검증 탭에서 직접 확인해주세요.`); }
 }
 
-// 판정자 표기 통일 — 이름만/사유붙음/제각각을 "이름(admin)"으로 (현재 단독 관리자=우영준)
+// 판정자 = 판정 당시 로그인 세션 actor 그대로 (예 우영준(admin)). 누가 로그인했냐로 결정 (영준님 2026-06-30)
+// 판정 시 actor는 _nhActor()=`${_session.name}(${_session.id})` 로 들어옴. 식별불가 등 [사유] 태그는 보존.
 function normActor(a) {
-    return '우영준(admin)';   // 단독 관리자 — 모든 판정자를 우영준(admin)으로 통일 (영준님 2026-06-30)
+    if (!a) return '우영준(admin)';
+    return String(a).trim();
 }
 
 async function loadAudit() {
