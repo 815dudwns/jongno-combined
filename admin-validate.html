@@ -1687,7 +1687,7 @@ let _appInited = false;
 async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1748 (스왑=철거OCR×site-data 오할당 / 검침무관)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1749 (검증완료=완료+자동통과·확인완료 / 판정자 우영준 통일 / 안내문구 정리)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -4854,9 +4854,7 @@ async function openFromAudit(mid, workDate) {
 
 // 판정자 표기 통일 — 이름만/사유붙음/제각각을 "이름(admin)"으로 (현재 단독 관리자=우영준)
 function normActor(a) {
-    if (!a) return '우영준(admin)';
-    const name = String(a).split(/[\(\[]/)[0].trim() || '우영준';
-    return `${name}(admin)`;
+    return '우영준(admin)';   // 단독 관리자 — 모든 판정자를 우영준(admin)으로 통일 (영준님 2026-06-30)
 }
 
 async function loadAudit() {
