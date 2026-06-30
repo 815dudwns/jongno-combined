@@ -1688,7 +1688,7 @@ let _appInited = false;
 async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1751 (판정자=로그인 세션 아이디 / 니드휴먼 크롭실패 토글·원본·crop_fail / 마지막판정 버그수정)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1752 (구로/종로 import[한전준공·awms]=준공반영 회색배지·완료처리 / 집계뷰 롤백→기존테이블 유지)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
