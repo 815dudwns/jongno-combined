@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>지도 · 종로 합동시공 (클레이)</title>
+<link rel="stylesheet" href="clay.css">
+<style>
+  html, body { height: 100%; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100dvh; padding: 24px;
+    background: radial-gradient(120% 90% at 50% 0%, #f0ede6 0%, var(--bg) 55%, #e2ddd4 100%);
+  }
+
+  /* ---- 폰 프레임 (로그인과 동일) ---- */
+  .phone {
+    width: 390px; max-width: 100%; height: 844px; max-height: calc(100dvh - 48px);
+    border-radius: 54px; padding: 13px;
+    background: linear-gradient(155deg, #f4f1ea, #dcd7cd);
+    box-shadow: 18px 22px 50px rgba(150,142,128,0.55), -14px -14px 40px rgba(255,255,255,0.9),
+      inset 2px 2px 4px rgba(255,255,255,0.7), inset -3px -3px 8px rgba(160,152,138,0.4);
+  }
+  .phone-screen {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 42px; overflow: hidden; background: var(--bg);
+    box-shadow: var(--clay-inset); display: flex; flex-direction: column;
+  }
+  .statusbar {
+    height: 50px; flex-shrink: 0; display: flex; align-items: center; z-index: 30;
+    justify-content: space-between; padding: 0 30px 0 34px; position: relative;
+    font-size: 15px; font-weight: 700; color: var(--ink);
+  }
+  .statusbar .sb-right { display: flex; align-items: center; gap: 7px; }
+  .sb-bars { display: flex; align-items: flex-end; gap: 2px; height: 11px; }
+  .sb-bars i { width: 3px; border-radius: 1px; background: var(--ink); }
+  .sb-bars i:nth-child(1){height:4px} .sb-bars i:nth-child(2){height:6px}
+  .sb-bars i:nth-child(3){height:8px} .sb-bars i:nth-child(4){height:11px}
+  .sb-batt { width: 24px; height: 12px; border-radius: 3px; border: 1.6px solid var(--ink); position: relative; padding: 1.5px; }
+  .sb-batt::after { content:""; position:absolute; right:-3px; top:3.5px; width:2px; height:4px; background: var(--ink); border-radius: 0 1px 1px 0; }
+  .sb-batt b { display:block; width:72%; height:100%; background: var(--mint-ink); border-radius:1px; }
+
+  /* ---- 지도 영역 ---- */
+  .map-wrap { position: absolute; inset: 0; }
+  #map { width: 100%; height: 100%; display: block; }
+
+  /* 떠있는 크롬 공통 */
+  .chrome { position: absolute; z-index: 20; }
+
+  /* 좌상단: 동그룹 / 검침일 필터 */
+  .filters { top: 58px; left: 16px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; z-index: 25; }
+  .filter-toggle {
+    font-family: var(--font); font-weight: 700; font-size: 13px; color: var(--ink);
+    background: var(--surface); border: none; border-radius: var(--radius-pill);
+    padding: 10px 16px; cursor: pointer; box-shadow: var(--clay-sm);
+    display: inline-flex; align-items: center; gap: 8px; transition: box-shadow .14s;
+  }
+  .filter-toggle:active { box-shadow: var(--clay-inset-sm); }
+  .filter-toggle .caret { width: 8px; height: 8px; border-right: 2.2px solid var(--ink-2); border-bottom: 2.2px solid var(--ink-2); transform: rotate(45deg) translate(-1px,-1px); transition: transform .2s; }
+  .filter-toggle.open .caret { transform: rotate(-135deg) translate(-1px,-1px); }
+
+  .filter-panel {
+    margin-top: 2px; display: none; flex-direction: column; gap: 3px; padding: 9px;
+    background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--clay);
+    min-width: 150px;
+  }
+  .filter-panel.open { display: flex; }
+  .check-row { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink); transition: background .12s; }
+  .check-row:active { background: var(--bg-deep); }
+  .cbox { width: 19px; height: 19px; border-radius: 7px; flex-shrink: 0; background: var(--bg-deep); box-shadow: var(--clay-inset-sm); position: relative; transition: all .15s; }
+  .check-row.on .cbox { background: linear-gradient(145deg,#bbe8d0,#93d2af); box-shadow: inset 1px 1px 3px rgba(225,247,234,.7), inset -2px -2px 4px rgba(80,150,115,.4); }
+  .check-row.on .cbox::after { content:""; position:absolute; left:6px; top:3px; width:5px; height:9px; border-right:2.4px solid var(--mint-deep); border-bottom:2.4px solid var(--mint-deep); transform: rotate(42deg); }
+  .swatch { width: 13px; height: 13px; border-radius: 50%; box-shadow: inset -1px -1px 2px rgba(0,0,0,.18), inset 1px 1px 2px rgba(255,255,255,.6); margin-left: auto; }
+
+  /* 우상단: 유저바 */
+  .user-bar-clay {
+    top: 58px; right: 16px; display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border-radius: var(--radius-pill); padding: 8px 8px 8px 16px;
+    box-shadow: var(--clay-sm); font-size: 12.5px; font-weight: 700; color: var(--ink);
+  }
+  .user-bar-clay .uname { color: var(--ink); }
+  .user-bar-clay .udot { width: 4px; height: 4px; border-radius: 50%; background: var(--ink-3); }
+  .ubtn { font-family: var(--font); font-weight: 700; font-size: 12px; color: var(--mint-strong);
+    background: var(--surface); border: none; border-radius: var(--radius-pill); padding: 7px 12px;
+    cursor: pointer; box-shadow: var(--clay-sm); transition: box-shadow .14s; white-space: nowrap; }
+  .ubtn:active { box-shadow: var(--clay-inset-sm); }
+  .ubtn.logout { color: var(--rose); }
+
+  /* 상단 중앙 토글들 (admin 시각) — 본 데모는 표시 */
+  /* admin 전용 시각/모드 토글 — 우측 정렬 (유저바 아래), 좌측 필터와 분리 */
+  .top-toggles { top: 104px; right: 16px; display: flex; flex-direction: column; gap: 9px; align-items: flex-end; z-index: 18; }
+
+  /* 우하단: 위치 버튼 + 줌 */
+  .map-controls { bottom: 28px; right: 16px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .round-btn {
+    width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
+    background: var(--surface); box-shadow: var(--clay-sm); transition: box-shadow .14s, transform .1s;
+    display: flex; align-items: center; justify-content: center; position: relative;
+  }
+  .round-btn:active { box-shadow: var(--clay-inset-sm); transform: scale(.96); }
+  .round-btn.active { background: linear-gradient(145deg,#bbe8d0,#93d2af); box-shadow: var(--clay-mint); }
+  /* 위치(◎) 대체: 동심 타깃 도형 */
+  .loc-ico { width: 22px; height: 22px; position: relative; }
+  .loc-ico::before, .loc-ico::after { content:""; position:absolute; border-radius:50%; left:50%; top:50%; transform:translate(-50%,-50%); }
+  .loc-ico::before { width: 20px; height: 20px; border: 2.4px solid var(--mint-strong); }
+  .loc-ico::after  { width: 7px; height: 7px; background: var(--mint-strong); }
+  .round-btn.active .loc-ico::before { border-color: var(--mint-deep); }
+  .round-btn.active .loc-ico::after { background: var(--mint-deep); }
+  /* 줌 스택 */
+  .zoom-stack { display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; box-shadow: var(--clay-sm); background: var(--surface); }
+  .zoom-stack button { width: 48px; height: 46px; border: none; background: transparent; cursor: pointer; position: relative; color: var(--ink); }
+  .zoom-stack button:active { background: var(--bg-deep); }
+  .zoom-stack button + button { border-top: 1.5px solid rgba(170,162,148,.28); }
+  .zoom-stack .zline { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 16px; height: 2.6px; border-radius: 2px; background: var(--ink-2); }
+  .zoom-stack .zline.v { width: 2.6px; height: 16px; }
+
+  /* ---- 클레이 마커 ---- */
+  .marker { position: absolute; transform: translate(-50%,-100%); cursor: pointer; z-index: 10; transition: transform .12s; padding-bottom: 12px; }
+  .marker:active { transform: translate(-50%,-100%) scale(1.12); }
+  .marker .pin {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; position: relative;
+    box-shadow: 3px 4px 8px rgba(120,115,100,.4), -2px -2px 5px rgba(255,255,255,.55),
+      inset 2px 2px 3px rgba(255,255,255,.5), inset -3px -3px 5px rgba(0,0,0,.12);
+  }
+  /* 하단 포인터 — 마크가 아래를 향함 */
+  .marker .pin::after {
+    content: ""; position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%);
+    width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent;
+    border-top: 11px solid var(--pin); filter: drop-shadow(1px 2px 1.5px rgba(120,115,100,.32));
+  }
+  .marker .pin b { font-size: 13px; font-weight: 800; line-height: 1; }
+  .marker.green  { --pin:#54b485; } .marker.green  .pin { background: linear-gradient(145deg,#7fd3a6,#4faf7e); color: #1c4733; }
+  .marker.gray   { --pin:#9b9588; } .marker.gray   .pin { background: linear-gradient(145deg,#bcb6aa,#938d80); color: #fff; }
+  .marker.blue   { --pin:#5f95cf; } .marker.blue   .pin { background: linear-gradient(145deg,#8fbce6,#5b93cf); color: #fff; }
+  .marker.red    { --pin:#d97373; } .marker.red    .pin { background: linear-gradient(145deg,#ec9f9f,#d56e6e); color: #fff; }
+  .marker.amber  { --pin:#dcb457; } .marker.amber  .pin { background: linear-gradient(145deg,#eccf8c,#dcb152); color: #5a4413; }
+  .marker .frac { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 9.5px; font-weight: 800; color: var(--ink); white-space: nowrap; text-shadow: 0 0 3px #f6f4ef,0 0 3px #f6f4ef,0 0 3px #f6f4ef; }
+
+  /* 현재위치 점 */
+  .me-dot { position: absolute; transform: translate(-50%,-50%); z-index: 9; }
+  .me-dot i { display: block; width: 16px; height: 16px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 5px rgba(106,166,221,.28), 1px 2px 4px rgba(0,0,0,.25); animation: mePulse 1.6s infinite; }
+  @keyframes mePulse { 0%,100%{box-shadow:0 0 0 5px rgba(106,166,221,.28),1px 2px 4px rgba(0,0,0,.25)} 50%{box-shadow:0 0 0 11px rgba(106,166,221,.08),1px 2px 4px rgba(0,0,0,.25)} }
+
+  /* 토스트 */
+  .toast-clay { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(8px); z-index: 40;
+    background: var(--surface); color: var(--ink); padding: 11px 20px; border-radius: 999px;
+    font-size: 13px; font-weight: 700; box-shadow: var(--clay-sm); opacity: 0; pointer-events: none; transition: all .25s; }
+  .toast-clay.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* ---- OS 다크 자동 추종 (셸) ---- */
+  @media (prefers-color-scheme: dark){
+    body{ background: radial-gradient(120% 90% at 50% 0%, #2a2723 0%, #1a1815 55%, #100f0d 100%); }
+    .phone{ background: linear-gradient(155deg,#35312b,#1d1a16); box-shadow: 18px 22px 50px rgba(0,0,0,.62), -10px -10px 30px rgba(255,255,255,.03), inset 2px 2px 4px rgba(255,255,255,.05), inset -3px -3px 8px rgba(0,0,0,.55); }
+    #map{ filter: brightness(.32) saturate(.7) contrast(1.05); }
+    .me-dot i{ border-color:#26231f; }
+  }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="statusbar">
+        <span>9:41</span>
+        <span class="sb-right">
+          <span class="sb-bars"><i></i><i></i><i></i><i></i></span>
+          <span class="sb-batt"><b></b></span>
+        </span>
+      </div>
+
+      <div class="map-wrap">
+        <!-- 스타일라이즈 지도 (종로 거리 느낌) -->
+        <svg id="map" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="blocktex" width="3" height="3" patternUnits="userSpaceOnUse">
+              <rect width="3" height="3" fill="#e4ecdf"/>
+              <circle cx="1" cy="1" r="0.4" fill="#dbe5d3"/>
+            </pattern>
+          </defs>
+          <rect width="390" height="844" fill="#e4ecdf"/>
+          <!-- 도시 블록 -->
+          <g fill="#eef3ea" stroke="#d9e2d1" stroke-width="1">
+            <rect x="18" y="150" width="120" height="100" rx="8"/>
+            <rect x="152" y="150" width="95" height="100" rx="8"/>
+            <rect x="262" y="150" width="110" height="70" rx="8"/>
+            <rect x="18" y="266" width="80" height="120" rx="8"/>
+            <rect x="112" y="266" width="135" height="120" rx="8"/>
+            <rect x="262" y="236" width="110" height="150" rx="8"/>
+            <rect x="18" y="402" width="150" height="110" rx="8"/>
+            <rect x="182" y="402" width="190" height="110" rx="8"/>
+            <rect x="18" y="528" width="110" height="150" rx="8"/>
+            <rect x="142" y="528" width="105" height="150" rx="8"/>
+            <rect x="262" y="528" width="110" height="150" rx="8"/>
+            <rect x="18" y="694" width="160" height="120" rx="8"/>
+            <rect x="192" y="694" width="180" height="120" rx="8"/>
+          </g>
+          <!-- 큰 도로 (종로/세종대로 느낌) -->
+          <g stroke="#f6f4ef" stroke-linecap="round" fill="none">
+            <line x1="0" y1="258" x2="390" y2="258" stroke-width="14"/>
+            <line x1="0" y1="394" x2="390" y2="394" stroke-width="18"/>
+            <line x1="0" y1="520" x2="390" y2="520" stroke-width="12"/>
+            <line x1="0" y1="686" x2="390" y2="686" stroke-width="12"/>
+            <line x1="174" y1="100" x2="174" y2="844" stroke-width="16"/>
+            <line x1="255" y1="100" x2="255" y2="844" stroke-width="10"/>
+            <line x1="105" y1="100" x2="105" y2="844" stroke-width="8"/>
+          </g>
+          <!-- 도로 중앙선 -->
+          <g stroke="#cdd8c6" stroke-width="1.2" stroke-dasharray="6 7" fill="none">
+            <line x1="0" y1="394" x2="390" y2="394"/>
+            <line x1="174" y1="100" x2="174" y2="844"/>
+          </g>
+          <!-- 하천/공원 그린 (청계천 느낌) -->
+          <path d="M0 600 Q 100 590 180 612 T 390 600" stroke="#bfe3cf" stroke-width="9" fill="none" stroke-linecap="round" opacity="0.8"/>
+        </svg>
+
+        <!-- 현재위치 -->
+        <div class="me-dot" style="left:50%;top:54%"><i></i></div>
+
+        <!-- 마커들 -->
+        <div class="marker green" style="left:24%;top:31%"><span class="frac">D17</span><span class="pin"><b>3</b></span></div>
+        <div class="marker green" style="left:62%;top:27%"><span class="frac">D17</span><span class="pin"><b>5</b></span></div>
+        <div class="marker amber" style="left:42%;top:40%"><span class="frac">D08</span><span class="pin"><b>2</b></span></div>
+        <div class="marker gray"  style="left:78%;top:37%"><span class="pin"><b>1</b></span></div>
+        <div class="marker green" style="left:33%;top:50%"><span class="frac">D24</span><span class="pin"><b>8</b></span></div>
+        <div class="marker red"   style="left:68%;top:55%"><span class="pin"><b>1</b></span></div>
+        <div class="marker blue"  style="left:20%;top:64%"><span class="pin"><b>4</b></span></div>
+        <div class="marker green" style="left:55%;top:70%"><span class="frac">D17</span><span class="pin"><b>6</b></span></div>
+        <div class="marker amber" style="left:80%;top:74%"><span class="frac">D08</span><span class="pin"><b>2</b></span></div>
+        <div class="marker gray"  style="left:40%;top:82%"><span class="pin"><b>1</b></span></div>
+
+        <!-- 좌상단 필터 -->
+        <div class="chrome filters">
+          <div style="position:relative;">
+            <button class="filter-toggle" id="dong-toggle"><span>동그룹</span><span class="caret"></span></button>
+            <div class="filter-panel" id="dong-panel">
+              <div class="check-row on" data-f><span class="cbox"></span><span>청운효자동</span><span class="swatch" style="background:#f5cbb1"></span></div>
+              <div class="check-row on" data-f><span class="cbox"></span><span>사직동</span><span class="swatch" style="background:#b5dfc7"></span></div>
+              <div class="check-row on" data-f><span class="cbox"></span><span>삼청동</span><span class="swatch" style="background:#d0c0dc"></span></div>
+              <div class="check-row" data-f><span class="cbox"></span><span>가회동</span><span class="swatch" style="background:#d9b8c5"></span></div>
+              <div class="check-row on" data-f><span class="cbox"></span><span>종로1·2가동</span><span class="swatch" style="background:#bfd5a8"></span></div>
+            </div>
+          </div>
+          <div style="position:relative;">
+            <button class="filter-toggle" id="check-toggle"><span>검침일</span><span class="caret"></span></button>
+            <div class="filter-panel" id="check-panel">
+              <div class="check-row on" data-f><span class="cbox"></span><span>1주차 (D08)</span></div>
+              <div class="check-row on" data-f><span class="cbox"></span><span>2주차 (D17)</span></div>
+              <div class="check-row" data-f><span class="cbox"></span><span>3주차 (D24)</span></div>
+              <div class="check-row on" data-f><span class="cbox"></span><span>4주차 (D01)</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 우상단 유저바 -->
+        <div class="chrome user-bar-clay">
+          <span class="uname">김작업</span>
+          <span class="udot"></span>
+          <button class="ubtn" id="search-btn">검색</button>
+          <button class="ubtn logout">로그아웃</button>
+        </div>
+
+        <!-- 상단 토글 (admin 시각) -->
+        <div class="chrome top-toggles">
+          <div class="cseg" id="view-seg">
+            <button class="active">계기팀 시각</button>
+            <button>통신팀 시각</button>
+          </div>
+          <div class="cseg" id="mode-seg">
+            <button class="active">검침일</button>
+            <button>우선순위</button>
+            <button>둘다</button>
+          </div>
+        </div>
+
+        <!-- 우하단 컨트롤 -->
+        <div class="chrome map-controls">
+          <div class="zoom-stack">
+            <button id="zoom-in"><span class="zline"></span><span class="zline v"></span></button>
+            <button id="zoom-out"><span class="zline"></span></button>
+          </div>
+          <button class="round-btn" id="loc-btn"><span class="loc-ico"></span></button>
+        </div>
+
+        <div class="toast-clay" id="toast">내 위치로 이동했습니다</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function bindPanel(toggleId, panelId){
+      var t = document.getElementById(toggleId), p = document.getElementById(panelId);
+      t.addEventListener('click', function(e){
+        e.stopPropagation();
+        var open = p.classList.toggle('open'); t.classList.toggle('open', open);
+        // 다른 패널 닫기
+        document.querySelectorAll('.filter-panel.open').forEach(function(o){ if(o!==p){o.classList.remove('open'); o.previousElementSibling.classList.remove('open');} });
+      });
+    }
+    bindPanel('dong-toggle','dong-panel');
+    bindPanel('check-toggle','check-panel');
+    document.addEventListener('click', function(){
+      document.querySelectorAll('.filter-panel.open').forEach(function(o){ o.classList.remove('open'); o.previousElementSibling.classList.remove('open'); });
+    });
+
+    // 체크박스 토글
+    document.querySelectorAll('.check-row[data-f]').forEach(function(r){
+      r.addEventListener('click', function(e){ e.stopPropagation(); r.classList.toggle('on'); });
+    });
+
+    // 세그먼트 토글
+    document.querySelectorAll('.cseg').forEach(function(seg){
+      seg.querySelectorAll('button').forEach(function(b){
+        b.addEventListener('click', function(){ seg.querySelectorAll('button').forEach(function(x){x.classList.remove('active');}); b.classList.add('active'); });
+      });
+    });
+
+    // 위치 버튼 + 토스트
+    var toast = document.getElementById('toast');
+    document.getElementById('loc-btn').addEventListener('click', function(){
+      this.classList.toggle('active');
+      toast.classList.add('show'); setTimeout(function(){ toast.classList.remove('show'); }, 1600);
+    });
+
+    // 마커 탭 토스트
+    document.querySelectorAll('.marker').forEach(function(m){
+      m.addEventListener('click', function(){
+        toast.textContent = '상세 정보를 불러옵니다…';
+        toast.classList.add('show'); setTimeout(function(){ toast.classList.remove('show'); toast.textContent='내 위치로 이동했습니다'; }, 1400);
+      });
+    });
+  </script>
+</body>
+</html>

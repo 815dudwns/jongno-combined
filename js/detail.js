@@ -544,8 +544,8 @@ function renderMetersList() {
                 if (cp.length) extraParts.push(`검침원(${cp.join(', ')})`);
             }
         }
-        // 인입주 — 계기팀은 숨김, 통신팀·admin은 표시
-        if (_role !== 'meter') {
+        // 인입주 — 전 role 표시 (계기팀 포함, 영준님 지시 2026-06-30)
+        {
             const ip = [meter.인입주번호, meter.인입주전산화].filter(Boolean);
             if (ip.length) extraParts.push(`인입주(${ip.join(', ')})`);
         }
@@ -567,10 +567,8 @@ function renderMetersList() {
         if (_role !== 'comm') {
             if (meter.계약종별) extraParts.push(`계약(${meter.계약종별})`);
         }
-        // 인입선상태 — 통신팀·admin에게 표시 (계기팀 불필요)
-        if (_role !== 'meter') {
-            if (meter.인입선상태) extraParts.push(`인입선(${meter.인입선상태})`);
-        }
+        // 인입선상태 — 전 role 표시 (계기팀 포함, 영준님 지시 2026-06-30)
+        if (meter.인입선상태) extraParts.push(`인입선(${meter.인입선상태})`);
         const meterMetaHtml = extraParts.length
             ? `<div class="meter-meta">${extraParts.join(' · ')}</div>`
             : '';

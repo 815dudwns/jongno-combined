@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주소 상세 · 종로 합동시공 (클레이)</title>
+<link rel="stylesheet" href="clay.css">
+<style>
+  html, body { height: 100%; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100dvh; padding: 24px;
+    background: radial-gradient(120% 90% at 50% 0%, #f0ede6 0%, var(--bg) 55%, #e2ddd4 100%);
+  }
+  .phone {
+    width: 390px; max-width: 100%; height: 844px; max-height: calc(100dvh - 48px);
+    border-radius: 54px; padding: 13px;
+    background: linear-gradient(155deg, #f4f1ea, #dcd7cd);
+    box-shadow: 18px 22px 50px rgba(150,142,128,0.55), -14px -14px 40px rgba(255,255,255,0.9),
+      inset 2px 2px 4px rgba(255,255,255,0.7), inset -3px -3px 8px rgba(160,152,138,0.4);
+  }
+  .phone-screen {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 42px; overflow: hidden; background: var(--bg);
+    box-shadow: var(--clay-inset); display: flex; flex-direction: column;
+  }
+  .statusbar {
+    height: 50px; flex-shrink: 0; display: flex; align-items: center; z-index: 30;
+    justify-content: space-between; padding: 0 30px 0 34px;
+    font-size: 15px; font-weight: 700; color: var(--ink); background: var(--bg);
+  }
+  .statusbar .sb-right { display: flex; align-items: center; gap: 7px; }
+  .sb-bars { display: flex; align-items: flex-end; gap: 2px; height: 11px; }
+  .sb-bars i { width: 3px; border-radius: 1px; background: var(--ink); }
+  .sb-bars i:nth-child(1){height:4px} .sb-bars i:nth-child(2){height:6px}
+  .sb-bars i:nth-child(3){height:8px} .sb-bars i:nth-child(4){height:11px}
+  .sb-batt { width: 24px; height: 12px; border-radius: 3px; border: 1.6px solid var(--ink); position: relative; padding: 1.5px; }
+  .sb-batt::after { content:""; position:absolute; right:-3px; top:3.5px; width:2px; height:4px; background: var(--ink); border-radius: 0 1px 1px 0; }
+  .sb-batt b { display:block; width:72%; height:100%; background: var(--mint-ink); border-radius:1px; }
+
+  /* ---- 스크롤 본문 ---- */
+  .sheet { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+
+  /* 헤더 — 주소 */
+  .ov-header {
+    position: sticky; top: 0; z-index: 12; background: var(--bg);
+    padding: 6px 18px 16px; display: flex; gap: 12px; align-items: flex-start;
+  }
+  /* 상태 색상 바 */
+  .status-strip { position: sticky; top: 0; z-index: 13; height: 5px; flex-shrink: 0;
+    background: linear-gradient(90deg, #93d2af, #5bb98c); }
+  .ov-addr { flex: 1; min-width: 0; }
+  .ov-addr h3 { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); line-height: 1.3; }
+  .ov-addr p { margin-top: 5px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); line-height: 1.4; word-break: keep-all; }
+  .ov-worker { margin-top: 8px; font-size: 11.5px; font-weight: 600; color: var(--mint-strong);
+    display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px;
+    background: var(--mint-soft); box-shadow: var(--clay-sm); }
+  .close-x {
+    width: 38px; height: 38px; flex-shrink: 0; border: none; cursor: pointer; border-radius: 50%;
+    background: var(--surface); box-shadow: var(--clay-sm); position: relative; transition: box-shadow .14s;
+  }
+  .close-x:active { box-shadow: var(--clay-inset-sm); }
+  .close-x::before, .close-x::after { content:""; position:absolute; left:50%; top:50%; width:15px; height:2.4px;
+    border-radius:2px; background: var(--ink-2); }
+  .close-x::before { transform: translate(-50%,-50%) rotate(45deg); }
+  .close-x::after  { transform: translate(-50%,-50%) rotate(-45deg); }
+
+  /* 지도앱 버튼 */
+  .map-apps { display: flex; gap: 8px; padding: 0 18px 14px; }
+  .map-app {
+    flex: 1; font-family: var(--font); font-weight: 700; font-size: 13px; color: var(--ink);
+    background: var(--surface); border: none; border-radius: 14px; padding: 11px 6px; cursor: pointer;
+    box-shadow: var(--clay-sm); transition: box-shadow .14s; display: flex; align-items: center;
+    justify-content: center; gap: 7px;
+  }
+  .map-app:active { box-shadow: var(--clay-inset-sm); }
+  .map-app .nav-ico { width: 13px; height: 13px; border-radius: 3px; box-shadow: inset -1px -1px 2px rgba(0,0,0,.15); }
+  .map-app.tmap .nav-ico { background: #ec1c63; }
+  .map-app.naver .nav-ico { background: #2db400; }
+  .map-app.kakao .nav-ico { background: #ffcd00; }
+
+  /* 액션 영역 */
+  .ov-actions { padding: 0 18px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .act-row { display: flex; gap: 8px; }
+  .act-btn {
+    flex: 1; font-family: var(--font); font-weight: 700; font-size: 14px; cursor: pointer;
+    border: none; border-radius: 16px; padding: 13px 8px; background: var(--surface);
+    box-shadow: var(--clay-sm); transition: all .14s; color: var(--ink-2);
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .act-btn:active { box-shadow: var(--clay-inset-sm); }
+  .act-btn .tag { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset -1px -1px 2px rgba(0,0,0,.18), inset 1px 1px 1px rgba(255,255,255,.5); }
+  .act-btn.complete .tag { background: var(--green); }
+  .act-btn.hold .tag { background: var(--blue); }
+  .act-btn.fail .tag { background: var(--rose); }
+  .act-btn.complete.active { color: #1c4733; background: linear-gradient(145deg,#9ee0bd,#5fbb8c); box-shadow: var(--clay-mint); }
+  .act-btn.hold.active { color: #fff; background: linear-gradient(145deg,#86bbe8,#5b93cf); box-shadow: 5px 6px 14px rgba(80,120,160,.4), inset 2px 2px 5px rgba(220,238,255,.7), inset -4px -4px 9px rgba(70,110,150,.4); }
+  .act-btn.fail.active { color: #fff; background: linear-gradient(145deg,#ed9d9d,#d56e6e); box-shadow: 5px 6px 14px rgba(170,90,90,.4), inset 2px 2px 5px rgba(255,225,225,.7), inset -4px -4px 9px rgba(160,70,70,.4); }
+  .act-btn.active .tag { box-shadow: inset 0 0 0 2px rgba(255,255,255,.6); background: #fff; }
+
+  /* 계기 검색 */
+  .search-row { display: flex; gap: 8px; }
+  .search-row .cinput { padding: 12px 16px; font-size: 14px; border-radius: 14px; }
+  .search-reset { width: 46px; flex-shrink: 0; border: none; cursor: pointer; border-radius: 14px;
+    background: var(--surface); box-shadow: var(--clay-sm); position: relative; }
+  .search-reset:active { box-shadow: var(--clay-inset-sm); }
+  .search-reset::before, .search-reset::after { content:""; position:absolute; left:50%; top:50%; width:13px; height:2.2px; border-radius:2px; background: var(--ink-3); }
+  .search-reset::before { transform: translate(-50%,-50%) rotate(45deg); }
+  .search-reset::after { transform: translate(-50%,-50%) rotate(-45deg); }
+
+  /* 공통주 정보 */
+  .common-pole { margin: 0 18px 12px; padding: 11px 15px; border-radius: 14px;
+    background: var(--blue-soft); color: #2f6cad; font-size: 12.5px; font-weight: 700; box-shadow: var(--clay-sm); }
+
+  /* 정렬 바 */
+  .sort-bar { display: flex; gap: 8px; padding: 0 18px 12px; }
+  .sort-btn { font-family: var(--font); font-weight: 700; font-size: 12px; color: var(--ink-2);
+    background: var(--surface); border: none; border-radius: 999px; padding: 8px 15px; cursor: pointer;
+    box-shadow: var(--clay-sm); transition: all .14s; }
+  .sort-btn:active { box-shadow: var(--clay-inset-sm); }
+  .sort-btn.active { color: var(--mint-deep); background: linear-gradient(145deg,#bbe8d0,#93d2af); box-shadow: var(--clay-mint); }
+
+  /* 계기 리스트 */
+  .meters { padding: 4px 18px 28px; display: flex; flex-direction: column; gap: 11px; }
+  .meter {
+    background: var(--surface); border-radius: 18px; padding: 14px 15px; box-shadow: var(--clay-sm);
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .m-check {
+    width: 22px; height: 22px; flex-shrink: 0; margin-top: 2px; border-radius: 7px; cursor: pointer;
+    background: var(--bg-deep); box-shadow: var(--clay-inset-sm); position: relative; transition: all .15s;
+  }
+  .meter.checked .m-check { background: linear-gradient(145deg,#9ee0bd,#5fbb8c); box-shadow: inset 1px 1px 3px rgba(225,247,234,.7), inset -2px -2px 4px rgba(80,150,115,.4); }
+  .meter.checked .m-check::after { content:""; position:absolute; left:7px; top:3.5px; width:6px; height:10px; border-right:2.6px solid var(--mint-deep); border-bottom:2.6px solid var(--mint-deep); transform: rotate(42deg); }
+  .m-body { flex: 1; min-width: 0; }
+  .m-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .m-type { font-size: 11px; font-weight: 800; color: #fff; padding: 4px 9px; border-radius: 8px;
+    background: linear-gradient(145deg,#86bbe8,#5b93cf); box-shadow: var(--clay-sm);
+    white-space: nowrap; flex-shrink: 0; }
+  .m-no { font-size: 15px; font-weight: 800; letter-spacing: .01em; }
+  .m-no .seg-maker { color: var(--ink); }
+  .m-no .seg-type { color: #4a86b8; }
+  .m-no .seg-mid { color: var(--ink); }
+  .m-no .seg-dup { color: #d05a52; }
+  .copy-btn { width: 24px; height: 24px; border: none; cursor: pointer; border-radius: 7px; background: var(--surface);
+    box-shadow: var(--clay-sm); position: relative; flex-shrink: 0; }
+  .copy-btn:active { box-shadow: var(--clay-inset-sm); }
+  .copy-btn::before { content:""; position:absolute; left:7px; top:6px; width:8px; height:10px; border-radius:2px; border:2px solid var(--ink-3); }
+  .copy-btn::after { content:""; position:absolute; left:10px; top:9px; width:8px; height:10px; border-radius:2px; border:2px solid var(--ink-3); background: var(--surface); }
+  .m-detail { margin-top: 7px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); line-height: 1.55; }
+  .m-meta { margin-top: 4px; font-size: 11px; color: var(--ink-3); line-height: 1.4; }
+  .m-fail-btn { font-size: 11px; font-weight: 700; color: var(--rose); background: var(--rose-soft);
+    border: none; border-radius: 7px; padding: 4px 9px; cursor: pointer; box-shadow: var(--clay-sm); margin-left: auto; }
+  .m-fail-btn:active { box-shadow: var(--clay-inset-sm); }
+
+  /* 상태별 계기 카드 */
+  .meter.replaced { background: linear-gradient(145deg,#dcf0fb,#cfe7f6); }
+  .meter.replaced .m-type { background: linear-gradient(145deg,#7fc4ec,#54a0d8); }
+  .meter.draft { background: linear-gradient(145deg,#fdf4dc,#f7e9c2); box-shadow: var(--clay-sm), inset 0 0 0 2px rgba(224,168,90,.45); }
+  .meter.failed { background: linear-gradient(145deg,#fae0e0,#f3d0d0); opacity: .92; }
+  .meter.failed .m-no { text-decoration: line-through; color: var(--ink-3); }
+  .meter.failed .m-no span { color: var(--ink-3) !important; }
+  .m-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800;
+    padding: 4px 10px; border-radius: 999px; margin-top: 9px; box-shadow: var(--clay-sm); }
+  .m-status.s-done { background: #cfeaf0; color: #2f7d92; }
+  .m-status.s-draft { background: #f6e4bf; color: #9a7220; }
+  .m-status.s-fail { background: #f6d2d2; color: #b13c3c; }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="statusbar">
+        <span>9:41</span>
+        <span class="sb-right">
+          <span class="sb-bars"><i></i><i></i><i></i><i></i></span>
+          <span class="sb-batt"><b></b></span>
+        </span>
+      </div>
+
+      <div class="sheet">
+        <div class="status-strip"></div>
+
+        <!-- 헤더 -->
+        <div class="ov-header">
+          <div class="ov-addr">
+            <h3>종로구 자하문로 31</h3>
+            <p>서울특별시 종로구 청운효자동 청운동 5-12</p>
+            <span class="ov-worker"><span class="cdot mint"></span>김작업 · 2026.06.05 완료</span>
+          </div>
+          <button class="close-x" aria-label="닫기"></button>
+        </div>
+
+        <!-- 지도앱 -->
+        <div class="map-apps">
+          <button class="map-app tmap"><span class="nav-ico"></span>티맵</button>
+          <button class="map-app naver"><span class="nav-ico"></span>네이버</button>
+          <button class="map-app kakao"><span class="nav-ico"></span>카카오</button>
+        </div>
+
+        <!-- 액션 -->
+        <div class="ov-actions">
+          <div class="act-row">
+            <button class="act-btn complete active"><span class="tag"></span>완료</button>
+            <button class="act-btn hold"><span class="tag"></span>보류</button>
+            <button class="act-btn fail"><span class="tag"></span>불가</button>
+          </div>
+          <div class="search-row">
+            <input class="cinput" inputmode="numeric" placeholder="계기 검색 (숫자 2자리 이상)">
+            <button class="search-reset" aria-label="검색 초기화"></button>
+          </div>
+        </div>
+
+        <!-- 공통주 -->
+        <div class="common-pole">공통주 · 인접 3개소 함께 작업</div>
+
+        <!-- 정렬 -->
+        <div class="sort-bar">
+          <button class="sort-btn active">중복 정렬</button>
+          <button class="sort-btn">제조사 정렬</button>
+        </div>
+
+        <!-- 계기 리스트 -->
+        <div class="meters">
+          <!-- 교체 완료 -->
+          <div class="meter replaced checked">
+            <span class="m-check"></span>
+            <div class="m-body">
+              <div class="m-top">
+                <span class="m-type">단상2선</span>
+                <span class="m-no"><span class="seg-maker">08</span><span class="seg-type">G</span><span class="seg-mid">1247</span><span class="seg-dup">5530</span></span>
+                <button class="copy-btn" aria-label="복사"></button>
+              </div>
+              <div class="m-detail">LS산전 · 전자식 · 제조 2018.04</div>
+              <div class="m-meta">교체 → 0815 G 4471 9920 · 주간 12,345 kWh</div>
+              <span class="m-status s-done"><span class="cdot blue"></span>교체 완료</span>
+            </div>
+          </div>
+
+          <!-- 미완료(체크) -->
+          <div class="meter">
+            <span class="m-check"></span>
+            <div class="m-body">
+              <div class="m-top">
+                <span class="m-type" style="background:linear-gradient(145deg,#c5a9e0,#a07fcc)">삼상4선</span>
+                <span class="m-no"><span class="seg-maker">12</span><span class="seg-type">L</span><span class="seg-mid">0084</span><span class="seg-mid">1102</span></span>
+                <button class="copy-btn" aria-label="복사"></button>
+                <button class="m-fail-btn">불가</button>
+              </div>
+              <div class="m-detail">위지트 · 전자식 · 제조 2016.11</div>
+              <div class="m-meta">CT 정격 200/5 · 최대전력 5 kW</div>
+            </div>
+          </div>
+
+          <!-- 임시 저장 -->
+          <div class="meter draft checked">
+            <span class="m-check"></span>
+            <div class="m-body">
+              <div class="m-top">
+                <span class="m-type">단상2선</span>
+                <span class="m-no"><span class="seg-maker">08</span><span class="seg-type">A</span><span class="seg-mid">3391</span><span class="seg-mid">2017</span></span>
+                <button class="copy-btn" aria-label="복사"></button>
+              </div>
+              <div class="m-detail">대한계량 · 기계식 · 제조 2009.07</div>
+              <div class="m-meta">새 계기번호 입력 대기 · 사진 1/2</div>
+              <span class="m-status s-draft"><span class="cdot amber"></span>임시 저장</span>
+            </div>
+          </div>
+
+          <!-- 불가 -->
+          <div class="meter failed">
+            <span class="m-check"></span>
+            <div class="m-body">
+              <div class="m-top">
+                <span class="m-type" style="background:linear-gradient(145deg,#bcb6aa,#938d80)">단상2선</span>
+                <span class="m-no"><span class="seg-maker">08</span><span class="seg-type">B</span><span class="seg-mid">7720</span><span class="seg-dup">5530</span></span>
+              </div>
+              <div class="m-detail">출입 불가 · 부재중</div>
+              <span class="m-status s-fail"><span class="cdot rose"></span>불가 · 부재중</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 완료/보류/불가 — 단일 선택
+    document.querySelectorAll('.act-row .act-btn').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.querySelectorAll('.act-row .act-btn').forEach(function(x){ x.classList.remove('active'); });
+        b.classList.add('active');
+      });
+    });
+    // 정렬 토글
+    document.querySelectorAll('.sort-btn').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.querySelectorAll('.sort-btn').forEach(function(x){ x.classList.remove('active'); });
+        b.classList.add('active');
+      });
+    });
+    // 계기 체크 토글
+    document.querySelectorAll('.meter .m-check').forEach(function(c){
+      c.addEventListener('click', function(){ c.closest('.meter').classList.toggle('checked'); });
+    });
+    // 개별 불가
+    document.querySelectorAll('.m-fail-btn').forEach(function(b){
+      b.addEventListener('click', function(e){ e.stopPropagation(); b.classList.toggle('active');
+        b.style.color = b.classList.contains('active') ? '#fff' : '';
+        b.style.background = b.classList.contains('active') ? 'linear-gradient(145deg,#ed9d9d,#d56e6e)' : '';
+      });
+    });
+  </script>
+</body>
+</html>

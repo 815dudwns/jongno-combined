@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>검색 · 종로 합동시공 (클레이)</title>
+<link rel="stylesheet" href="clay.css">
+<style>
+  html, body { height: 100%; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100dvh; padding: 24px;
+    background: radial-gradient(120% 90% at 50% 0%, #f0ede6 0%, var(--bg) 55%, #e2ddd4 100%);
+  }
+  .phone {
+    width: 390px; max-width: 100%; height: 844px; max-height: calc(100dvh - 48px);
+    border-radius: 54px; padding: 13px;
+    background: linear-gradient(155deg, #f4f1ea, #dcd7cd);
+    box-shadow: 18px 22px 50px rgba(150,142,128,0.55), -14px -14px 40px rgba(255,255,255,0.9),
+      inset 2px 2px 4px rgba(255,255,255,0.7), inset -3px -3px 8px rgba(160,152,138,0.4);
+  }
+  .phone-screen {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 42px; overflow: hidden; background: var(--bg);
+    box-shadow: var(--clay-inset); display: flex; flex-direction: column;
+  }
+  /* 지도 배경 살짝 (모달 뒤) */
+  .dim { position: absolute; inset: 0; background: rgba(60,70,55,0.3); z-index: 1; }
+
+  .statusbar {
+    height: 50px; flex-shrink: 0; display: flex; align-items: center; z-index: 30;
+    justify-content: space-between; padding: 0 30px 0 34px; position: relative;
+    font-size: 15px; font-weight: 700; color: var(--ink);
+  }
+  .statusbar .sb-right { display: flex; align-items: center; gap: 7px; }
+  .sb-bars { display: flex; align-items: flex-end; gap: 2px; height: 11px; }
+  .sb-bars i { width: 3px; border-radius: 1px; background: var(--ink); }
+  .sb-bars i:nth-child(1){height:4px} .sb-bars i:nth-child(2){height:6px}
+  .sb-bars i:nth-child(3){height:8px} .sb-bars i:nth-child(4){height:11px}
+  .sb-batt { width: 24px; height: 12px; border-radius: 3px; border: 1.6px solid var(--ink); position: relative; padding: 1.5px; }
+  .sb-batt::after { content:""; position:absolute; right:-3px; top:3.5px; width:2px; height:4px; background: var(--ink); border-radius: 0 1px 1px 0; }
+  .sb-batt b { display:block; width:72%; height:100%; background: var(--mint-ink); border-radius:1px; }
+
+  /* ---- 검색 모달 (상단 시트) ---- */
+  .search-modal {
+    position: absolute; left: 12px; right: 12px; top: 56px; z-index: 5;
+    display: flex; flex-direction: column; max-height: calc(100% - 80px);
+    background: var(--bg); border-radius: 28px; box-shadow: 0 16px 44px rgba(40,50,40,0.34);
+    overflow: hidden;
+  }
+  .sm-header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 18px 12px; }
+  .sm-header h3 { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+  .sm-close { width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 50%;
+    background: var(--surface); box-shadow: var(--clay-sm); position: relative; }
+  .sm-close:active { box-shadow: var(--clay-inset-sm); }
+  .sm-close::before, .sm-close::after { content:""; position:absolute; left:50%; top:50%; width:14px; height:2.4px; border-radius:2px; background: var(--ink-2); }
+  .sm-close::before { transform: translate(-50%,-50%) rotate(45deg); }
+  .sm-close::after { transform: translate(-50%,-50%) rotate(-45deg); }
+
+  /* 검색 입력 줄 */
+  .sm-input-row { flex-shrink: 0; display: flex; gap: 8px; padding: 0 18px 12px; }
+  .sm-search { flex: 1; min-width: 0; position: relative; }
+  .sm-search .cin {
+    font-family: var(--font); font-size: 15px; font-weight: 600; color: var(--ink); width: 100%;
+    padding: 14px 16px 14px 44px; border: none; border-radius: 999px;
+    background: var(--bg-deep); box-shadow: var(--clay-inset); outline: none; transition: box-shadow .16s;
+  }
+  .sm-search .cin::placeholder { color: var(--ink-3); font-weight: 500; }
+  .sm-search .cin:focus { box-shadow: var(--clay-inset), var(--focus-glow); }
+  /* 돋보기 도형 */
+  .mag { position: absolute; left: 17px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; pointer-events: none; }
+  .mag::before { content:""; position:absolute; left:0; top:0; width:12px; height:12px; border-radius:50%; border:2.4px solid var(--ink-3); }
+  .mag::after { content:""; position:absolute; right:0; bottom:0; width:6px; height:2.4px; border-radius:2px; background: var(--ink-3); transform: rotate(45deg); transform-origin: right bottom; }
+  .sm-go { flex-shrink: 0; border: none; cursor: pointer; border-radius: 999px; padding: 0 20px;
+    font-family: var(--font); font-size: 14px; font-weight: 800; color: var(--mint-deep);
+    background: linear-gradient(145deg,#bbe8d0,#93d2af); box-shadow: var(--clay-mint); }
+  .sm-go:active { box-shadow: var(--clay-inset-sm); }
+
+  /* 힌트 */
+  .sm-hint { flex-shrink: 0; padding: 0 22px 12px; font-size: 12.5px; font-weight: 700; color: var(--ink-3); }
+  .sm-hint b { color: var(--mint-strong); }
+
+  /* 결과 리스트 */
+  .sm-results { flex: 1; overflow-y: auto; padding: 2px 14px 16px; display: flex; flex-direction: column; gap: 9px; }
+  .sr-row {
+    display: flex; align-items: center; gap: 12px; padding: 13px 15px; cursor: pointer;
+    background: var(--surface); border-radius: 16px; box-shadow: var(--clay-sm); transition: box-shadow .12s, transform .1s;
+  }
+  .sr-row:active { box-shadow: var(--clay-inset-sm); transform: scale(0.99); }
+  /* 타입 아이콘 */
+  .sr-ico { width: 38px; height: 38px; flex-shrink: 0; border-radius: 12px; position: relative;
+    box-shadow: var(--clay-sm); }
+  .sr-ico.addr { background: linear-gradient(145deg,#bbe8d0,#93d2af); }
+  .sr-ico.meter { background: linear-gradient(145deg,#cfe2f5,#9fc3e8); }
+  /* 핀 도형 (주소) */
+  .sr-ico.addr::before { content:""; position:absolute; left:50%; top:44%; transform:translate(-50%,-50%);
+    width:13px; height:13px; border-radius:50% 50% 50% 0; background: var(--mint-deep); rotate: 45deg; }
+  .sr-ico.addr::after { content:""; position:absolute; left:50%; top:40%; transform:translate(-50%,-50%);
+    width:5px; height:5px; border-radius:50%; background: #cfeede; z-index:2; }
+  /* 계기 도형 (미터) */
+  .sr-ico.meter::before { content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:18px; height:14px; border-radius:3px; background:#2f5d8a; box-shadow: inset 0 -4px 0 -1px #4a86b8; }
+  .sr-ico.meter::after { content:""; position:absolute; left:50%; top:44%; transform:translate(-50%,-50%);
+    width:11px; height:4px; border-radius:1px; background:#bfe0a8; }
+
+  .sr-main { flex: 1; min-width: 0; }
+  .sr-primary { font-size: 15px; font-weight: 800; color: var(--ink); letter-spacing: -.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sr-primary mark, .sr-secondary mark { background: transparent; color: var(--mint-strong); font-weight: 800; }
+  .sr-primary .seg-dup { color: #d05a52; }
+  .sr-secondary { margin-top: 3px; font-size: 12px; font-weight: 600; color: var(--ink-2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sr-meta { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; flex-shrink: 0; }
+  .sr-cond { font-size: 10.5px; font-weight: 800; padding: 4px 10px; border-radius: 999px;
+    background: var(--mint-soft); color: var(--mint-strong); box-shadow: var(--clay-sm); white-space: nowrap; }
+  .sr-cond.wk { background: var(--violet-soft); color: #6a55a0; }
+
+  .search-empty { text-align: center; padding: 30px 16px; font-size: 13px; font-weight: 700; color: var(--ink-3); }
+
+  /* 최근 검색 (초기 상태) */
+  .recent { padding: 2px 18px 16px; }
+  .recent-title { font-size: 12px; font-weight: 800; color: var(--ink-3); margin-bottom: 10px; }
+  .recent-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .recent-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--ink-2);
+    background: var(--surface); border: none; cursor: pointer; border-radius: 999px; padding: 9px 14px; box-shadow: var(--clay-sm); }
+  .recent-chip:active { box-shadow: var(--clay-inset-sm); }
+  .recent-chip .rc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="dim"></div>
+
+      <div class="statusbar">
+        <span>9:41</span>
+        <span class="sb-right">
+          <span class="sb-bars"><i></i><i></i><i></i><i></i></span>
+          <span class="sb-batt"><b></b></span>
+        </span>
+      </div>
+
+      <div class="search-modal">
+        <div class="sm-header">
+          <h3>검색</h3>
+          <button class="sm-close" aria-label="닫기"></button>
+        </div>
+
+        <div class="sm-input-row">
+          <div class="sm-search">
+            <span class="mag"></span>
+            <input class="cin" id="search-input" placeholder="주소 또는 계기번호" autocomplete="off" value="자하문로">
+          </div>
+          <button class="sm-go" id="search-go">검색</button>
+        </div>
+
+        <div class="sm-hint" id="search-hint"><b>5</b>건 검색됨</div>
+
+        <!-- 결과 -->
+        <div class="sm-results" id="search-results">
+          <div class="sr-row">
+            <span class="sr-ico addr"></span>
+            <div class="sr-main">
+              <div class="sr-primary">종로구 <mark>자하문로</mark> 31</div>
+              <div class="sr-secondary">청운동 5-12 · 청운효자동</div>
+            </div>
+            <div class="sr-meta"><span class="sr-cond">청운효자동</span><span class="sr-cond wk">2주차</span></div>
+          </div>
+
+          <div class="sr-row">
+            <span class="sr-ico addr"></span>
+            <div class="sr-main">
+              <div class="sr-primary">종로구 <mark>자하문로</mark> 45-8</div>
+              <div class="sr-secondary">효자동 12-3 · 청운효자동</div>
+            </div>
+            <div class="sr-meta"><span class="sr-cond">청운효자동</span><span class="sr-cond wk">1주차</span></div>
+          </div>
+
+          <div class="sr-row">
+            <span class="sr-ico meter"></span>
+            <div class="sr-main">
+              <div class="sr-primary">08G 1247 <span class="seg-dup">5530</span></div>
+              <div class="sr-secondary"><mark>자하문로</mark> 31 · 단상2선</div>
+            </div>
+            <div class="sr-meta"><span class="sr-cond wk">2주차</span></div>
+          </div>
+
+          <div class="sr-row">
+            <span class="sr-ico addr"></span>
+            <div class="sr-main">
+              <div class="sr-primary">종로구 <mark>자하문로</mark> 52</div>
+              <div class="sr-secondary">신교동 1-7 · 청운효자동</div>
+            </div>
+            <div class="sr-meta"><span class="sr-cond">청운효자동</span><span class="sr-cond wk">4주차</span></div>
+          </div>
+
+          <div class="sr-row">
+            <span class="sr-ico meter"></span>
+            <div class="sr-main">
+              <div class="sr-primary">12L 0084 1102</div>
+              <div class="sr-secondary"><mark>자하문로</mark> 45-8 · 삼상4선</div>
+            </div>
+            <div class="sr-meta"><span class="sr-cond wk">1주차</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 검색 시연 (데모) — 실제는 sampleData 매칭
+    var input = document.getElementById('search-input');
+    var hint = document.getElementById('search-hint');
+    var results = document.getElementById('search-results');
+    var allRows = Array.prototype.slice.call(results.children);
+
+    function doSearch(){
+      var q = input.value.trim();
+      if(q.length < 4){
+        hint.innerHTML = '4자 이상 입력하세요';
+        return;
+      }
+      var n = 0;
+      allRows.forEach(function(row){
+        var hit = row.textContent.indexOf(q) > -1 || true; // 데모: 전부 표시
+        row.style.display = hit ? '' : 'none';
+        if(hit) n++;
+      });
+      hint.innerHTML = '<b>' + n + '</b>건 검색됨';
+    }
+    document.getElementById('search-go').addEventListener('click', doSearch);
+    input.addEventListener('keydown', function(e){ if(e.key === 'Enter') doSearch(); });
+
+    // 결과 행 탭 (데모)
+    results.addEventListener('click', function(e){
+      var row = e.target.closest('.sr-row');
+      if(!row) return;
+      row.style.boxShadow = 'var(--clay-inset-sm)';
+      setTimeout(function(){ row.style.boxShadow = ''; }, 200);
+    });
+  </script>
+</body>
+</html>

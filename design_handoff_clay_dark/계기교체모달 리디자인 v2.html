@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>계기 교체 모달 v2 — 2단 분리</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+<link rel="stylesheet" href="css/replacement-modal-v2.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: "Pretendard Variable", Pretendard, system-ui, sans-serif;
+    background:
+      repeating-linear-gradient(0deg, rgba(148,163,184,0.18) 0 1px, transparent 1px 42px),
+      repeating-linear-gradient(90deg, rgba(148,163,184,0.18) 0 1px, transparent 1px 42px),
+      #eef2f6;
+  }
+  .pin { position: fixed; width: 18px; height: 18px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.25); z-index: 1; }
+
+  .mode-seg {
+    position: fixed; top: 14px; left: 14px;
+    display: inline-flex; gap: 4px; padding: 4px; z-index: 4000;
+    background: rgba(15,23,42,0.92); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .mode-seg button { appearance: none; border: none; background: transparent; color: #cbd5e1; font-family: inherit; font-size: 13px; font-weight: 700; padding: 8px 15px; border-radius: 9px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .mode-seg button.active { background: #059669; color: #fff; }
+
+  /* 캡처 호환: 애니메이션·backdrop-filter 끄고 폰 폭으로 바텀시트 고정 */
+  .rpl-card { animation: none !important; max-height: 90vh !important; }
+  .rpl-modal { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; align-items: flex-end !important; }
+</style>
+</head>
+<body>
+  <div class="mode-seg" id="mode-seg">
+    <button data-mode="add">계기 추가</button>
+    <button data-mode="replace" class="active">계기 교체</button>
+    <button data-mode="edit">교체 수정</button>
+  </div>
+  <div class="pin" style="top:24%;left:22%;background:#059669;"></div>
+  <div class="pin" style="top:30%;left:70%;background:#dc2626;"></div>
+  <div class="pin" style="top:16%;left:54%;background:#2563eb;"></div>
+
+  <!-- ===== 계기 교체 입력 모달 (v2 · 2단 분리) ===== -->
+  <div id="rpl-modal" class="rpl-modal active">
+    <div class="rpl-card">
+      <div class="rpl-header">
+        <div style="flex:1;min-width:0;">
+          <h3>계기 교체 등록</h3>
+          <p id="rpl-title-addr">종로구 자하문로 12길 34-5 (청운동)</p>
+        </div>
+        <span class="rpl-seq" id="rpl-seq">오늘 <button type="button" id="rpl-seq-dec" class="rpl-seq-btn">‹</button> <span class="num" id="rpl-seq-num">7</span> <button type="button" id="rpl-seq-inc" class="rpl-seq-btn">›</button> 번째</span>
+        <button class="rpl-close" id="rpl-close">×</button>
+      </div>
+
+      <!-- ── 계기 추가 모달 (단일 컬럼) ── -->
+      <div class="rpl-field rpl-add-only" style="display:none;">
+        <label>계기 11자리</label>
+        <input type="text" id="rpl-old-meter-id" inputmode="numeric" maxlength="11" placeholder="">
+        <div class="rpl-alpha-row" style="margin-top:6px;">
+          <button type="button" class="rpl-alpha-btn" data-ch="A" data-target="old">A</button>
+          <button type="button" class="rpl-alpha-btn" data-ch="B" data-target="old">B</button>
+          <button type="button" class="rpl-alpha-btn" data-ch="G" data-target="old">G</button>
+          <button type="button" class="rpl-alpha-btn" data-ch="L" data-target="old">L</button>
+          <button type="button" class="rpl-alpha-btn" data-ch="BS" data-target="old">⌫</button>
+        </div>
+      </div>
+
+      <!-- ── 교체 모달: 철거 계기 | 새 계기 2단 분리 ── -->
+      <div class="rpl-split rpl-replace-only" id="rpl-split">
+
+        <!-- 철거 계기 -->
+        <section class="rpl-part rpl-part-old">
+          <span class="rpl-part-tag old">철거 계기</span>
+
+          <div class="rpl-reading" id="rpl-rv-field-whme-day">
+            <div class="rpl-photo rpl-sq rpl-rv-photo has-photo" id="rpl-rv-photo-whme-day" data-field="whme_day">
+              <span class="rpl-photo-label"><svg viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>주간 계기판</span>
+              <img class="rpl-photo-preview" alt="주간 계기판" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%231e293b'/%3E%3Crect x='28' y='84' width='144' height='46' rx='6' fill='%230f172a' stroke='%23475569' stroke-width='2'/%3E%3Ctext x='100' y='118' font-family='monospace' font-size='27' fill='%2334d399' text-anchor='middle' letter-spacing='3'%3E48217%3C/text%3E%3Ccircle cx='100' cy='52' r='15' fill='none' stroke='%23475569' stroke-width='2'/%3E%3C/svg%3E">
+            </div>
+            <label>철거 주간(kWh)</label>
+            <input type="text" id="rpl-rv-whme-day" inputmode="numeric" placeholder="예: 12345" value="48217">
+            <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-whme-day" data-field="whme_day" accept="image/*" style="display:none;">
+          </div>
+
+          <div class="rpl-reading" id="rpl-rv-field-whme-mngt" style="display:none;">
+            <div class="rpl-photo rpl-sq rpl-rv-photo" id="rpl-rv-photo-whme-mngt" data-field="whme_mngt">
+              <span class="rpl-photo-label"><svg viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>야간 계기판</span>
+              <img class="rpl-photo-preview" alt="야간 계기판">
+            </div>
+            <label>철거 야간(kWh)</label>
+            <input type="text" id="rpl-rv-whme-mngt" inputmode="numeric" placeholder="예: 12345">
+            <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-whme-mngt" data-field="whme_mngt" accept="image/*" style="display:none;">
+          </div>
+
+          <div class="rpl-reading" id="rpl-rv-field-dm-mt" style="display:none;">
+            <div class="rpl-photo rpl-sq rpl-rv-photo" id="rpl-rv-photo-dm-mt" data-field="dm_mt_day">
+              <span class="rpl-photo-label"><svg viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>최대전력</span>
+              <img class="rpl-photo-preview" alt="최대전력 계기판">
+            </div>
+            <label>최대전력(kW)</label>
+            <input type="text" id="rpl-rv-dm-mt" inputmode="numeric" placeholder="예: 5">
+            <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-dm-mt" data-field="dm_mt_day" accept="image/*" style="display:none;">
+          </div>
+
+          <div class="rpl-reading" id="rpl-rv-field-var" style="display:none;">
+            <div class="rpl-photo rpl-sq rpl-rv-photo" id="rpl-rv-photo-var" data-field="var_day">
+              <span class="rpl-photo-label"><svg viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>무효전력</span>
+              <img class="rpl-photo-preview" alt="무효 계기판">
+            </div>
+            <label>무효전력(kVar)</label>
+            <input type="text" id="rpl-rv-var" inputmode="numeric" placeholder="예: 0">
+            <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-var" data-field="var_day" accept="image/*" style="display:none;">
+          </div>
+
+          <!-- 추가 데이터 (철거 하단) -->
+          <div class="rpl-extra-wrap" id="rpl-extra-wrap">
+            <div id="rpl-extra-rows"></div>
+            <button type="button" class="rpl-extra-add" id="rpl-extra-add">+ 추가 데이터</button>
+          </div>
+        </section>
+
+        <!-- 새 계기 -->
+        <section class="rpl-part rpl-part-new">
+          <span class="rpl-part-tag new">새 계기</span>
+
+          <div class="rpl-photo rpl-sq" id="rpl-new-photo">
+            <span class="rpl-photo-label"><svg viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>새 계기 사진</span>
+            <img class="rpl-photo-preview" alt="새 계기">
+          </div>
+          <input type="file" id="rpl-new-photo-input" accept="image/*" style="display:none;">
+
+          <label>새 계기번호</label>
+          <div class="rpl-input-with-qr">
+            <input type="text" id="rpl-new-meter-id" inputmode="numeric" maxlength="11" placeholder="QR / 입력">
+            <button class="rpl-qr-btn" id="rpl-qr-btn">📷 QR</button>
+          </div>
+          <div class="rpl-alpha-row" style="margin-top:-3px;">
+            <button type="button" class="rpl-alpha-btn" data-ch="A" data-target="new">A</button>
+            <button type="button" class="rpl-alpha-btn" data-ch="B" data-target="new">B</button>
+            <button type="button" class="rpl-alpha-btn" data-ch="G" data-target="new">G</button>
+            <button type="button" class="rpl-alpha-btn" data-ch="L" data-target="new">L</button>
+            <button type="button" class="rpl-alpha-btn" data-ch="BS" data-target="new">⌫</button>
+          </div>
+
+          <label>제조년월</label>
+          <div class="rpl-mfg-row">
+            <select id="rpl-mfg-y"></select>
+            <select id="rpl-mfg-m"></select>
+          </div>
+        </section>
+      </div>
+
+      <div class="rpl-footer">
+        <button class="rpl-btn" id="rpl-delete" style="display:none;">🗑 삭제</button>
+        <button class="rpl-btn cancel" id="rpl-cancel">취소</button>
+        <button class="rpl-btn draft" id="rpl-draft">임시 저장</button>
+        <button class="rpl-btn save" id="rpl-save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rpl-toast" class="rpl-toast"></div>
+
+<script>
+(function () {
+  var ySel = document.getElementById('rpl-mfg-y'), mSel = document.getElementById('rpl-mfg-m');
+  for (var y = 2026; y >= 2021; y--) ySel.add(new Option(y + '년', y));
+  for (var m = 1; m <= 12; m++) mSel.add(new Option(m + '월', String(m).padStart(2,'0')));
+  ySel.value = '2025'; mSel.value = '11';
+
+  var h3 = document.querySelector('#rpl-modal h3'), seq = document.getElementById('rpl-seq');
+  var del = document.getElementById('rpl-delete'), draft = document.getElementById('rpl-draft'), save = document.getElementById('rpl-save');
+
+  // 데모: 활성 검침칸 수 토글 (1칸=90% / 4칸)
+  function showReadings(n) {
+    var ids = ['rpl-rv-field-whme-day','rpl-rv-field-whme-mngt','rpl-rv-field-dm-mt','rpl-rv-field-var'];
+    ids.forEach(function(id,i){ document.getElementById(id).style.display = i < n ? '' : 'none'; });
+  }
+
+  function setMode(mode) {
+    var isAdd = mode === 'add', isEdit = mode === 'edit';
+    document.querySelectorAll('.rpl-add-only').forEach(function(el){ el.style.display = isAdd ? '' : 'none'; });
+    document.querySelectorAll('.rpl-replace-only').forEach(function(el){ el.style.display = isAdd ? 'none' : ''; });
+    seq.style.display = isAdd ? 'none' : '';
+    del.style.display = isEdit ? '' : 'none';
+    draft.style.display = isAdd ? 'none' : '';
+    h3.textContent = isAdd ? '계기 추가' : (isEdit ? '계기 교체 수정' : '계기 교체 등록');
+    save.textContent = isEdit ? '수정 저장' : '저장';
+    showReadings(isEdit ? 4 : 1); // 수정 데모는 4칸, 교체는 90%(1칸)
+    document.querySelector('.rpl-card').scrollTop = 0;
+  }
+  document.getElementById('mode-seg').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('#mode-seg button').forEach(function(x){ x.classList.remove('active'); });
+    b.classList.add('active'); setMode(b.dataset.mode);
+  });
+
+  var num = document.getElementById('rpl-seq-num');
+  document.getElementById('rpl-seq-dec').onclick = function(){ num.textContent = Math.max(1, (+num.textContent||1) - 1); };
+  document.getElementById('rpl-seq-inc').onclick = function(){ num.textContent = (+num.textContent||0) + 1; };
+
+  function toast(msg){ var t = document.getElementById('rpl-toast'); t.textContent = msg; t.classList.add('active'); clearTimeout(t._tm); t._tm = setTimeout(function(){ t.classList.remove('active'); }, 1800); }
+
+  function bindPhoto(slotId, inputId){
+    var slot = document.getElementById(slotId), input = document.getElementById(inputId);
+    if (!slot || !input) return;
+    slot.onclick = function(){ input.click(); };
+    input.onchange = function(e){ var f = e.target.files[0]; if (!f) return; slot.classList.add('has-photo'); slot.querySelector('.rpl-photo-preview').src = URL.createObjectURL(f); };
+  }
+  bindPhoto('rpl-new-photo', 'rpl-new-photo-input');
+  ['whme-day','whme-mngt','dm-mt','var'].forEach(function(s){ bindPhoto('rpl-rv-photo-' + s, 'rpl-rv-photo-input-' + s); });
+
+  // 알파벳 키패드 — data-target으로 철거(old)/새계기(new) 분기
+  document.querySelectorAll('.rpl-alpha-btn').forEach(function(btn){
+    btn.onclick = function(){
+      var tgt = btn.dataset.target === 'new' ? 'rpl-new-meter-id' : 'rpl-old-meter-id';
+      var inp = document.getElementById(tgt); var ch = btn.dataset.ch;
+      if (ch === 'BS') inp.value = inp.value.slice(0, -1);
+      else if (inp.value.length < 11) inp.value += ch;
+    };
+  });
+
+  var rows = document.getElementById('rpl-extra-rows');
+  document.getElementById('rpl-extra-add').onclick = function(){
+    var row = document.createElement('div'); row.className = 'rpl-extra-row';
+    row.innerHTML = '<input type="text" class="ex-label" placeholder="항목명"><input type="text" class="ex-value" placeholder="값"><button type="button" class="ex-photo-btn">📷</button><button type="button" class="ex-del">×</button>';
+    rows.appendChild(row);
+  };
+  rows.addEventListener('click', function(e){
+    if (e.target.classList.contains('ex-del')) e.target.closest('.rpl-extra-row').remove();
+    else if (e.target.classList.contains('ex-photo-btn')) e.target.classList.toggle('has');
+  });
+
+  document.getElementById('rpl-save').onclick = function(){ toast('✅ 저장 완료 (오늘 ' + num.textContent + '번째)'); };
+  document.getElementById('rpl-draft').onclick = function(){ toast('📝 임시 저장됨'); };
+  document.getElementById('rpl-delete').onclick = function(){ toast('🗑 삭제됨'); };
+  document.getElementById('rpl-cancel').onclick = function(){ toast('취소'); };
+  document.getElementById('rpl-close').onclick = function(){ toast('닫기'); };
+  document.getElementById('rpl-qr-btn').onclick = function(){ toast('📷 QR 스캐너 열기'); };
+
+  setMode('replace');
+})();
+</script>
+</body>
+</html>

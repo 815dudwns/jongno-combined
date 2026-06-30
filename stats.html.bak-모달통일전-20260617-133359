@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#e9e6df">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="종로맵">
+  <title>작업 통계 - Meter Care Solution</title>
+  <link rel="stylesheet" href="css/clay.css?v=20260616d">
+  <!-- 즉시 인증 체크 + 자동 캐시 마이그레이션 -->
+  <script>
+    (function () {
+      const APP_VERSION = '20260616.7';   // ★ map.html과 통일 — 불일치 시 네비마다 캐시 wipe+재로드 (키 추가 금지, 미러 wipe는 stale 방지로 의도적)
+      window.__statsVer = APP_VERSION;   // 헤더 버전 표시용
+      if (localStorage.getItem('app_version') !== APP_VERSION) {
+        const keep = {};
+        ['jongno_auth', 'jongno_event_queue', 'jongno_theme', 'jongno_accent', 'jongno_selected_groups', 'jongno_selected_checkdays', 'jongno_marker_mode', 'jongno_map_view', 'jongno_admin_view_role', 'jongno_comm_missing_only', 'jongno_stats_date', 'jongno_stats_tab'].forEach(k => {
+          const v = localStorage.getItem(k);
+          if (v !== null) keep[k] = v;
+        });
+        localStorage.clear();
+        Object.entries(keep).forEach(([k, v]) => localStorage.setItem(k, v));
+        localStorage.setItem('app_version', APP_VERSION);
+        const reloadKey = 'jongno_reloaded_for_' + APP_VERSION;
+        if (!sessionStorage.getItem(reloadKey)) {
+          sessionStorage.setItem(reloadKey, '1');
+          window.location.reload();
+          return;
+        }
+      }
+      const raw = localStorage.getItem('jongno_auth');
+      if (!raw) { window.location.replace('login.html'); return; }
+      try {
+        const s = JSON.parse(raw);
+        if (s.role !== 'admin' && s.role !== 'meter') { window.location.replace('map.html'); }
+      } catch { window.location.replace('login.html'); }
+    })();
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/theme.js?v=20260608dark"></script>
+  <script src="js/config.js?v=20260606naver"></script>
+  <script src="js/utils.js?v=20260615a"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <link rel="stylesheet" href="css/replacement-modal.css?v=20260616css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: var(--font); background: var(--bg); min-height: 100vh; color: var(--ink); }
+
+    .header { background: var(--surface); color: var(--ink); padding: 13px 16px; position: sticky; top: 0; z-index: 200; display: flex; align-items: center; gap: 10px; box-shadow: var(--clay-sm); }
+    .header a { color: var(--ink-2); text-decoration: none; font-size: 14px; font-weight: 700; }
+    .header h1 { font-size: 16px; font-weight: 800; flex: 1; letter-spacing: -0.01em; }
+    [data-theme-toggle] { background: var(--bg-deep) !important; color: var(--ink-2) !important; box-shadow: var(--clay-inset-sm); }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 12px; }
+
+    .date-bar { background: var(--surface); border-radius: 16px; padding: 10px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; box-shadow: var(--clay-sm); }
+    .date-bar input { flex: 1; padding: 11px 13px; border: none; border-radius: var(--radius-pill); font-size: 15px; min-width: 0; font-family: var(--font); color: var(--ink); background: var(--bg-deep); box-shadow: var(--clay-inset-sm); outline: none; }
+    .date-bar button { padding: 11px 15px; background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); border: none; border-radius: var(--radius-pill); font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: var(--clay-sm); transition: box-shadow .14s; }
+    .date-bar button:active { box-shadow: var(--clay-inset-sm); }
+    .date-bar button.sec { background: var(--surface); color: var(--ink-2); }
+
+    .summary { background: var(--surface); border-radius: 18px; padding: 13px; margin-bottom: 12px; display: flex; gap: 10px; flex-wrap: wrap; box-shadow: var(--clay-sm); }
+    .summary-item { flex: 1; min-width: 100px; text-align: center; padding: 10px 6px; border-radius: 14px; background: var(--mint-soft); box-shadow: var(--clay-inset-sm); }
+    .summary-item .label { font-size: 11px; font-weight: 700; color: var(--mint-strong); }
+    .summary-item .value { font-size: 23px; font-weight: 800; color: var(--mint-strong); }
+
+    .tabs { display: flex; gap: 6px; background: var(--bg-deep); padding: 4px; border-radius: var(--radius-pill); margin-bottom: 12px; box-shadow: var(--clay-inset-sm); }
+    .tab-btn { flex: 1; padding: 11px; background: transparent; color: var(--ink-2); border: none; border-radius: var(--radius-pill); font-size: 14px; font-weight: 800; cursor: pointer; transition: all 0.15s; font-family: var(--font); }
+    .tab-btn.active { background: var(--surface); color: var(--mint-strong); box-shadow: var(--clay-sm); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    #stats-map { width: 100%; height: 70vh; border-radius: 18px; background: var(--bg-deep); box-shadow: var(--clay-inset-sm); }
+
+    .list-item { background: var(--surface); border-radius: 18px; padding: 13px; margin-bottom: 10px; box-shadow: var(--clay-sm); display: flex; gap: 12px; }
+    .seq-badge { width: 42px; height: 42px; flex-shrink: 0; background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; box-shadow: var(--clay-mint); }
+    .seq-badge.draft { background: linear-gradient(145deg,#f3e3b0,#e0b85a); color: #6b4e00; box-shadow: var(--clay-sm); }  /* 임시저장 = 노란색 */
+    .seq-badge.app-done { background: linear-gradient(145deg,#555,#222); color: #fff; box-shadow: var(--clay-sm); }  /* 앱작성완료(계기큐 awms등록) = 검정 */
+    .li-body { flex: 1; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--ink); }
+    .li-body .addr { font-weight: 800; color: var(--ink); margin-bottom: 4px; }
+    .li-body .arrow { color: var(--violet); font-weight: 800; }
+    .li-body .meta { color: var(--ink-2); font-size: 12px; margin-top: 4px; }
+    .li-photos { display: flex; gap: 5px; flex-shrink: 0; }
+    .li-photos img { width: 56px; height: 56px; object-fit: cover; border-radius: 11px; border: none; box-shadow: var(--clay-sm); cursor: pointer; }
+
+    .empty { text-align: center; color: var(--ink-3); padding: 40px 8px; font-size: 14px; }
+    .err { background: var(--rose-soft); color: #b91c1c; border: none; border-radius: 14px; padding: 12px; margin-bottom: 12px; font-size: 13px; box-shadow: var(--clay-sm); }
+    /* 리스트 안 글자 — 다크/테마색 대응 (인라인 하드코딩 대체) */
+    .tag-edited { color: #6a55a0; font-weight: 700; }
+    .tag-extra  { color: #6a55a0; }
+    .tag-none   { color: var(--ink-3); }
+    .li-dl-btn  { margin-top: 6px; margin-left: 6px; padding: 6px 12px; background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); border: none; border-radius: var(--radius-pill); font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: var(--clay-sm); }
+    .li-dl-btn:active { box-shadow: var(--clay-inset-sm); }
+
+    /* 사진 라이트박스 */
+    .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 9000; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .lightbox.active { display: flex; }
+    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .lightbox-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.2); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; }
+
+    /* 네이버 지도 커스텀 마커 (번호 표시) */
+    .stat-marker { background: linear-gradient(145deg,#5fbb8c,#3f9e6f); color: white; border: 2px solid var(--surface); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+    .stat-marker.multi { background: linear-gradient(145deg,#b9a6e0,#9579c9); width: 36px; height: 36px; font-size: 11px; padding: 2px; line-height: 1; text-align: center; }
+    /* 분석 탭 */
+    .ana-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+    .ana-mode { padding: 9px 16px; border: none; background: var(--surface); border-radius: var(--radius-pill); font-weight: 800; font-size: 14px; cursor: pointer; color: var(--ink-2); box-shadow: var(--clay-sm); font-family: var(--font); }
+    .ana-mode.active { background: linear-gradient(145deg,var(--mint-l),var(--mint)); color: var(--mint-deep); box-shadow: var(--clay-mint); }
+    .ana-nav { width: 40px; height: 40px; flex-shrink: 0; border: none; background: var(--surface); border-radius: var(--radius-pill); color: var(--mint-strong); font-weight: 900; font-size: 18px; cursor: pointer; box-shadow: var(--clay-sm); font-family: var(--font); display: inline-flex; align-items: center; justify-content: center; transition: box-shadow .14s, transform .12s; }
+    .ana-nav:active { box-shadow: var(--clay-inset-sm); transform: translateY(1px) scale(0.97); }
+    .ana-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 14px; }
+    .ana-table th, .ana-table td { border: 1px solid var(--bg-deep); padding: 8px 10px; text-align: center; color: var(--ink); }
+    .ana-table th { background: var(--bg-deep); font-weight: 800; color: var(--ink-2); }
+    .ana-table td.tname { text-align: left; font-weight: 700; }
+    .ana-table tr.subtotal { background: var(--surface-2); font-weight: 800; }
+    .ana-table .num { font-variant-numeric: tabular-nums; }
+    .ana-h { font-size: 15px; font-weight: 800; margin: 6px 0 8px; color: var(--ink); }
+    /* 임시저장 뱃지 */
+    .draft-badge { display: inline-block; background: var(--amber-soft); color: #92400e; border: none; border-radius: 7px; padding: 2px 7px; font-size: 11px; font-weight: 800; margin-left: 6px; box-shadow: var(--clay-sm); }
+    .added-badge { display: inline-block; background: var(--mint-soft); color: var(--mint-strong); border: none; border-radius: 7px; padding: 2px 7px; font-size: 11px; font-weight: 800; margin-left: 6px; box-shadow: var(--clay-sm); }
+
+    /* 다크 모드 보정 */
+    [data-theme="dark"] body { background: var(--bg); color: var(--ink); }
+    [data-theme="dark"] .date-bar,
+    [data-theme="dark"] .summary,
+    [data-theme="dark"] .list-item,
+    [data-theme="dark"] .tabs,
+    [data-theme="dark"] .ana-mode,
+    [data-theme="dark"] .section { background: var(--surface); color: var(--ink); box-shadow: var(--clay-sm); border-color: var(--surface-2); }
+    [data-theme="dark"] .date-bar input { background: var(--bg-deep); color: var(--ink); border-color: var(--surface-2); }
+    [data-theme="dark"] .date-bar button.sec,
+    [data-theme="dark"] .tab-btn.active { background: var(--bg-deep); color: var(--mint-strong); }
+    [data-theme="dark"] .tab-btn { color: var(--ink-2); }
+    [data-theme="dark"] .summary-item { background: var(--mint-soft); }
+    [data-theme="dark"] .summary-item .label,
+    [data-theme="dark"] .summary-item .value { color: var(--mint-strong); }
+    [data-theme="dark"] .li-body .addr,
+    [data-theme="dark"] .ana-h { color: var(--ink); }
+    [data-theme="dark"] .li-body .meta,
+    [data-theme="dark"] .empty { color: var(--ink-2); }
+    [data-theme="dark"] .ana-table th { background: var(--bg-deep); color: var(--ink-2); border-color: var(--surface-2); }
+    [data-theme="dark"] .ana-table td { border-color: var(--surface-2); }
+    [data-theme="dark"] .ana-table tr.subtotal { background: var(--bg-deep); }
+    /* 다크: soft 배경 위 진한 텍스트/배지 — 밝게 */
+    [data-theme="dark"] .err { color: #ff9b9b; }
+    [data-theme="dark"] .draft-badge { color: #ffd36a; }
+    [data-theme="dark"] .tag-edited,
+    [data-theme="dark"] .tag-extra { color: #c4b5fd; }
+    /* 복사 토스트 — detail.js/map.html과 동일 (common.css .toast 이식) */
+    .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--ink); padding: 11px 20px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 700; box-shadow: var(--clay-sm); pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 9999; white-space: nowrap; }
+    .toast.show { opacity: 1; }
+    /* 복사버튼 — 주소 모달(panel.css)과 동일: 배경 없음 (stats는 panel.css 미로드) */
+    .copy-btn { background: none; border: none; cursor: pointer; padding: 0 3px; color: var(--ink-3); line-height: 1; vertical-align: middle; display: inline-flex; align-items: center; }
+    .copy-btn:hover { color: var(--ink); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="map.html">← 지도</a>
+    <h1>작업 통계</h1>
+    <button data-theme-toggle onclick="jongnoCycleTheme()" style="padding:6px 10px;border:none;border-radius:999px;background:rgba(255,255,255,0.18);color:inherit;font-size:12px;font-weight:700;cursor:pointer;">시스템</button>
+  </div>
+
+  <div class="container">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="list">통계</button>
+      <button class="tab-btn" data-tab="map">지도</button>
+      <button class="tab-btn" data-tab="analysis">분석</button>
+    </div>
+
+    <!-- 통계/지도 공통 날짜 네비 (분석 탭에서는 숨김) -->
+    <div class="date-bar" id="date-bar">
+      <button class="sec" id="btn-prev">‹‹</button>
+      <input type="date" id="date-input">
+      <button class="sec" id="btn-next">››</button>
+      <button class="sec" id="btn-today">오늘</button>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="tab-panel active" id="tab-list">
+      <button id="btn-export" style="width:100%;margin-bottom:10px;padding:12px;background:linear-gradient(145deg,var(--mint-l),var(--mint));color:var(--mint-deep);border:none;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:var(--clay-sm);">엑셀 내보내기 (이 날짜)</button>
+      <button id="btn-photos" style="width:100%;margin-bottom:10px;padding:12px;background:linear-gradient(145deg,var(--mint-l),var(--mint));color:var(--mint-deep);border:none;border-radius:999px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:var(--clay-sm);">사진 전체 다운로드 (이 날짜)</button>
+      <div class="ana-bar" id="list-filter" style="margin-bottom:10px;gap:6px;">
+        <button class="ana-mode active" data-lf="all">전체</button>
+        <button class="ana-mode" data-lf="incomplete">미완료</button>
+        <button class="ana-mode" data-lf="added">추가계기</button>
+        <button class="ana-mode" data-lf="appdone">앱작성완료</button>
+      </div>
+      <div id="list-container"></div>
+    </div>
+
+    <div class="tab-panel" id="tab-map">
+      <div id="stats-map"></div>
+    </div>
+
+    <div class="tab-panel" id="tab-analysis">
+      <div class="ana-bar">
+        <button class="ana-mode active" id="ana-week" data-mode="week">주간</button>
+        <button class="ana-mode" id="ana-month" data-mode="month">월간</button>
+        <button class="ana-mode" id="ana-all" data-mode="all">전체</button>
+        <span style="flex:1;"></span>
+        <button class="ana-nav" id="ana-prev">‹</button>
+        <span id="ana-period" style="font-weight:700;min-width:140px;text-align:center;"></span>
+        <button class="ana-nav" id="ana-next">›</button>
+      </div>
+      <div id="ana-content"></div>
+    </div>
+  </div>
+
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightbox-close">×</button>
+    <img id="lightbox-img" alt="">
+  </div>
+
+  <!-- 계기 교체 입력 모달 (map.html과 동일) -->
+  <div id="rpl-modal" class="rpl-modal">
+    <div class="rpl-card">
+      <div class="rpl-header">
+        <div style="flex:1;min-width:0;">
+          <h3>계기 교체 등록</h3>
+          <p id="rpl-title-addr" style="font-size:12px;color:var(--ink-2);margin:2px 0 0;line-height:1.3;word-break:break-all;"></p>
+        </div>
+        <span class="rpl-seq" id="rpl-seq">오늘 <button type="button" id="rpl-seq-dec" class="rpl-seq-btn">‹</button> <span class="num" id="rpl-seq-num">?</span> <button type="button" id="rpl-seq-inc" class="rpl-seq-btn">›</button> 번째</span>
+        <button class="rpl-close" id="rpl-close">×</button>
+      </div>
+
+      <div class="rpl-field rpl-add-only" style="display:none;">
+        <label>계기 11자리</label>
+        <input type="text" id="rpl-old-meter-id" inputmode="numeric" maxlength="11">
+      </div>
+
+      <div class="rpl-photo rpl-replace-only" id="rpl-new-photo">
+        <span class="rpl-photo-label">새 계기 사진 (탭하여 선택)</span>
+        <img class="rpl-photo-preview" alt="새 계기">
+      </div>
+      <input type="file" id="rpl-new-photo-input" accept="image/*" style="display:none;">
+
+      <div class="rpl-replace-only" id="rpl-removal-fields">
+        <div class="rpl-field" id="rpl-rv-field-whme-day" style="display:none;">
+          <label>철거 주간(kWh)</label>
+          <input type="text" id="rpl-rv-whme-day" inputmode="numeric" placeholder="예: 12345">
+          <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-whme-day" data-field="whme_day">
+            <span class="rpl-photo-label">주간 계기판 사진 (탭하여 선택)</span>
+            <img class="rpl-photo-preview" alt="주간 계기판">
+          </div>
+          <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-whme-day" data-field="whme_day" accept="image/*" style="display:none;">
+        </div>
+        <div class="rpl-field" id="rpl-rv-field-whme-mngt" style="display:none;">
+          <label>철거 야간(kWh)</label>
+          <input type="text" id="rpl-rv-whme-mngt" inputmode="numeric" placeholder="예: 12345">
+          <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-whme-mngt" data-field="whme_mngt">
+            <span class="rpl-photo-label">야간 계기판 사진 (탭하여 선택)</span>
+            <img class="rpl-photo-preview" alt="야간 계기판">
+          </div>
+          <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-whme-mngt" data-field="whme_mngt" accept="image/*" style="display:none;">
+        </div>
+        <div class="rpl-field" id="rpl-rv-field-var" style="display:none;">
+          <label>무효전력(kVar)</label>
+          <input type="text" id="rpl-rv-var" inputmode="decimal" placeholder="예: 74039">
+          <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-var" data-field="var_day">
+            <span class="rpl-photo-label">무효 계기판 사진 (탭하여 선택)</span>
+            <img class="rpl-photo-preview" alt="무효 계기판">
+          </div>
+          <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-var" data-field="var_day" accept="image/*" style="display:none;">
+        </div>
+        <div class="rpl-field" id="rpl-rv-field-dm-mt" style="display:none;">
+          <label>최대전력(kW)</label>
+          <input type="text" id="rpl-rv-dm-mt" inputmode="decimal" placeholder="예: 31.99">
+          <div class="rpl-photo rpl-rv-photo" id="rpl-rv-photo-dm-mt" data-field="dm_mt_day">
+            <span class="rpl-photo-label">최대전력 계기판 사진 (탭하여 선택)</span>
+            <img class="rpl-photo-preview" alt="최대전력 계기판">
+          </div>
+          <input type="file" class="rpl-rv-photo-input" id="rpl-rv-photo-input-dm-mt" data-field="dm_mt_day" accept="image/*" style="display:none;">
+        </div>
+      </div>
+
+      <div class="rpl-field rpl-replace-only">
+        <label>새 계기번호</label>
+        <div class="rpl-input-with-qr">
+          <input type="text" id="rpl-new-meter-id" inputmode="numeric" maxlength="11">
+          <button class="rpl-qr-btn" id="rpl-qr-btn">QR</button>
+        </div>
+      </div>
+
+      <div class="rpl-field rpl-replace-only">
+        <label>제조년월</label>
+        <div class="rpl-mfg-row">
+          <select id="rpl-mfg-y"></select>
+          <select id="rpl-mfg-m"></select>
+        </div>
+      </div>
+
+      <div class="rpl-replace-only" id="rpl-extra-wrap">
+        <div id="rpl-extra-rows"></div>
+        <button type="button" class="rpl-extra-add" id="rpl-extra-add">+ 추가 데이터</button>
+      </div>
+
+      <div class="rpl-footer">
+        <button class="rpl-btn" id="rpl-delete" style="display:none;">삭제</button>
+        <button class="rpl-btn cancel" id="rpl-cancel">취소</button>
+        <button class="rpl-btn save" id="rpl-save">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="rpl-toast" class="rpl-toast"></div>
+
+<script>
+authRequire();
+
+// 통계 열람 권한 — admin + 계기팀(meter)
+(function () {
+  const session = authGetSession();
+  if (!session || (session.role !== 'admin' && session.role !== 'meter')) {
+    alert('통계 열람 권한 필요');
+    location.href = 'map.html';
+  }
+})();
+
+// Firebase init (RplModal이 글로벌 db/statusRef 사용하므로 window에 노출)
+const fbApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+window.db = fbApp.database();
+const db = window.db;
+window.statusRef = db.ref('workStatus/jongno');
+
+// RplModal 의존성 stub (firebase.js 안 로드해도 동작하게)
+window.encodeKey = function (str) {
+  return String(str)
+    .replace(/\./g, '_dot_').replace(/#/g, '_hash_').replace(/\$/g, '_dollar_')
+    .replace(/\[/g, '_lb_').replace(/\]/g, '_rb_').replace(/\//g, '_sl_');
+};
+window.workStatus = {};
+window.makeEmptyEntry = function () { return { replacement_list: {}, added_meters: {} }; };
+window.statsAfterModalChange = function () { loadData(); };
+
+let map = null;
+let markers = [];
+let cachedData = null;  // 그날 replacement 목록
+let cachedAdded = null;  // 그날 추가계기(added_meters) — site-data 없는 계기. 통계/엑셀만, 큐/awms 제외
+let _naverMapsLoading = null;
+
+function getNaverMapsKey() {
+  const key = (typeof NAVER_MAPS_NCP_KEY_ID !== 'undefined') ? NAVER_MAPS_NCP_KEY_ID : '';
+  return String(key || '').trim();
+}
+
+function loadNaverMapsSdk() {
+  if (window.naver && window.naver.maps) return Promise.resolve();
+  if (_naverMapsLoading) return _naverMapsLoading;
+  const key = getNaverMapsKey();
+  if (!key || key === 'YOUR_NCP_KEY_ID') {
+    return Promise.reject(new Error('네이버 지도 NCP Key ID가 설정되지 않았습니다. js/config.js의 NAVER_MAPS_NCP_KEY_ID를 입력하세요.'));
+  }
+  _naverMapsLoading = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-naver-map-sdk]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('네이버 지도 SDK 로드 실패')), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(key)}`;
+    script.async = true;
+    script.defer = true;
+    script.dataset.naverMapSdk = '1';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('네이버 지도 SDK 로드 실패'));
+    document.head.appendChild(script);
+  });
+  return _naverMapsLoading;
+}
+
+function makeLatLng(lat, lng) {
+  return new naver.maps.LatLng(Number(lat), Number(lng));
+}
+
+// 날짜 → ms 범위 (KST 자정 기준)
+function dayRange(yyyymmdd) {
+  return kstDayRange(yyyymmdd);
+}
+
+function todayStr() {
+  return kstYmd(new Date());
+}
+
+// 네이버 지도 초기화 (지도 탭 활성 시점에 한 번만)
+async function ensureMap() {
+  if (map) return;
+  const container = document.getElementById('stats-map');
+  try {
+    await loadNaverMapsSdk();
+  } catch (e) {
+    console.error('[naverMap] 로드 실패:', e);
+    if (container) container.innerHTML = `<div class="err">${e.message}</div>`;
+    return;
+  }
+  map = new naver.maps.Map(container, {
+    center: makeLatLng(37.5760, 126.9850),  // 종로구 기본
+    zoom: 13,
+    minZoom: 7,
+    zoomControl: false,
+    mapDataControl: false,
+    scaleControl: false,
+    logoControlOptions: { position: naver.maps.Position.BOTTOM_LEFT }
+  });
+  drawMarkers();
+}
+
+function clearMarkers() {
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+}
+
+function drawMarkers() {
+  if (!map || !cachedData) return;
+  clearMarkers();
+
+  // 주소별 그룹핑 → 한 주소에 여러 작업이면 번호 묶음
+  const byAddr = {};
+  cachedData.forEach(item => {
+    const key = item.address;
+    if (!byAddr[key]) byAddr[key] = [];
+    byAddr[key].push(item);
+  });
+
+  const bounds = new naver.maps.LatLngBounds();
+  let hasBounds = false;
+  Object.entries(byAddr).forEach(([addr, items]) => {
+    // 좌표는 site-data가 아니라 첫 item의 lat/lng (siteData에서 가져와야 함)
+    // 일단 시도: items[0].lat/lng 가정. 없으면 skip.
+    const lat = items[0].lat;
+    const lng = items[0].lng;
+    if (!lat || !lng) return;
+
+    const pos = makeLatLng(lat, lng);
+    bounds.extend(pos);
+    hasBounds = true;
+
+    const seqs = items.map(i => i.daily_seq).sort((a, b) => a - b);
+    const label = seqs.length === 1 ? String(seqs[0]) : seqs.join(',');
+    const isMulti = seqs.length > 1;
+
+    const content = `<div class="stat-marker ${isMulti ? 'multi' : ''}">${label}</div>`;
+    const overlay = new naver.maps.Marker({
+      position: pos,
+      map,
+      icon: { content, anchor: new naver.maps.Point(isMulti ? 18 : 15, isMulti ? 18 : 15) },
+    });
+    markers.push(overlay);
+  });
+
+  if (hasBounds) {
+    map.fitBounds(bounds);
+  }
+}
+
+const STAT_FL = { whme_day: '주간', whme_mngt: '야간', dm_mt_day: '최대', var_day: '무효' };
+function _cpBtn(v) {
+  return `<button class="copy-btn" data-copy="${String(v).replace(/"/g, '&quot;')}" title="복사" style="margin-left:4px;vertical-align:middle;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
+}
+
+// 사진 받기 (Web Share=사진첩 저장 우선, 폴백 다운로드) — detail.js와 동일 로직
+async function sharePhotos(oldUrl, newUrl, base) {
+  const items = [[oldUrl, '철거전'], [newUrl, '철거후']];
+  const files = [];
+  for (const [url, tag] of items) {
+    if (!url) continue;
+    try {
+      const r = await fetch(url);
+      const b = await r.blob();
+      files.push(new File([b], `${base}_${tag}.jpg`, { type: 'image/jpeg' }));
+    } catch (e) {}
+  }
+  if (!files.length) { alert('사진을 불러오지 못했습니다.'); return; }
+  // iOS만 공유시트(사진첩 저장). 안드로이드는 공유시트 건너뛰고 바로 다운로드.
+  const _isAndroid = /Android/i.test(navigator.userAgent);
+  if (!_isAndroid && navigator.canShare && navigator.canShare({ files })) {
+    try { await navigator.share({ files, title: '교체 사진' }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  for (const f of files) {
+    const u = URL.createObjectURL(f);
+    const x = document.createElement('a');
+    x.href = u; x.download = f.name;
+    document.body.appendChild(x); x.click(); x.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 2000);
+    await new Promise(res => setTimeout(res, 500));
+  }
+}
+
+let _listFilter = 'all';   // 통계 리스트 필터: all/incomplete/added
+function renderList() {
+  const container = document.getElementById('list-container');
+  if (!cachedData || cachedData.length === 0) {
+    container.innerHTML = '<div class="empty">그날 작업 기록 없음</div>';
+    return;
+  }
+  // daily_seq 숫자 우선(오름차순), 없는 것(?)은 후순위
+  const _addedIds = new Set((cachedAdded || []).map(a => String(a.meter_id || '').trim()).filter(Boolean));
+  let sorted = [...cachedData].sort((a, b) => (a.daily_seq ?? Infinity) - (b.daily_seq ?? Infinity));
+  // 필터: 미완료(신설계기 없음) / 추가계기(주소모달 추가분)
+  if (_listFilter === 'incomplete') sorted = sorted.filter(i => !String(i.new_meter_id || '').trim() || i.draft === true);
+  else if (_listFilter === 'added') sorted = sorted.filter(i => _addedIds.has(String(i.old_meter_id || '').trim()));
+  else if (_listFilter === 'appdone') sorted = sorted.filter(i => i.appDone);
+  else if (_listFilter === 'appdone_not') sorted = sorted.filter(i => !i.appDone);
+  if (!sorted.length) { container.innerHTML = '<div class="empty">해당 항목 없음</div>'; return; }
+  container.innerHTML = sorted.map(item => {
+    const time = new Date(item.replaced_at).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' });
+    const mfgYm = item.new_meter_mfg_ym || '';
+    const editedTag = item.last_edited_at ? `<span class="tag-edited">(수정됨)</span>` : '';
+    // 철거지침 = 칸별 고유값 (주간/야간/최대/무효)
+    const rv = item.removal_values;
+    const rvParts = [];
+    if (rv && typeof rv === 'object') {
+      Object.keys(STAT_FL).forEach(k => { if (rv[k] != null && rv[k] !== '') rvParts.push(`${STAT_FL[k]} <b>${rv[k]}</b>${_cpBtn(rv[k])}`); });
+    }
+    if (!rvParts.length && item.removal_value != null && item.removal_value !== '') rvParts.push(`주간 <b>${item.removal_value}</b>${_cpBtn(item.removal_value)}`);
+    const rvStr = rvParts.length ? rvParts.join(' · ') : '<span class="tag-none">지침 없음</span>';
+    // 추가데이터(extra_data) — 1종2종/20kW↑ 자유입력 검침값. 큐/awms엔 안 감, 표시·엑셀만.
+    const exParts = [];
+    if (Array.isArray(item.extra_data)) {
+      item.extra_data.forEach((x, i) => {
+        if (x && x.value != null && String(x.value) !== '') {
+          const lbl = (x.label && String(x.label).trim()) ? x.label : `추가${i + 1}`;
+          exParts.push(`${lbl} <b>${x.value}</b>${_cpBtn(x.value)}`);
+        }
+      });
+    }
+    const exStr = exParts.length ? `<div class="meta tag-extra">추가데이터: ${exParts.join(' · ')}</div>` : '';
+    const hasPhoto = item.old_meter_photo || item.new_meter_photo;
+    const dlBtn = hasPhoto
+      ? `<button class="li-dl-btn" data-old="${item.old_meter_photo || ''}" data-new="${item.new_meter_photo || ''}" data-base="${item.old_meter_id}">사진 받기</button>`
+      : '';
+    return `
+      <div class="list-item" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}">
+        <div class="seq-badge${item.draft ? ' draft' : (item.appDone ? ' app-done' : '')}">${item.daily_seq ?? '?'}</div>
+        <div class="li-body">
+          <div class="addr">${item.address} ${editedTag}${item.draft ? '<span class="draft-badge">임시저장</span>' : ''}${_addedIds.has(String(item.old_meter_id || '').trim()) ? '<span class="added-badge">추가계기</span>' : ''}</div>
+          <div><b>${item.old_meter_id}</b>${_cpBtn(item.old_meter_id)} <span class="arrow">→</span> <b>${item.new_meter_id}</b>${_cpBtn(item.new_meter_id)}</div>
+          <div class="meta">${rvStr} · 제조 ${mfgYm} · ${time}</div>
+          ${exStr}
+          <div>
+            <button class="li-edit-btn" data-old="${item.old_meter_id}" data-addr="${item.address.replace(/"/g,'&quot;')}" style="margin-top:6px;padding:7px 13px;background:var(--surface);color:var(--ink-2);border:none;border-radius:999px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:var(--clay-sm);">수정/삭제</button>
+            ${dlBtn}
+          </div>
+        </div>
+        <div class="li-photos">
+          ${item.old_meter_photo ? `<img src="${item.old_meter_photo}" alt="기존" data-full="${item.old_meter_photo}" loading="lazy" decoding="async">` : ''}
+          ${item.new_meter_photo ? `<img src="${item.new_meter_photo}" alt="신규" data-full="${item.new_meter_photo}" loading="lazy" decoding="async">` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.querySelectorAll('.li-photos img').forEach(img => {
+    img.onclick = (e) => { e.stopPropagation(); openLightbox(img.dataset.full); };
+  });
+  container.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      copyMeterNo(btn.dataset.copy);
+    };
+  });
+  container.querySelectorAll('.li-dl-btn').forEach(btn => {
+    btn.onclick = (e) => { e.stopPropagation(); sharePhotos(btn.dataset.old, btn.dataset.new, btn.dataset.base); };
+  });
+  container.querySelectorAll('.li-edit-btn').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const addr = btn.dataset.addr;
+      const oldId = btn.dataset.old;
+      // ★모달 열 때 그 계기 1건만 RTDB에서 fresh 읽기 — 보조앱이 방금 올린 사진 즉시 반영.
+      //   전체 재로드(3MB) 안 하고 클릭당 수 KB라 경량화 유지. 목록·통계는 캐시 그대로.
+      //   workStatus는 디코드 주소 보관 → RTDB 키는 인코드형이라 encodeKey 필수(안 하면 null).
+      let existing = null;
+      try {
+        const snap = await db.ref('workStatus/jongno/' + encodeKey(addr) + '/replacement_list/' + oldId).once('value');
+        existing = snap.val();
+      } catch (err) { console.error('[모달 1건 fetch]', err); }
+      if (!existing) existing = (window.workStatus[addr] && window.workStatus[addr].replacement_list || {})[oldId]; // 폴백(캐시)
+      if (!existing) { alert('데이터 없음 (새로고침 후 재시도)'); return; }
+      const fakeMeter = { 계기번호: oldId, 계기타입: '', 상호: '', 변대주: '' };
+      if (typeof RplModal !== 'undefined') RplModal.open(addr, fakeMeter, null, existing);
+    };
+  });
+}
+
+function renderSummary() {
+  const summary = document.getElementById('summary');
+  const arr = cachedData || [];
+
+  // 총작업 = daily_seq 개수 그 자체 (그날 배정+추가 전체). 추가계기도 주소모달에서 daily_seq 받아 포함됨.
+  //   같은 daily_seq 중복은 1건으로.
+  const seqs = new Set();
+  arr.forEach(i => { const s = i.daily_seq; if (s != null && s !== '') seqs.add(String(s)); });
+  const n = seqs.size;
+
+  // 단상/삼상 = 신설계기(new_meter_id) 기준 — 우리가 단 표준계기(AE/G/Amigo)라 분류 완전.
+  //   구계기 기준은 한전 옛 타입 중 코드 외(E/EA/G/Amigo 아님)가 미분류로 빠져 단+삼≠총 (2026-06-09 검증).
+  //   신설계기 없는 건(아직 안 바꾼 이어서/임시저장) = 미완. → 단상 + 삼상 + 미완 = 총작업.
+  let dansang = 0, samsang = 0, incomplete = 0;
+  arr.forEach(i => {
+    const nm = String(i.new_meter_id || '').trim();
+    if (!nm || i.draft === true) { incomplete++; return; }   // 신설계기 없음 또는 임시저장(draft) = 미완(이어서)
+    const ph = (typeof phaseOf === 'function') ? phaseOf(nm) : null;
+    if (ph === '단상') dansang++;
+    else if (ph === '삼상') samsang++;
+  });
+
+  // 추가계기 = 주소모달에서 추가(added_meters)한 건 (리스트에도 배지로 표시)
+  const addedIds = new Set((cachedAdded || []).map(a => String(a.meter_id || '').trim()).filter(Boolean));
+  const addedN = arr.filter(i => addedIds.has(String(i.old_meter_id || '').trim())).length;
+
+  const appDoneN = arr.filter(i => i.appDone).length;   // 계기큐로 awms 등록완료
+
+  summary.innerHTML = `
+    <div class="summary-item"><div class="label">총 작업</div><div class="value">${n}${incomplete ? ` <span style="font-size:13px;color:var(--ink-3);font-weight:700;">(미완 ${incomplete})</span>` : ''}</div></div>
+    <div class="summary-item"><div class="label">단상</div><div class="value">${dansang}</div></div>
+    <div class="summary-item"><div class="label">삼상</div><div class="value">${samsang}</div></div>
+    <div class="summary-item"><div class="label">추가계기</div><div class="value">${addedN}</div></div>
+    <div class="summary-item"><div class="label">앱작성 완료</div><div class="value">${appDoneN}</div></div>
+  `;
+}
+
+// site-data 캐시 (한 번만 fetch)
+let siteDataByMeterId = null;
+async function loadSiteData() {
+  if (siteDataByMeterId) return siteDataByMeterId;
+  const res = await fetch('./data/jongno-site-data.json', { cache: 'force-cache' });  // 페이지 네비(map↔stats) 재다운로드 방지
+  const arr = await res.json();
+  siteDataByMeterId = {};
+  arr.forEach(m => {
+    if (m.계기번호) siteDataByMeterId[String(m.계기번호)] = m;
+  });
+  return siteDataByMeterId;
+}
+
+// ami-work awmscomplete (계기큐가 awms 완료=workStep28 저장) 최신 스냅샷 → 신구계기 set
+// = "앱작성 완료"(계기큐로 awms 등록됨) 판별용. 과거분 다 포함. (앞으로는 계기큐 동기화로 갱신)
+let _awmsDoneCache = null;
+async function loadAwmsDone() {
+  if (_awmsDoneCache) return _awmsDoneCache;
+  const set = new Set();
+  try {
+    const WDB = 'https://ami-work-1c49a-default-rtdb.asia-southeast1.firebasedatabase.app';
+    // 가벼운 노드(계기번호 배열 ~37KB) — 계기큐 syncCompleted가 awmscomplete와 함께 갱신
+    const r = await fetch(`${WDB}/awmsDoneMeters.json`);
+    const arr = await r.json();
+    if (Array.isArray(arr)) arr.forEach(m => { const s = String(m).trim(); if (s) set.add(s); });
+  } catch (e) { console.warn('[awmsDoneMeters] 로드 실패', e); }
+  _awmsDoneCache = set;
+  return set;
+}
+
+async function loadData() {
+  const dateVal = document.getElementById('date-input').value;
+  if (!dateVal) return;
+  try { localStorage.setItem('jongno_stats_date', dateVal); } catch (e) {}
+  const { start, end } = dayRange(dateVal);
+
+  const [ws, sdMap, awmsDone] = await Promise.all([
+    getAllWs(),   // ★캐시 공유 — 날짜 변경마다 workStatus 3MB 재다운로드하던 것 제거(0). 분석탭(getAllWs)과 같은 캐시. 최신 반영은 페이지 새로고침.
+    loadSiteData(),
+    loadAwmsDone(),
+  ]);
+
+  // workStatus 순회하며 그날 replacement_list 추출
+  // 좌표·주소 = 기존 계기번호로 site-data 매칭
+  const items = [];
+  Object.entries(ws).forEach(([addrKey, val]) => {
+    const rl = val.replacement_list;
+    if (!rl) return;
+    Object.values(rl).forEach(r => {
+      const ts = r.replaced_at;
+      if (typeof ts !== 'number' || ts < start || ts > end) return;
+      const decoded = decodeKey(addrKey);
+      const matched = sdMap[String(r.old_meter_id)] || {};
+      items.push({
+        ...r,
+        appDone: awmsDone.has(String(r.new_meter_id || '').trim()) || awmsDone.has(String(r.old_meter_id || '').trim()),  // 계기큐로 awms 등록완료
+        address: decoded,
+        lat: matched.lat,
+        lng: matched.lng,
+        road_addr: matched.도로명주소,
+        jibun_addr: matched.주소,
+      });
+    });
+  });
+
+  cachedData = items;
+
+  // 추가계기(added_meters) 그날 수집 — site-data 없는 계기. 통계/엑셀 표시용(큐/awms 제외)
+  const addedItems = [];
+  Object.entries(ws).forEach(([addrKey, val]) => {
+    const am = val && val.added_meters;
+    if (!am) return;
+    Object.values(am).forEach(a => {
+      const ts = a && a.added_at;
+      if (typeof ts !== 'number' || ts < start || ts > end) return;
+      addedItems.push({ ...a, address: decodeKey(addrKey) });
+    });
+  });
+  cachedAdded = addedItems;
+
+  // RplModal이 쓰는 글로벌 workStatus 채우기 (decoded 주소 = 키)
+  window.workStatus = {};
+  Object.entries(ws).forEach(([addrKey, val]) => {
+    if (!val || typeof val !== 'object') return;
+    window.workStatus[decodeKey(addrKey)] = val;
+  });
+
+  renderSummary();
+  renderList();
+  if (map) drawMarkers();
+}
+
+// 키 인코딩 helper (firebase.js와 동일)
+function decodeKey(str) {
+  return str
+    .replace(/_dot_/g, '.').replace(/_hash_/g, '#').replace(/_dollar_/g, '$')
+    .replace(/_lb_/g, '[').replace(/_rb_/g, ']').replace(/_sl_/g, '/');
+}
+
+// 라이트박스
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('active');
+}
+document.getElementById('lightbox-close').onclick =
+  () => document.getElementById('lightbox').classList.remove('active');
+document.getElementById('lightbox').onclick = (e) => {
+  if (e.target.id === 'lightbox') e.currentTarget.classList.remove('active');
+};
+
+// 탭
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    try { localStorage.setItem('jongno_stats_tab', tab); } catch (e) {}
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    // 날짜바·요약 = 통계/지도 전용. 분석은 자체 기간바.
+    const isAna = (tab === 'analysis');
+    document.getElementById('date-bar').style.display = isAna ? 'none' : '';
+    document.getElementById('summary').style.display = isAna ? 'none' : '';
+    if (tab === 'map') {
+      ensureMap();
+      setTimeout(() => map && naver.maps.Event.trigger(map, 'resize'), 50);
+    }
+    if (isAna) renderAnalysis();
+  };
+});
+
+// 날짜 네비 (조회 버튼 없음 — 날짜 바뀌면 자동 반영)
+function stepDate(delta) {
+  const cur = document.getElementById('date-input').value || todayStr();
+  const [y, m, d] = cur.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  const ns = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+  document.getElementById('date-input').value = ns;
+  loadData();
+}
+const _savedStatsDate = (() => { try { return localStorage.getItem('jongno_stats_date'); } catch (e) { return null; } })();
+document.getElementById('date-input').value = _savedStatsDate || todayStr();
+document.getElementById('btn-prev').onclick = () => stepDate(-1);
+document.getElementById('btn-next').onclick = () => stepDate(1);
+document.getElementById('btn-today').onclick = () => { document.getElementById('date-input').value = todayStr(); loadData(); };
+document.getElementById('date-input').onchange = loadData;
+
+// ───── 분석 탭 ─────
+// 분석 타입 = parseType(E/EA/G/Amigo) + phaseOf(단상/삼상) 조합 — 구계기·신계기 공통(구형 17도 분류)
+function anaType(m) {
+  const t = (typeof parseType === 'function') ? parseType(m) : null;
+  const p = (typeof phaseOf === 'function') ? phaseOf(m) : null;
+  if (!t || !p) return '기타';
+  return `${t}_${p}`;
+}
+const ANA_DANSANG = ['E_단상', 'EA_단상', 'G_단상', 'Amigo_단상'];
+const ANA_SAMSANG = ['G_삼상', 'Amigo_삼상'];
+const ANA_LABEL = { 'E_단상': 'E 단상', 'EA_단상': 'EA 단상', 'G_단상': 'G 단상', 'Amigo_단상': 'AMIGO 단상', 'G_삼상': 'G 삼상', 'Amigo_삼상': 'AMIGO 삼상' };
+let _anaMode = 'week';
+let _anaAnchor = null;       // 기간 기준 Date (그 날이 속한 주/월)
+let _allWsCache = null;
+
+async function getAllWs() {
+  if (_allWsCache) return _allWsCache;
+  const snap = await db.ref('workStatus/jongno').once('value');
+  _allWsCache = snap.val() || {};
+  return _allWsCache;
+}
+
+// 기간(KST) 계산 — week=월~일, month=해당 월
+function anaPeriod() {
+  if (_anaMode === 'all') {
+    return { start: 0, end: Date.now(), label: '전체 기간' };   // 기간 무관 전체 집계
+  }
+  const anchor = _anaAnchor || new Date();
+  if (_anaMode === 'month') {
+    const y = anchor.getFullYear(), m = anchor.getMonth();
+    const start = Date.UTC(y, m, 1, -9, 0, 0, 0);          // KST 1일 00:00
+    const end = Date.UTC(y, m + 1, 1, -9, 0, 0, 0) - 1;    // KST 말일 23:59:59
+    return { start, end, label: `${y}.${m + 1}` };
+  }
+  // 주간: anchor가 속한 주 월~일 (KST)
+  const kd = new Date(anchor.getTime() + 9 * 3600 * 1000); // KST 시각
+  const dow = (kd.getUTCDay() + 6) % 7;                     // 월=0
+  const ky = kd.getUTCFullYear(), km = kd.getUTCMonth(), kday = kd.getUTCDate();
+  const start = Date.UTC(ky, km, kday - dow, -9, 0, 0, 0);
+  const end = Date.UTC(ky, km, kday - dow + 7, -9, 0, 0, 0) - 1;
+  const s = new Date(start + 9 * 3600 * 1000), e = new Date(end + 9 * 3600 * 1000);
+  const fmt = (d) => `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+  return { start, end, label: `${fmt(s)}~${fmt(e)}` };
+}
+
+function stepAna(delta) {
+  if (_anaMode === 'all') return;   // 전체는 기간 이동 없음
+  const base = _anaAnchor || new Date();
+  const d = new Date(base);
+  if (_anaMode === 'month') d.setMonth(d.getMonth() + delta);
+  else d.setDate(d.getDate() + delta * 7);
+  _anaAnchor = d;
+  renderAnalysis();
+}
+
+function anaTable(title, cntMap, totalLabel) {
+  const row = (t) => `<tr><td class="tname">${ANA_LABEL[t] || t}</td><td class="num">${cntMap[t] || 0}</td></tr>`;
+  const sum = (arr) => arr.reduce((a, t) => a + (cntMap[t] || 0), 0);
+  const dan = sum(ANA_DANSANG), sam = sum(ANA_SAMSANG), etc = cntMap['기타'] || 0;
+  const total = dan + sam + etc;
+  return `
+    <div class="ana-h">${title} (${totalLabel}: ${total})</div>
+    <table class="ana-table">
+      <thead><tr><th>타입</th><th>개수</th></tr></thead>
+      <tbody>
+        ${ANA_DANSANG.map(row).join('')}
+        <tr class="subtotal"><td class="tname">단상 소계</td><td class="num">${dan}</td></tr>
+        ${ANA_SAMSANG.map(row).join('')}
+        <tr class="subtotal"><td class="tname">삼상 소계</td><td class="num">${sam}</td></tr>
+        ${etc ? `<tr><td class="tname">기타</td><td class="num">${etc}</td></tr>` : ''}
+        <tr class="subtotal"><td class="tname">합계</td><td class="num">${total}</td></tr>
+      </tbody>
+    </table>`;
+}
+
+async function renderAnalysis() {
+  const content = document.getElementById('ana-content');
+  content.innerHTML = '<div class="empty">집계 중...</div>';
+  const [ws, sd] = await Promise.all([getAllWs(), loadSiteData()]);
+  const { start, end, label } = anaPeriod();
+  document.getElementById('ana-period').textContent = label;
+  // 전체 모드는 기간 이동(< >) 숨김
+  const navDisp = (_anaMode === 'all') ? 'none' : '';
+  document.getElementById('ana-prev').style.display = navDisp;
+  document.getElementById('ana-next').style.display = navDisp;
+
+  const replacedOld = new Set();   // 전체 교체된 구계기 (잔여 계산용)
+  const repCnt = {};               // 기간 내 교체분 type5 카운트 (신계기 기준)
+  Object.values(ws).forEach(v => {
+    const rl = v && v.replacement_list; if (!rl) return;
+    Object.values(rl).forEach(r => {
+      if (r.old_meter_id) replacedOld.add(String(r.old_meter_id).trim());
+      const ts = r.replaced_at;
+      if (typeof ts === 'number' && ts >= start && ts <= end) {
+        const t = anaType(r.new_meter_id);
+        repCnt[t] = (repCnt[t] || 0) + 1;
+      }
+    });
+  });
+  // 잔여 = site-data 전체 − 교체된 구계기 (현재 시점, 기간 무관)
+  const remCnt = {};
+  Object.keys(sd).forEach(mid => {
+    if (replacedOld.has(String(mid).trim())) return;
+    const t = anaType(mid);
+    remCnt[t] = (remCnt[t] || 0) + 1;
+  });
+
+  content.innerHTML =
+    anaTable(`교체 (${label})`, repCnt, '교체수') +
+    anaTable('잔여 (현재 전체)', remCnt, '잔여수');
+}
+
+document.querySelectorAll('#tab-analysis .ana-mode').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('#tab-analysis .ana-mode').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    _anaMode = b.dataset.mode;
+    _anaAnchor = new Date();
+    renderAnalysis();
+  };
+});
+// 통계 리스트 필터 (전체/미완료/추가계기)
+document.querySelectorAll('#list-filter .ana-mode').forEach(b => {
+  b.onclick = () => {
+    const lf = b.dataset.lf;
+    const appBtn = document.querySelector('#list-filter [data-lf="appdone"]');
+    if (lf === 'appdone') {
+      // 앱작성완료 버튼 토글: 완료 ↔ 미완료
+      if (_listFilter === 'appdone') { _listFilter = 'appdone_not'; if (appBtn) appBtn.textContent = '앱작성 미완료'; }
+      else { _listFilter = 'appdone'; if (appBtn) appBtn.textContent = '앱작성완료'; }
+    } else {
+      _listFilter = lf;
+      if (appBtn) appBtn.textContent = '앱작성완료';   // 다른 필터 선택 시 라벨 복귀
+    }
+    document.querySelectorAll('#list-filter .ana-mode').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    renderList();
+  };
+});
+document.getElementById('ana-prev').onclick = () => stepAna(-1);
+document.getElementById('ana-next').onclick = () => stepAna(1);
+
+// 엑셀 내보내기 (선택 날짜 작업) — site-data 결합, 철거지침 칸별, 사진 URL
+function exportExcel() {
+  const hasData = (cachedData && cachedData.length) || (cachedAdded && cachedAdded.length);
+  if (!hasData) { alert('내보낼 작업이 없습니다.'); return; }
+  const sd = siteDataByMeterId || {};
+  const base = [...(cachedData || [])].sort((a, b) => (a.daily_seq ?? Infinity) - (b.daily_seq ?? Infinity));
+  // 추가데이터(extra_data) 값 있는 항목 추출 헬퍼 + 전체 최대 개수(동적 컬럼 수)
+  const exOf = (it) => (Array.isArray(it && it.extra_data) ? it.extra_data.filter(x => x && x.value != null && String(x.value) !== '') : []);
+  const maxEx = base.reduce((m, it) => Math.max(m, exOf(it).length), 0);
+  const exCols = (ex) => {
+    const o = {};
+    for (let i = 0; i < maxEx; i++) {
+      o[`추가${i + 1}_제목`] = ex[i] ? ((ex[i].label && String(ex[i].label).trim()) ? ex[i].label : `추가${i + 1}`) : '';
+      o[`추가${i + 1}_값`] = ex[i] ? ex[i].value : '';
+    }
+    return o;
+  };
+  const rows = base.map(item => {
+    const s = sd[String(item.old_meter_id)] || {};
+    const rv = item.removal_values || {};
+    return {
+      '순번': item.daily_seq ?? '',
+      '주소': item.address || s.주소 || '',
+      '도로명주소': s.도로명주소 || '',
+      '고객번호': s.고객번호 || item.cust_no || '',
+      '상호': s.상호 || '',
+      '호수(공동주택)': s.공동주택명 || '',
+      '고객명': s.고객명 || '',
+      '철거계기번호': item.old_meter_id || '',
+      '신설계기번호': item.new_meter_id || '',
+      '철거지침_주간': rv.whme_day ?? (item.removal_value ?? ''),
+      '철거지침_야간': rv.whme_mngt ?? '',
+      '철거지침_최대': rv.dm_mt_day ?? '',
+      '철거지침_무효': rv.var_day ?? '',
+      '제조년월': item.new_meter_mfg_ym || '',
+      '추가계기': '',
+      ...exCols(exOf(item)),
+      '지침사진_주간': (item.removal_photos && item.removal_photos.whme_day) || item.old_meter_photo || '',
+      '지침사진_야간': (item.removal_photos && item.removal_photos.whme_mngt) || '',
+      '지침사진_최대': (item.removal_photos && item.removal_photos.dm_mt_day) || '',
+      '지침사진_무효': (item.removal_photos && item.removal_photos.var_day) || '',
+      '신계기사진': item.new_meter_photo || '',
+      '비고': item.remark || '',
+    };
+  });
+  // 추가계기(added_meters) 행 append
+  //  ① 그날 base에 이미 검침값 행으로 있으면 제외(중복)
+  //  ② 그 외엔 전체 DB(날짜무관)에서 이 계기의 교체완료(replacement)를 역검색 — 있으면 검침값/신설/사진 채움
+  //     (추가 등록일 ≠ 교체완료일이어도 누락 방지. 영준님 2026-06-16: 추가계기도 검침값 다 있으면 채워서 내보내기)
+  //  ③ 그것도 없으면(진짜 미작업 추가계기) 빈 행
+  const _baseMeters = new Set(base.map(it => String(it.old_meter_id)));
+  // 전체 workStatus(decodeKey 주소키)에서 철거계기번호 → {r, addr} 역인덱스
+  const _allRplByMeter = {};
+  Object.entries(window.workStatus || {}).forEach(([addr, val]) => {
+    const rl = val && val.replacement_list;
+    if (!rl) return;
+    Object.values(rl).forEach(r => { if (r && r.old_meter_id != null) _allRplByMeter[String(r.old_meter_id)] = { r, addr }; });
+  });
+  (cachedAdded || []).forEach(a => {
+    const mid = String(a.meter_id);
+    if (_baseMeters.has(mid)) return;  // 그날 base 검침값 행에 이미 포함
+    const hit = _allRplByMeter[mid];
+    if (hit) {
+      // 다른 날 교체완료된 추가계기 → 검침값 행으로 채움(추가계기 표시 유지)
+      const item = hit.r;
+      const s = sd[String(item.old_meter_id)] || {};
+      const rv = item.removal_values || {};
+      rows.push({
+        '순번': item.daily_seq ?? '',
+        '주소': hit.addr || a.address || s.주소 || '',
+        '도로명주소': s.도로명주소 || '',
+        '고객번호': s.고객번호 || item.cust_no || '',
+        '상호': s.상호 || '',
+        '호수(공동주택)': s.공동주택명 || '',
+        '고객명': s.고객명 || '',
+        '철거계기번호': item.old_meter_id || mid,
+        '신설계기번호': item.new_meter_id || '',
+        '철거지침_주간': rv.whme_day ?? (item.removal_value ?? ''),
+        '철거지침_야간': rv.whme_mngt ?? '',
+        '철거지침_최대': rv.dm_mt_day ?? '',
+        '철거지침_무효': rv.var_day ?? '',
+        '제조년월': item.new_meter_mfg_ym || '',
+        '추가계기': '추가계기',
+        ...exCols(exOf(item)),
+        '지침사진_주간': (item.removal_photos && item.removal_photos.whme_day) || item.old_meter_photo || '',
+        '지침사진_야간': (item.removal_photos && item.removal_photos.whme_mngt) || '',
+        '지침사진_최대': (item.removal_photos && item.removal_photos.dm_mt_day) || '',
+        '지침사진_무효': (item.removal_photos && item.removal_photos.var_day) || '',
+        '신계기사진': item.new_meter_photo || '',
+        '비고': item.remark || '',
+      });
+      return;
+    }
+    // 진짜 미작업 추가계기 → 빈 행
+    rows.push({
+      '순번': '',
+      '주소': a.address || '',
+      '도로명주소': '', '고객번호': '', '상호': '', '호수(공동주택)': '', '고객명': '',
+      '철거계기번호': a.meter_id || '',
+      '신설계기번호': '',
+      '철거지침_주간': '', '철거지침_야간': '', '철거지침_최대': '', '철거지침_무효': '',
+      '제조년월': '',
+      '추가계기': '추가계기',
+      ...exCols([]),
+      '지침사진_주간': '', '지침사진_야간': '', '지침사진_최대': '', '지침사진_무효': '', '신계기사진': '', '비고': '',
+    });
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  // 사진 컬럼 = 긴 URL 대신 클릭 하이퍼링크("보기")
+  try {
+    const photoHdrs = ['지침사진_주간', '지침사진_야간', '지침사진_최대', '지침사진_무효', '신계기사진'];
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    const hdrCol = {};
+    for (let c = range.s.c; c <= range.e.c; c++) { const h = ws[XLSX.utils.encode_cell({ r: 0, c })]; if (h) hdrCol[h.v] = c; }
+    for (let r = 1; r <= range.e.r; r++) {
+      photoHdrs.forEach(h => {
+        const c = hdrCol[h]; if (c == null) return;
+        const ref = XLSX.utils.encode_cell({ r, c }); const cell = ws[ref];
+        if (cell && cell.v && /^https?:/.test(String(cell.v))) { cell.l = { Target: String(cell.v) }; cell.v = '보기'; }
+      });
+    }
+  } catch (e) { console.warn('사진 하이퍼링크 변환 실패:', e); }
+  // 열 너비 통일 (헤더명 기준, 추가데이터 컬럼은 가변 대응)
+  try {
+    const W = { '순번': 6, '주소': 24, '도로명주소': 24, '고객번호': 11, '상호': 12, '호수(공동주택)': 12, '고객명': 9, '철거계기번호': 13, '신설계기번호': 13, '철거지침_주간': 9, '철거지침_야간': 8, '철거지침_최대': 8, '철거지침_무효': 9, '제조년월': 9, '추가계기': 9, '지침사진_주간': 8, '지침사진_야간': 8, '지침사진_최대': 8, '지침사진_무효': 8, '신계기사진': 8, '비고': 34 };
+    const rg = XLSX.utils.decode_range(ws['!ref']);
+    const cols = [];
+    for (let c = rg.s.c; c <= rg.e.c; c++) { const h = ws[XLSX.utils.encode_cell({ r: 0, c })]; const n = h ? h.v : ''; cols.push({ wch: W[n] || (/^추가\d+_/.test(n) ? 12 : 10) }); }
+    ws['!cols'] = cols;
+  } catch (e) { console.warn('열너비 설정 실패:', e); }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '작업');
+  const dv = document.getElementById('date-input').value || todayStr();
+  XLSX.writeFile(wb, `종로_작업_${dv}.xlsx`);
+}
+document.getElementById('btn-export').onclick = exportExcel;
+
+// ── 사진 전체 다운로드 (이 날짜) ────────────────────────────────────────
+// 철거지침 4칸(주간/야간/최대/무효) + 신계기 사진을 zip으로. 카톡 전송 위해 280MB 단위로
+// 작업번호(daily_seq) 경계에서 분할 → 종로_사진_{날짜}_001-050.zip 식 여러 파트.
+// ★폰-세이프: 파트 하나씩 메모리에 쌓고 생성·다운로드 후 즉시 해제(전체를 한 번에 안 만듦).
+const PHOTO_PART_LIMIT = 280 * 1024 * 1024;  // 280MB (카톡 300MB 한도 안전여유)
+const PHOTO_FIELD_LABEL = { whme_day: '주간', whme_mngt: '야간', dm_mt_day: '최대', var_day: '무효' };
+
+function _photoTasksOf(item) {
+  // 한 계기의 사진 목록 [{url, label}] — old_meter_photo는 removal_photos.whme_day 별칭이라 중복 제외(폴백만)
+  const rp = item.removal_photos || {};
+  const tasks = [];
+  ['whme_day', 'whme_mngt', 'dm_mt_day', 'var_day'].forEach(fid => {
+    let url = rp[fid] || '';
+    if (fid === 'whme_day' && !url) url = item.old_meter_photo || '';  // 구버전 폴백
+    if (url && /^https?:/.test(url)) tasks.push({ url, label: PHOTO_FIELD_LABEL[fid] });
+  });
+  if (item.new_meter_photo && /^https?:/.test(item.new_meter_photo)) tasks.push({ url: item.new_meter_photo, label: '신설' });
+  return tasks;
+}
+
+function _triggerDownload(blob, filename) {
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+async function downloadAllPhotos() {
+  if (typeof JSZip === 'undefined') { alert('사진 압축 라이브러리 로드 실패 — 새로고침 후 다시 시도하세요.'); return; }
+  const base = [...(cachedData || [])].sort((a, b) => (a.daily_seq ?? Infinity) - (b.daily_seq ?? Infinity));
+  if (!base.length) { alert('이 날짜에 사진이 있는 작업이 없습니다.'); return; }
+
+  const btn = document.getElementById('btn-photos');
+  const orig = btn.textContent;
+  btn.disabled = true;
+  const setMsg = (t) => { btn.textContent = t; };
+  const dv = document.getElementById('date-input').value || todayStr();
+
+  let zip = new JSZip();
+  let partBytes = 0;        // 현재 파트에 담긴 사진 바이트 합
+  let partFiles = 0;
+  let partStartSeq = null;  // 현재 파트 첫 작업번호
+  let partEndSeq = null;
+  let partNo = 0;
+  let totalPhotos = 0, failed = 0, doneItems = 0;
+  const used = new Set();   // 파일명 중복 방지
+
+  const seq3 = (it) => String(it.daily_seq ?? 0).padStart(3, '0');
+
+  async function flushPart() {
+    if (partFiles === 0) { zip = new JSZip(); partBytes = 0; partStartSeq = partEndSeq = null; return; }
+    partNo++;
+    setMsg(`파트 ${partNo} 압축 중…`);
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+    const range = (partStartSeq === partEndSeq) ? seq3pad(partStartSeq) : `${seq3pad(partStartSeq)}-${seq3pad(partEndSeq)}`;
+    _triggerDownload(blob, `종로_사진_${dv}_${range}.zip`);
+    // 메모리 해제 — 다음 파트는 새 zip
+    zip = new JSZip(); partBytes = 0; partFiles = 0; partStartSeq = partEndSeq = null;
+    await new Promise(r => setTimeout(r, 800));  // 연속 다운로드 브라우저 차단 완화
+  }
+  function seq3pad(n) { return String(n ?? 0).padStart(3, '0'); }
+
+  try {
+    for (const item of base) {
+      doneItems++;
+      setMsg(`사진 받는 중 ${doneItems}/${base.length}…`);
+      const tasks = _photoTasksOf(item);
+      if (!tasks.length) continue;
+      if (partStartSeq === null) partStartSeq = item.daily_seq ?? 0;
+      partEndSeq = item.daily_seq ?? 0;
+      // 한 계기의 사진들(최대 5장) 병렬 fetch
+      const blobs = await Promise.all(tasks.map(async t => {
+        try {
+          const res = await fetch(t.url);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return { blob: await res.blob(), label: t.label };
+        } catch (e) { console.warn('사진 fetch 실패:', t.url, e); failed++; return null; }
+      }));
+      for (const b of blobs) {
+        if (!b) continue;
+        let name = `${seq3(item)}_${item.old_meter_id || 'NA'}_${b.label}.jpg`;
+        while (used.has(name)) name = name.replace(/(\.jpg)$/, '_x$1');
+        used.add(name);
+        zip.file(name, b.blob);
+        partBytes += b.blob.size; partFiles++; totalPhotos++;
+      }
+      // 이 계기까지 담은 뒤 280MB 넘으면 작업번호 경계에서 파트 마감
+      if (partBytes >= PHOTO_PART_LIMIT) await flushPart();
+    }
+    await flushPart();  // 마지막 파트
+    if (totalPhotos === 0) { alert('받을 사진이 없습니다.'); }
+    else setMsg(`완료: ${totalPhotos}장${failed ? ` (실패 ${failed})` : ''} · ${partNo}개 zip`);
+    if (failed) console.warn(`사진 다운로드 실패 ${failed}장`);
+  } catch (e) {
+    console.error('사진 다운로드 오류:', e);
+    alert('사진 다운로드 중 오류: ' + (e && e.message || e));
+  } finally {
+    setTimeout(() => { btn.disabled = false; btn.textContent = orig; }, 4000);
+  }
+}
+document.getElementById('btn-photos').onclick = downloadAllPhotos;
+
+// 초기 데이터 로드 후 이전 세션 탭 복원
+// (지도/분석 탭은 cachedData가 준비된 뒤 그려야 그전 날짜 필터가 반영됨)
+loadData().then(() => {
+  let st = null; try { st = localStorage.getItem('jongno_stats_tab'); } catch (e) {}
+  if (st && st !== 'list') {
+    const tb = document.querySelector(`.tab-btn[data-tab="${st}"]`);
+    if (tb) tb.click();
+  }
+});
+</script>
+
+<!-- 모달 의존 스크립트 (inline script 이후 로드 — RplModal 사용 가능) -->
+<script src="js/photo-uploader.js?v=20260528a"></script>
+<script src="js/lcd-crop.js?v=20260608lcd3"></script>
+<script src="js/awms-parseValue.js?v=20260602a"></script>
+<script src="js/qr-scanner.js?v=20260608ios"></script>
+<script src="js/replacement-modal.js?v=20260615e"></script>
+<div id="toast" class="toast">복사했습니다</div>
+
+<!-- QR 스캔 오버레이 (교체모달 QR 버튼용 — map.html과 동일) -->
+<div id="qr-scan-overlay" style="display:none;position:fixed;inset:0;background:black;z-index:3000;flex-direction:column;">
+  <div style="display:flex;align-items:center;padding:10px 14px;background:#111;color:white;gap:8px;">
+    <span id="qr-cam-label" style="font-size:12px;font-weight:600;white-space:nowrap;">카메라</span>
+    <select id="qr-cam-select" style="flex:1;min-width:140px;padding:8px 10px;background:#374151;color:white;border:1.5px solid #6b7280;border-radius:6px;font-size:13px;font-weight:600;appearance:auto;-webkit-appearance:auto;"><option>카메라 로드 중...</option></select>
+    <button id="qr-close-btn" style="padding:6px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">×</button>
+  </div>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;background:black;overflow:hidden;">
+    <div id="qr-reader" style="width:min(100vw, 100%); aspect-ratio:1/1; max-height:100%; background:black; position:relative; overflow:hidden;"></div>
+  </div>
+  <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
+  <div style="display:flex;gap:6px;padding:8px;background:#111;">
+    <button id="qr-switch-btn" style="display:none;flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">카메라 전환</button>
+    <button id="qr-zoom-out" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">- 줌</button>
+    <button id="qr-zoom-in" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">+ 줌</button>
+    <button id="qr-torch-btn" style="display:none;flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">손전등</button>
+  </div>
+</div>
+</body>
+</html>

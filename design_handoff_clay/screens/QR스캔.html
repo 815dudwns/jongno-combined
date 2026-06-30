@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR 스캔 · 종로 합동시공 (클레이)</title>
+<link rel="stylesheet" href="clay.css">
+<style>
+  html, body { height: 100%; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100dvh; padding: 24px;
+    background: radial-gradient(120% 90% at 50% 0%, #f0ede6 0%, var(--bg) 55%, #e2ddd4 100%);
+  }
+  .phone {
+    width: 390px; max-width: 100%; height: 844px; max-height: calc(100dvh - 48px);
+    border-radius: 54px; padding: 13px;
+    background: linear-gradient(155deg, #f4f1ea, #dcd7cd);
+    box-shadow: 18px 22px 50px rgba(150,142,128,0.55), -14px -14px 40px rgba(255,255,255,0.9),
+      inset 2px 2px 4px rgba(255,255,255,0.7), inset -3px -3px 8px rgba(160,152,138,0.4);
+  }
+  .phone-screen {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 42px; overflow: hidden; background: #0e0f0d;
+    box-shadow: var(--clay-inset); display: flex; flex-direction: column;
+  }
+
+  /* 상태바 (다크) */
+  .statusbar {
+    height: 50px; flex-shrink: 0; display: flex; align-items: center; z-index: 30;
+    justify-content: space-between; padding: 0 30px 0 34px; position: relative;
+    font-size: 15px; font-weight: 700; color: #f4f1ea;
+  }
+  .statusbar .sb-right { display: flex; align-items: center; gap: 7px; }
+  .sb-bars { display: flex; align-items: flex-end; gap: 2px; height: 11px; }
+  .sb-bars i { width: 3px; border-radius: 1px; background: #f4f1ea; }
+  .sb-bars i:nth-child(1){height:4px} .sb-bars i:nth-child(2){height:6px}
+  .sb-bars i:nth-child(3){height:8px} .sb-bars i:nth-child(4){height:11px}
+  .sb-batt { width: 24px; height: 12px; border-radius: 3px; border: 1.6px solid #f4f1ea; position: relative; padding: 1.5px; }
+  .sb-batt::after { content:""; position:absolute; right:-3px; top:3.5px; width:2px; height:4px; background: #f4f1ea; border-radius: 0 1px 1px 0; }
+  .sb-batt b { display:block; width:72%; height:100%; background: var(--mint); border-radius:1px; }
+
+  /* ---- QR 헤더 (클레이 다크) ---- */
+  .qr-header {
+    position: relative; z-index: 20; flex-shrink: 0; display: flex; align-items: center; gap: 9px;
+    padding: 6px 16px 14px;
+  }
+  .cam-select {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px;
+    background: #1f211d; border-radius: 999px; padding: 9px 9px 9px 15px;
+    box-shadow: inset 3px 3px 7px rgba(0,0,0,0.6), inset -2px -2px 5px rgba(255,255,255,0.06);
+  }
+  .cam-select .cs-lbl { font-size: 11px; font-weight: 800; color: var(--mint); letter-spacing: .02em; white-space: nowrap; }
+  .cam-select .cs-val { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: #e8e4da; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cam-select .cs-caret { width: 8px; height: 8px; border-right: 2.2px solid #8a8f84; border-bottom: 2.2px solid #8a8f84; transform: rotate(45deg) translate(-1px,-1px); flex-shrink: 0; margin-right: 6px; }
+  .qr-close {
+    flex-shrink: 0; width: 38px; height: 38px; border: none; cursor: pointer; border-radius: 50%;
+    background: linear-gradient(145deg,#3a2222,#241414); position: relative;
+    box-shadow: 3px 4px 9px rgba(0,0,0,0.5), -2px -2px 6px rgba(255,255,255,0.05), inset 1px 1px 2px rgba(255,255,255,0.1);
+  }
+  .qr-close::before, .qr-close::after { content:""; position:absolute; left:50%; top:50%; width:14px; height:2.4px; border-radius:2px; background:#f0b8b8; }
+  .qr-close::before { transform: translate(-50%,-50%) rotate(45deg); }
+  .qr-close::after { transform: translate(-50%,-50%) rotate(-45deg); }
+  .qr-close:active { box-shadow: inset 3px 3px 6px rgba(0,0,0,0.6); }
+
+  /* ---- 카메라 뷰 ---- */
+  .cam-view { flex: 1; position: relative; overflow: hidden; background: #16140f; }
+  /* 모의 카메라 피드 (계량기 벽면 느낌) */
+  .cam-feed { position: absolute; inset: 0; background:
+      radial-gradient(140% 120% at 30% 25%, #4a4336 0%, #322c22 45%, #1c1812 100%);
+  }
+  .cam-feed::before { content:""; position:absolute; inset:0;
+    background-image: repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0 1px, transparent 1px 26px),
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.12) 0 1px, transparent 1px 26px);
+    opacity:.5; }
+  /* 모의 계기 박스 */
+  .meter-box { position: absolute; left: 50%; top: 47%; transform: translate(-50%,-50%);
+    width: 188px; height: 130px; border-radius: 12px;
+    background: linear-gradient(150deg, #d8d2c4, #b3ab98); box-shadow: 8px 12px 26px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.4); }
+  .meter-box .mb-screen { position: absolute; left: 14px; top: 16px; right: 14px; height: 38px; border-radius: 5px;
+    background: linear-gradient(160deg,#2c3530,#161c18); box-shadow: inset 0 2px 5px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; }
+  .meter-box .mb-screen span { font-family: 'Courier New', monospace; font-size: 19px; font-weight: 700; color: #7fe6b0; letter-spacing: 2px; text-shadow: 0 0 6px rgba(127,230,176,.6); }
+  /* 모의 QR/바코드 */
+  .meter-box .mb-qr { position: absolute; left: 16px; bottom: 14px; width: 42px; height: 42px;
+    display: grid; grid-template-columns: repeat(5,1fr); grid-template-rows: repeat(5,1fr); gap: 1.5px; padding: 4px; background: #fff; border-radius: 4px; }
+  .meter-box .mb-qr i { background: #1a1a1a; border-radius: 1px; }
+  .meter-box .mb-qr i:nth-child(2n) { background: #fff; }
+  .meter-box .mb-qr i:nth-child(7), .meter-box .mb-qr i:nth-child(13), .meter-box .mb-qr i:nth-child(19) { background: #1a1a1a; }
+  .meter-box .mb-label { position: absolute; right: 14px; bottom: 20px; font-size: 9px; font-weight: 700; color: #5a5346; text-align: right; line-height: 1.4; }
+
+  /* 어두운 마스크 (스캔 영역만 밝게) */
+  .scan-mask { position: absolute; inset: 0; background: rgba(8,9,7,0.55);
+    -webkit-mask: radial-gradient(circle, transparent 0, transparent 0);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0,
+      calc(50% - 118px) calc(47% - 118px), calc(50% - 118px) calc(47% + 118px),
+      calc(50% + 118px) calc(47% + 118px), calc(50% + 118px) calc(47% - 118px), calc(50% - 118px) calc(47% - 118px)); }
+
+  /* 스캔 프레임 (클레이 모서리) */
+  .scan-frame { position: absolute; left: 50%; top: 47%; transform: translate(-50%,-50%);
+    width: 236px; height: 236px; border-radius: 28px; }
+  .scan-frame .corner { position: absolute; width: 40px; height: 40px; }
+  .scan-frame .corner::before, .scan-frame .corner::after { content:""; position:absolute; background: var(--mint);
+    border-radius: 3px; box-shadow: 0 0 10px rgba(70,224,163,0.6); }
+  .scan-frame .corner::before { width: 40px; height: 5px; }
+  .scan-frame .corner::after { width: 5px; height: 40px; }
+  .scan-frame .tl { top: 0; left: 0; } .scan-frame .tl::before { top:0; left:0; } .scan-frame .tl::after { top:0; left:0; }
+  .scan-frame .tr { top: 0; right: 0; } .scan-frame .tr::before { top:0; right:0; } .scan-frame .tr::after { top:0; right:0; }
+  .scan-frame .bl { bottom: 0; left: 0; } .scan-frame .bl::before { bottom:0; left:0; } .scan-frame .bl::after { bottom:0; left:0; }
+  .scan-frame .br { bottom: 0; right: 0; } .scan-frame .br::before { bottom:0; right:0; } .scan-frame .br::after { bottom:0; right:0; }
+  /* 스캔 라인 */
+  .scan-line { position: absolute; left: 14px; right: 14px; top: 14px; height: 3px; border-radius: 3px;
+    background: linear-gradient(90deg, transparent, var(--mint-glow), transparent);
+    box-shadow: 0 0 14px 2px rgba(70,224,163,0.7); animation: scan 2.4s ease-in-out infinite; }
+  @keyframes scan { 0%,100% { top: 16px; } 50% { top: 216px; } }
+
+  /* 안내 텍스트 */
+  .scan-hint { position: absolute; left: 0; right: 0; bottom: 30px; text-align: center;
+    font-size: 14px; font-weight: 700; color: #eae6dc; text-shadow: 0 1px 8px rgba(0,0,0,0.8); padding: 0 30px; }
+  .scan-hint b { color: var(--mint); }
+
+  /* ---- 하단 컨트롤 ---- */
+  .qr-controls { flex-shrink: 0; display: flex; gap: 9px; padding: 14px 16px 18px; z-index: 20; }
+  .qbtn { flex: 1; border: none; cursor: pointer; border-radius: 16px; padding: 14px 8px;
+    font-family: var(--font); font-size: 13.5px; font-weight: 800; color: #e8e4da;
+    background: linear-gradient(145deg,#2a2c27,#1a1c18);
+    box-shadow: 4px 5px 12px rgba(0,0,0,0.5), -3px -3px 8px rgba(255,255,255,0.04), inset 1px 1px 2px rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center; gap: 7px; transition: box-shadow .12s, transform .1s; }
+  .qbtn:active { box-shadow: inset 4px 4px 9px rgba(0,0,0,0.6); transform: translateY(1px); }
+  /* 줌 부호 */
+  .zsign { position: relative; width: 14px; height: 14px; flex-shrink: 0; }
+  .zsign::before { content:""; position:absolute; left:0; top:50%; transform:translateY(-50%); width:14px; height:2.4px; border-radius:2px; background: var(--mint); }
+  .zsign.plus::after { content:""; position:absolute; left:50%; top:0; transform:translateX(-50%); width:2.4px; height:14px; border-radius:2px; background: var(--mint); }
+  /* 전환 아이콘 */
+  .swap-ico { width: 16px; height: 14px; position: relative; flex-shrink: 0; }
+  .swap-ico::before, .swap-ico::after { content:""; position:absolute; left:0; right:0; height:2.2px; border-radius:2px; background: var(--mint); }
+  .swap-ico::before { top: 2px; box-shadow: 9px -2px 0 -1px var(--mint); }
+  .swap-ico::after { bottom: 2px; box-shadow: -9px 2px 0 -1px var(--mint); }
+
+  /* 성공 토스트 */
+  .qr-success { position: absolute; left: 16px; right: 16px; bottom: 90px; z-index: 40;
+    display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: 18px;
+    background: linear-gradient(145deg,#d6f0e1,#b6e0c9); box-shadow: var(--clay);
+    opacity: 0; transform: translateY(12px); pointer-events: none; transition: all .3s; }
+  .qr-success.show { opacity: 1; transform: translateY(0); }
+  .qs-check { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; position: relative;
+    background: linear-gradient(145deg,#5fbb8c,#3f9e6f); box-shadow: var(--clay-sm); }
+  .qs-check::after { content:""; position:absolute; left:13px; top:9px; width:7px; height:13px; border-right:3px solid #fff; border-bottom:3px solid #fff; transform: rotate(42deg); }
+  .qs-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .qs-text .qs-t { font-size: 12px; font-weight: 700; color: var(--mint-strong); }
+  .qs-text .qs-no { font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: .01em; white-space: nowrap; }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="statusbar">
+        <span>9:41</span>
+        <span class="sb-right">
+          <span class="sb-bars"><i></i><i></i><i></i><i></i></span>
+          <span class="sb-batt"><b></b></span>
+        </span>
+      </div>
+
+      <!-- 헤더: 카메라 선택 + 닫기 -->
+      <div class="qr-header">
+        <div class="cam-select" id="cam-select">
+          <span class="cs-lbl">카메라</span>
+          <span class="cs-val" id="cs-val">후면 (광각)</span>
+          <span class="cs-caret"></span>
+        </div>
+        <button class="qr-close" aria-label="닫기"></button>
+      </div>
+
+      <!-- 카메라 뷰 -->
+      <div class="cam-view">
+        <div class="cam-feed">
+          <div class="meter-box">
+            <div class="mb-screen"><span id="mb-reading">12345</span></div>
+            <div class="mb-qr"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="mb-label">단상2선<br>220V 30A</div>
+          </div>
+        </div>
+
+        <div class="scan-mask"></div>
+
+        <div class="scan-frame">
+          <span class="corner tl"></span><span class="corner tr"></span>
+          <span class="corner bl"></span><span class="corner br"></span>
+          <span class="scan-line" id="scan-line"></span>
+        </div>
+
+        <p class="scan-hint">계기 <b>바코드</b>를 사각형 안에 맞춰주세요</p>
+
+        <!-- 성공 토스트 -->
+        <div class="qr-success" id="qr-success">
+          <span class="qs-check"></span>
+          <span class="qs-text">
+            <span class="qs-t">계기번호 인식 완료</span>
+            <span class="qs-no" id="qs-no">0815 G 4471 9920</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- 하단 컨트롤 -->
+      <div class="qr-controls">
+        <button class="qbtn" id="btn-switch"><span class="swap-ico"></span>카메라 전환</button>
+        <button class="qbtn" id="btn-zoom-out"><span class="zsign"></span>줌</button>
+        <button class="qbtn" id="btn-zoom-in"><span class="zsign plus"></span>줌</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 카메라 전환 (데모)
+    var cams = ['후면 (광각)', '후면 (망원)', '전면'];
+    var ci = 0;
+    document.getElementById('btn-switch').addEventListener('click', function(){
+      ci = (ci+1) % cams.length;
+      document.getElementById('cs-val').textContent = cams[ci];
+    });
+
+    // 줌 (데모) — 계기 박스 스케일
+    var zoom = 1;
+    var box = document.querySelector('.meter-box');
+    function applyZoom(){ box.style.transform = 'translate(-50%,-50%) scale(' + zoom + ')'; }
+    document.getElementById('btn-zoom-in').addEventListener('click', function(){ zoom = Math.min(2.2, zoom+0.2); applyZoom(); });
+    document.getElementById('btn-zoom-out').addEventListener('click', function(){ zoom = Math.max(1, zoom-0.2); applyZoom(); });
+
+    // 데모: 3초 후 인식 성공 시연
+    var success = document.getElementById('qr-success');
+    var line = document.getElementById('scan-line');
+    function simulateDetect(){
+      success.classList.add('show');
+      line.style.animationPlayState = 'paused';
+      setTimeout(function(){
+        success.classList.remove('show');
+        line.style.animationPlayState = 'running';
+      }, 2600);
+    }
+    setTimeout(simulateDetect, 3000);
+    // 카메라 뷰 탭하면 다시 시연
+    document.querySelector('.cam-view').addEventListener('click', function(e){
+      if(e.target.closest('.qr-success')) return;
+      simulateDetect();
+    });
+  </script>
+</body>
+</html>

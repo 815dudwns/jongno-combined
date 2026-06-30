@@ -1,0 +1,316 @@
+/* ============================================================
+   clay.css — 종로 합동시공 클레이모피즘 디자인 시스템
+   "Product UI Styleguide" 기반: 웜 크림 보드 + 세이지 민트 강조
+   부드러운 입체 표면 · 알약형 곡선 · 이모지/아이콘폰트 없음
+   ============================================================ */
+
+:root {
+  /* ---- 팔레트 (웜 크림 + 세이지 민트) ---- */
+  --bg:            #e9e6df;   /* 앱 배경 — 웜 크림 보드 */
+  --bg-deep:       #ddd9d0;   /* 음각/리세스 영역 */
+  --surface:       #f6f4ef;   /* 볼록 클레이 표면 (밝음) */
+  --surface-2:     #efece5;   /* 보조 표면 */
+
+  --mint:          #a6dcc1;   /* 주색상 — 소프트 세이지 민트 */
+  --mint-ink:      #4e9b78;   /* 민트 위 텍스트/강조 (중간) */
+  --mint-strong:   #3f8e6b;   /* 진한 세이지 (텍스트) */
+  --mint-deep:     #2c5e44;   /* 버튼 라벨용 딥그린 */
+  --mint-soft:     #d6ecdf;   /* 옅은 민트 (칩 배경) */
+  --mint-glow:     #46e0a3;   /* 포커스 링 — 밝은 스프링그린 */
+
+  --ink:           #2c2a27;   /* 본문 텍스트 (웜 블랙) */
+  --ink-2:         #6f6b62;   /* 보조 텍스트 */
+  --ink-3:         #a8a399;   /* 흐린 텍스트 / placeholder */
+
+  /* ---- 상태색 (클레이 톤) ---- */
+  --green:         #74c499;   --green-soft:  #c4e7d2;
+  --blue:          #6aa6dd;   --blue-soft:   #cfe2f5;
+  --amber:         #e0b85a;   --amber-soft:  #f3e3b0;
+  --rose:          #df8a8a;   --rose-soft:   #f3cdcd;
+  --violet:        #a896d0;   --violet-soft: #e0d6f0;
+  --gray:          #aaa499;   --gray-soft:   #d8d4cb;
+
+  /* ---- 조절 변수 (Tweak) ---- */
+  --depth: 1;
+  --radius: 22px;
+  --radius-sm: 14px;
+  --radius-pill: 999px;
+
+  /* ---- 클레이 그림자 (광원: 좌상단, 웜그레이 음영) ---- */
+  --clay:
+    calc(6px * var(--depth)) calc(7px * var(--depth)) calc(16px * var(--depth)) rgba(165,158,144,0.55),
+    calc(-6px * var(--depth)) calc(-6px * var(--depth)) calc(14px * var(--depth)) rgba(255,255,255,0.88),
+    inset 2px 2px 4px rgba(255,255,255,0.75),
+    inset -4px -4px 9px rgba(170,162,148,0.26);
+
+  --clay-sm:
+    calc(3px * var(--depth)) calc(4px * var(--depth)) calc(10px * var(--depth)) rgba(165,158,144,0.5),
+    calc(-3px * var(--depth)) calc(-3px * var(--depth)) calc(9px * var(--depth)) rgba(255,255,255,0.88),
+    inset 1px 1px 2px rgba(255,255,255,0.7),
+    inset -2px -2px 5px rgba(170,162,148,0.22);
+
+  --clay-inset:
+    inset 4px 5px 10px rgba(168,160,146,0.5),
+    inset -4px -4px 9px rgba(255,255,255,0.85);
+
+  --clay-inset-sm:
+    inset 3px 3px 6px rgba(168,160,146,0.46),
+    inset -3px -3px 6px rgba(255,255,255,0.8);
+
+  /* 민트 컬러 클레이 (주요 버튼) */
+  --clay-mint:
+    calc(5px * var(--depth)) calc(6px * var(--depth)) calc(14px * var(--depth)) rgba(95,160,125,0.45),
+    calc(-4px * var(--depth)) calc(-4px * var(--depth)) calc(11px * var(--depth)) rgba(255,255,255,0.8),
+    inset 2px 2px 5px rgba(225,247,234,0.85),
+    inset -4px -4px 9px rgba(80,150,115,0.4);
+
+  /* 포커스 글로우 */
+  --focus-glow: 0 0 0 3px rgba(70,224,163,0.45), 0 0 14px rgba(70,224,163,0.35);
+
+  --font: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+          'Malgun Gothic', sans-serif;
+}
+
+/* ============================================================
+   다크 모드
+   • 기본: OS 설정 자동 추종 (@media prefers-color-scheme)
+   • 수동 강제: [data-theme="dark"] / [data-theme="light"]
+   클레이 다크: 표면이 배경보다 밝고, 그림자는 거의 블랙 +
+   상단 라이트 엣지로 입체. 광원 좌상단 유지.
+   ============================================================ */
+/* 다크 토큰 묶음 — 수동 강제(dark) + 자동 추종(시스템 dark, 강제 아님) */
+[data-theme="dark"],
+.theme-dark {
+  --bg:            #201e1b;   /* 웜 차콜 보드 */
+  --bg-deep:       #191714;   /* 음각/리세스 — 더 깊음 */
+  --surface:       #2c2925;   /* 볼록 표면 — 배경보다 밝음 */
+  --surface-2:     #262320;
+
+  --mint:          #7fcaa6;
+  --mint-ink:      #8fd9b4;   /* 다크 위 텍스트 — 밝게 */
+  --mint-strong:   #a7e4c6;
+  --mint-deep:     #13261d;   /* 민트 버튼 라벨 — 딥 */
+  --mint-soft:     #29413a;   /* 옅은 민트 칩 배경 → 다크 민트 틴트 */
+  --mint-glow:     #46e0a3;
+
+  --ink:           #ece9e2;   /* 본문 — 웜 오프화이트 */
+  --ink-2:         #a8a294;
+  --ink-3:         #746f64;
+
+  /* 상태색 — 다크에서 채도/명도 보정, soft는 어두운 틴트 */
+  --green:  #74c499;  --green-soft:  #2b4639;
+  --blue:   #7fb0e0;  --blue-soft:   #2a3a4d;
+  --amber:  #e0b85a;  --amber-soft:  #4a3f24;
+  --rose:   #e09a9a;  --rose-soft:   #4a2e2e;
+  --violet: #b3a3da;  --violet-soft: #393050;
+  --gray:   #aaa499;  --gray-soft:   #38352f;
+
+  /* 클레이 다크 그림자 — 음영은 블랙, 하이라이트는 저투명 화이트 */
+  --clay:
+    calc(6px * var(--depth)) calc(7px * var(--depth)) calc(16px * var(--depth)) rgba(0,0,0,0.55),
+    calc(-5px * var(--depth)) calc(-5px * var(--depth)) calc(13px * var(--depth)) rgba(255,255,255,0.045),
+    inset 2px 2px 4px rgba(255,255,255,0.06),
+    inset -4px -4px 9px rgba(0,0,0,0.45);
+
+  --clay-sm:
+    calc(3px * var(--depth)) calc(4px * var(--depth)) calc(10px * var(--depth)) rgba(0,0,0,0.5),
+    calc(-3px * var(--depth)) calc(-3px * var(--depth)) calc(8px * var(--depth)) rgba(255,255,255,0.04),
+    inset 1px 1px 2px rgba(255,255,255,0.05),
+    inset -2px -2px 5px rgba(0,0,0,0.4);
+
+  --clay-inset:
+    inset 4px 5px 10px rgba(0,0,0,0.55),
+    inset -3px -3px 8px rgba(255,255,255,0.04);
+
+  --clay-inset-sm:
+    inset 3px 3px 6px rgba(0,0,0,0.5),
+    inset -2px -2px 5px rgba(255,255,255,0.035);
+
+  --clay-mint:
+    calc(5px * var(--depth)) calc(6px * var(--depth)) calc(14px * var(--depth)) rgba(0,0,0,0.5),
+    calc(-4px * var(--depth)) calc(-4px * var(--depth)) calc(11px * var(--depth)) rgba(120,210,170,0.12),
+    inset 2px 2px 5px rgba(190,240,215,0.25),
+    inset -4px -4px 9px rgba(0,0,0,0.4);
+
+  --focus-glow: 0 0 0 3px rgba(70,224,163,0.4), 0 0 16px rgba(70,224,163,0.4);
+}
+
+/* 다크에서 민트 버튼 그라데이션 보정 */
+[data-theme="dark"] .cbtn-primary,
+[data-theme="dark"] .cseg button.active,
+.theme-dark .cbtn-primary,
+.theme-dark .cseg button.active {
+  background: linear-gradient(145deg, #6fc59c, #4ea27a);
+  color: #0f221a;
+}
+
+/* OS 다크 자동 추종 — 사용자가 라이트/다크로 강제하지 않은 경우에만.
+   ([data-theme="dark"] 와 동일한 토큰 — 두 곳을 함께 유지보수할 것) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+    --bg:            #201e1b;
+    --bg-deep:       #191714;
+    --surface:       #2c2925;
+    --surface-2:     #262320;
+
+    --mint:          #7fcaa6;
+    --mint-ink:      #8fd9b4;
+    --mint-strong:   #a7e4c6;
+    --mint-deep:     #13261d;
+    --mint-soft:     #29413a;
+    --mint-glow:     #46e0a3;
+
+    --ink:           #ece9e2;
+    --ink-2:         #a8a294;
+    --ink-3:         #746f64;
+
+    --green:  #74c499;  --green-soft:  #2b4639;
+    --blue:   #7fb0e0;  --blue-soft:   #2a3a4d;
+    --amber:  #e0b85a;  --amber-soft:  #4a3f24;
+    --rose:   #e09a9a;  --rose-soft:   #4a2e2e;
+    --violet: #b3a3da;  --violet-soft: #393050;
+    --gray:   #aaa499;  --gray-soft:   #38352f;
+
+    --clay:
+      calc(6px * var(--depth)) calc(7px * var(--depth)) calc(16px * var(--depth)) rgba(0,0,0,0.55),
+      calc(-5px * var(--depth)) calc(-5px * var(--depth)) calc(13px * var(--depth)) rgba(255,255,255,0.045),
+      inset 2px 2px 4px rgba(255,255,255,0.06),
+      inset -4px -4px 9px rgba(0,0,0,0.45);
+    --clay-sm:
+      calc(3px * var(--depth)) calc(4px * var(--depth)) calc(10px * var(--depth)) rgba(0,0,0,0.5),
+      calc(-3px * var(--depth)) calc(-3px * var(--depth)) calc(8px * var(--depth)) rgba(255,255,255,0.04),
+      inset 1px 1px 2px rgba(255,255,255,0.05),
+      inset -2px -2px 5px rgba(0,0,0,0.4);
+    --clay-inset:
+      inset 4px 5px 10px rgba(0,0,0,0.55),
+      inset -3px -3px 8px rgba(255,255,255,0.04);
+    --clay-inset-sm:
+      inset 3px 3px 6px rgba(0,0,0,0.5),
+      inset -2px -2px 5px rgba(255,255,255,0.035);
+    --clay-mint:
+      calc(5px * var(--depth)) calc(6px * var(--depth)) calc(14px * var(--depth)) rgba(0,0,0,0.5),
+      calc(-4px * var(--depth)) calc(-4px * var(--depth)) calc(11px * var(--depth)) rgba(120,210,170,0.12),
+      inset 2px 2px 5px rgba(190,240,215,0.25),
+      inset -4px -4px 9px rgba(0,0,0,0.4);
+    --focus-glow: 0 0 0 3px rgba(70,224,163,0.4), 0 0 16px rgba(70,224,163,0.4);
+  }
+  /* 자동 다크에서도 민트 버튼 보정 */
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .cbtn-primary,
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .cseg button.active {
+    background: linear-gradient(145deg, #6fc59c, #4ea27a);
+    color: #0f221a;
+  }
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/woff2/PretendardVariable.woff2') format('woff2-variations');
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ============================================================
+   프리미티브
+   ============================================================ */
+.clay     { background: var(--surface); border-radius: var(--radius);    box-shadow: var(--clay); }
+.clay-sm  { background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--clay-sm); }
+.clay-inset { background: var(--bg-deep); border-radius: var(--radius-sm); box-shadow: var(--clay-inset); }
+
+/* ---- 버튼 ---- */
+.cbtn {
+  font-family: var(--font); font-weight: 700; font-size: 15px; color: var(--ink);
+  background: var(--surface); border: none; border-radius: var(--radius-pill);
+  padding: 13px 22px; cursor: pointer; box-shadow: var(--clay-sm);
+  transition: transform .12s ease, box-shadow .12s ease, background .15s ease;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.cbtn:active { transform: translateY(1px) scale(0.985); box-shadow: var(--clay-inset-sm); }
+
+.cbtn-primary {
+  color: var(--mint-deep);
+  background: linear-gradient(145deg, #bbe8d0, #93d2af);
+  box-shadow: var(--clay-mint); letter-spacing: -0.01em;
+}
+.cbtn-primary:hover { box-shadow: var(--clay-mint), var(--focus-glow); }
+.cbtn-primary:active {
+  transform: translateY(1px) scale(0.985);
+  box-shadow: inset 4px 5px 10px rgba(80,150,115,0.45), inset -4px -4px 10px rgba(225,247,234,0.6);
+}
+.cbtn-primary:disabled,
+.cbtn-disabled { color: var(--ink-3); background: var(--gray-soft); box-shadow: var(--clay-sm); cursor: not-allowed; }
+.cbtn-primary:disabled:hover { box-shadow: var(--clay-sm); }
+.cbtn-primary:disabled:active { transform: none; box-shadow: var(--clay-sm); }
+
+/* 세그먼트 토글 */
+.cseg {
+  display: inline-flex; gap: 4px; padding: 5px; border-radius: var(--radius-pill);
+  background: var(--bg-deep); box-shadow: var(--clay-inset-sm);
+}
+.cseg button {
+  font-family: var(--font); font-weight: 700; font-size: 13px; color: var(--ink-2);
+  background: transparent; border: none; border-radius: var(--radius-pill);
+  padding: 9px 16px; cursor: pointer; transition: all .15s ease; white-space: nowrap;
+}
+.cseg button.active {
+  color: var(--mint-deep); background: linear-gradient(145deg, #bbe8d0, #93d2af);
+  box-shadow: 2px 3px 7px rgba(95,160,125,0.4), inset 1px 1px 3px rgba(225,247,234,0.7), inset -2px -2px 5px rgba(80,150,115,0.35);
+}
+
+/* ---- 입력 ---- */
+.cinput {
+  font-family: var(--font); font-size: 16px; color: var(--ink); width: 100%;
+  padding: 15px 18px; border: none; border-radius: var(--radius-pill);
+  background: var(--bg-deep); box-shadow: var(--clay-inset); outline: none;
+  transition: box-shadow .18s ease;
+}
+.cinput::placeholder { color: var(--ink-3); }
+.cinput:focus { box-shadow: var(--clay-inset), var(--focus-glow); }
+
+/* ---- 칩 / 배지 ---- */
+.cchip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
+  padding: 7px 14px; border-radius: var(--radius-pill);
+  background: var(--mint-soft); color: var(--mint-strong); box-shadow: var(--clay-sm);
+}
+.cchip.blue { background: var(--blue-soft); color: #2f6cad; }
+.cchip.amber { background: var(--amber-soft); color: #9a7220; }
+.cchip.rose { background: var(--rose-soft); color: #b13c3c; }
+.cchip.violet { background: var(--violet-soft); color: #6a55a0; }
+.cchip.gray { background: var(--gray-soft); color: var(--ink-2); }
+
+/* 상태 점 (이모지 대체) */
+.cdot {
+  width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
+  box-shadow: inset -1px -1px 2px rgba(0,0,0,0.18), inset 1px 1px 2px rgba(255,255,255,0.6);
+}
+.cdot.mint { background: var(--mint-ink); }
+.cdot.green { background: var(--green); }
+.cdot.blue { background: var(--blue); }
+.cdot.amber { background: var(--amber); }
+.cdot.rose { background: var(--rose); }
+.cdot.gray { background: var(--gray); }
+
+/* 알림 바 */
+.calert {
+  display: flex; align-items: center; gap: 12px; padding: 13px 18px;
+  border-radius: var(--radius-pill); font-size: 14px; font-weight: 600; color: var(--ink);
+  box-shadow: var(--clay-sm);
+}
+.calert.success { background: var(--green-soft); }
+.calert.warning { background: var(--amber-soft); }
+.calert.error   { background: var(--rose-soft); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(165,158,144,0.4); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }

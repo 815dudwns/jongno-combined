@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>종로 합동시공 · 화면 인덱스 (클레이)</title>
+<link rel="stylesheet" href="clay.css">
+<style>
+  body { min-height: 100dvh; background:
+    radial-gradient(130% 80% at 50% -10%, #f1eee7 0%, var(--bg) 55%, #e2ddd4 100%);
+    padding: 44px 32px 60px; }
+  @media (prefers-color-scheme: dark){
+    body { background: radial-gradient(130% 80% at 50% -10%, #2a2723 0%, #1a1815 55%, #100f0d 100%); }
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  /* ---- 헤더 ---- */
+  .idx-head { display: flex; align-items: center; gap: 18px; margin-bottom: 8px; }
+  .hanok-tile { width: 64px; height: 64px; flex-shrink: 0; border-radius: 20px;
+    background: linear-gradient(150deg, var(--surface), var(--surface-2));
+    box-shadow: var(--clay); display: flex; align-items: center; justify-content: center; }
+  @media (prefers-color-scheme: dark){ .hanok-tile { background: linear-gradient(150deg,#322e29,#221f1b); } }
+  .hanok-tile svg { width: 38px; height: 38px; }
+  .idx-title h1 { font-size: 27px; font-weight: 800; letter-spacing: -0.025em; color: var(--ink); }
+  .idx-title p { margin-top: 4px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+  .idx-meta { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .meta-pill { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 800;
+    color: var(--mint-strong); background: var(--mint-soft); padding: 9px 15px; border-radius: 999px; box-shadow: var(--clay-sm); }
+  .meta-pill .cdot { box-shadow: inset 0 0 0 2px rgba(255,255,255,.4); }
+
+  .idx-divider { height: 1.5px; margin: 26px 0 30px;
+    background: linear-gradient(90deg, transparent, rgba(150,142,128,.35), transparent); border: none; }
+  @media (prefers-color-scheme: dark){ .idx-divider { background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent); } }
+
+  /* ---- 그리드 ---- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 26px 24px; }
+
+  .card { display: block; text-decoration: none; cursor: pointer;
+    transition: transform .18s cubic-bezier(.3,.8,.4,1); }
+  .card:hover { transform: translateY(-6px); }
+  .card:active { transform: translateY(-2px); }
+
+  /* 미리보기 (라이브 iframe) */
+  .thumb { position: relative; width: 100%; border-radius: 26px; overflow: hidden;
+    background: var(--bg-deep); box-shadow: var(--clay); }
+  .thumb::after { content:""; position: absolute; inset: 0; border-radius: 26px; pointer-events: none;
+    box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.5), inset 0 -18px 30px -18px rgba(0,0,0,.18);
+    transition: box-shadow .18s; }
+  @media (prefers-color-scheme: dark){ .thumb::after { box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.06), inset 0 -18px 30px -18px rgba(0,0,0,.4); } }
+  .card:hover .thumb { box-shadow: var(--clay), 0 18px 38px rgba(95,160,125,.22); }
+  .thumb iframe { position: absolute; top: 0; left: 0; width: 390px; height: 844px; border: 0;
+    transform-origin: top left; pointer-events: none; background: var(--bg); }
+  /* 클릭 가로채기 (iframe 위 투명막) */
+  .thumb .hit { position: absolute; inset: 0; z-index: 2; }
+
+  /* 캡션 */
+  .card-cap { display: flex; align-items: center; gap: 12px; padding: 14px 6px 0; }
+  .cc-num { font-size: 12px; font-weight: 800; color: var(--mint-ink); letter-spacing: .04em;
+    background: var(--surface); padding: 5px 9px; border-radius: 9px; box-shadow: var(--clay-sm); flex-shrink: 0; }
+  .cc-text { flex: 1; min-width: 0; }
+  .cc-title { font-size: 15.5px; font-weight: 800; color: var(--ink); letter-spacing: -.01em; }
+  .cc-sub { margin-top: 1px; font-size: 12px; font-weight: 600; color: var(--ink-2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cc-arrow { width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; position: relative;
+    background: var(--surface); box-shadow: var(--clay-sm); transition: background .15s; }
+  .cc-arrow::after { content:""; position: absolute; left: 47%; top: 50%; width: 7px; height: 7px;
+    border-right: 2.2px solid var(--ink-2); border-top: 2.2px solid var(--ink-2);
+    transform: translate(-50%,-50%) rotate(45deg); transition: border-color .15s; }
+  .card:hover .cc-arrow { background: linear-gradient(145deg,#bbe8d0,#93d2af); }
+  .card:hover .cc-arrow::after { border-color: var(--mint-deep); }
+  @media (prefers-color-scheme: dark){ .card:hover .cc-arrow { background: linear-gradient(145deg,#6fc59c,#4ea27a); } .card:hover .cc-arrow::after { border-color: #0f221a; } }
+
+  /* 라벨 배지 (다크/모달 등 구분) */
+  .cc-tag { font-size: 9.5px; font-weight: 800; padding: 3px 8px; border-radius: 999px;
+    box-shadow: var(--clay-sm); flex-shrink: 0; }
+  .cc-tag.flow { background: var(--mint-soft); color: var(--mint-strong); }
+  .cc-tag.modal { background: var(--violet-soft); color: #6a55a0; }
+  @media (prefers-color-scheme: dark){ .cc-tag.modal { color:#c2b3ea; } }
+
+  .idx-foot { margin-top: 44px; text-align: center; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+  .idx-foot b { color: var(--mint-strong); font-weight: 800; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="idx-head">
+      <div class="hanok-tile">
+        <svg viewBox="0 0 40 40" fill="none">
+          <path d="M4 17 L20 7 L36 17 L33 17 L33 19 L7 19 L7 17 Z" fill="#5aa477"/>
+          <path d="M4 17 L20 7 L36 17" stroke="#3f8e6b" stroke-width="1.4" fill="none" stroke-linejoin="round"/>
+          <rect x="9" y="19" width="2.6" height="13" rx="1" fill="#7bbf9b"/>
+          <rect x="28.4" y="19" width="2.6" height="13" rx="1" fill="#7bbf9b"/>
+          <rect x="18.7" y="19" width="2.6" height="13" rx="1" fill="#7bbf9b"/>
+          <rect x="6" y="32" width="28" height="3" rx="1.5" fill="#3f8e6b"/>
+        </svg>
+      </div>
+      <div class="idx-title">
+        <h1>종로 합동시공 지도</h1>
+        <p>전기계량기 교체 현장 작업 — 클레이모피즘 리디자인</p>
+      </div>
+      <div class="idx-meta">
+        <span class="meta-pill"><span class="cdot mint"></span>화면 7</span>
+      </div>
+    </div>
+
+    <hr class="idx-divider">
+
+    <div class="grid" id="grid">
+      <!-- 카드는 JS로 생성 -->
+    </div>
+
+    <div class="idx-foot">하나의 디자인 시스템 <b>clay.css</b> · OS 다크모드 자동 추종 · 카드를 누르면 해당 화면으로 이동합니다</div>
+  </div>
+
+  <script>
+    var screens = [
+      { num:'01', file:'로그인.html',        title:'로그인',     sub:'작업자 인증',        tag:'flow'  },
+      { num:'02', file:'지도.html',          title:'지도',       sub:'현장 지도 · 마커',   tag:'flow'  },
+      { num:'03', file:'검색.html',          title:'검색',       sub:'주소 · 계기번호',    tag:'flow'  },
+      { num:'04', file:'주소상세 v2.html',    title:'주소 상세',   sub:'계기 목록 · 상태',   tag:'flow'  },
+      { num:'05', file:'계기교체모달.html',    title:'계기 교체',   sub:'철거 ↔ 새 계기 등록', tag:'modal' },
+      { num:'06', file:'QR스캔.html',         title:'QR 스캔',    sub:'계기번호 인식',      tag:'modal' },
+      { num:'07', file:'사진뷰어.html',        title:'사진 뷰어',   sub:'현장 사진 확대',     tag:'modal' }
+    ];
+    var tagLabel = { flow:'화면', modal:'모달' };
+
+    var grid = document.getElementById('grid');
+    screens.forEach(function(s){
+      var a = document.createElement('a');
+      a.className = 'card';
+      a.href = s.file;
+      a.innerHTML =
+        '<div class="thumb">' +
+          '<iframe scrolling="no" loading="lazy" tabindex="-1" title="' + s.title + '"></iframe>' +
+          '<span class="hit"></span>' +
+        '</div>' +
+        '<div class="card-cap">' +
+          '<span class="cc-num">' + s.num + '</span>' +
+          '<span class="cc-text"><span class="cc-title">' + s.title + '</span><span class="cc-sub">' + s.sub + '</span></span>' +
+          '<span class="cc-tag ' + s.tag + '">' + tagLabel[s.tag] + '</span>' +
+          '<span class="cc-arrow"></span>' +
+        '</div>';
+      grid.appendChild(a);
+      // 미리보기: 파일을 가져와 srcdoc 으로 인라인 렌더 (iframe 프레임 차단 우회)
+      var frame = a.querySelector('iframe');
+      fetch(encodeURI(s.file))
+        .then(function(r){ return r.text(); })
+        .then(function(html){
+          // 미리보기에서는 떠 있는 테마 토글 버튼 숨김
+          frame.srcdoc = html.replace('</head>', '<style>.theme-toggle{display:none!important}</style></head>');
+        })
+        .catch(function(){ frame.style.background = 'var(--bg-deep)'; });
+    });
+
+    // 라이브 미리보기 스케일 맞춤
+    function fitThumbs(){
+      document.querySelectorAll('.thumb').forEach(function(t){
+        var w = t.clientWidth;
+        var scale = w / 390;
+        t.style.height = (844 * scale) + 'px';
+        var f = t.querySelector('iframe');
+        if (f) f.style.transform = 'scale(' + scale + ')';
+      });
+    }
+    fitThumbs();
+    window.addEventListener('resize', fitThumbs);
+    window.addEventListener('load', fitThumbs);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitThumbs);
+  </script>
+</body>
+</html>

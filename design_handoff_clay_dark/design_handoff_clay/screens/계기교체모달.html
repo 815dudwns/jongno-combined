@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>계기교체 등록 · 종로 합동시공 (클레이)</title>
+<link rel="stylesheet" href="clay.css">
+<style>
+  html, body { height: 100%; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100dvh; padding: 24px;
+    background: radial-gradient(120% 90% at 50% 0%, #f0ede6 0%, var(--bg) 55%, #e2ddd4 100%);
+  }
+  .phone {
+    width: 390px; max-width: 100%; height: 844px; max-height: calc(100dvh - 48px);
+    border-radius: 54px; padding: 13px;
+    background: linear-gradient(155deg, #f4f1ea, #dcd7cd);
+    box-shadow: 18px 22px 50px rgba(150,142,128,0.55), -14px -14px 40px rgba(255,255,255,0.9),
+      inset 2px 2px 4px rgba(255,255,255,0.7), inset -3px -3px 8px rgba(160,152,138,0.4);
+  }
+  .phone-screen {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 42px; overflow: hidden; background: var(--bg);
+    box-shadow: var(--clay-inset); display: flex; flex-direction: column;
+  }
+  /* 살짝 비치는 지도 배경 (모달 뒤) */
+  .dim { position: absolute; inset: 0; background: rgba(60,70,55,0.32); z-index: 1; }
+
+  /* ---- 모달 카드 (바텀시트) ---- */
+  .modal {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+    max-height: 96%; display: flex; flex-direction: column;
+    background: var(--bg); border-radius: 30px 30px 42px 42px;
+    box-shadow: 0 -10px 40px rgba(40,50,40,0.35);
+  }
+
+  /* 헤더 */
+  .m-header { position: relative; z-index: 6; flex-shrink: 0;
+    display: flex; align-items: center; gap: 8px;
+    padding: 18px 16px 15px; background: var(--bg); border-radius: 30px 30px 0 0; }
+  .grip { position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    width: 42px; height: 5px; border-radius: 999px; background: var(--bg-deep); box-shadow: var(--clay-inset-sm); }
+  .m-header .htitle { flex: 1; min-width: 0; padding-top: 0; }
+  .m-header h3 { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); line-height: 1.2; }
+  .m-header .haddr { margin-top: 3px; font-size: 11.5px; font-weight: 600; color: var(--ink-2); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* daily_seq 카운터 (컴팩트) */
+  .seq {
+    flex-shrink: 0; display: inline-flex; align-items: center; gap: 2px; padding: 3px 4px;
+    border-radius: 999px; background: var(--violet-soft); box-shadow: var(--clay-sm);
+  }
+  .seq .seq-btn { width: 22px; height: 22px; border: none; cursor: pointer; border-radius: 50%;
+    background: var(--surface); box-shadow: var(--clay-sm); color: #6a55a0; font-weight: 800; font-size: 13px;
+    display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
+  .seq .seq-btn:active { box-shadow: var(--clay-inset-sm); }
+  .seq .seq-num { min-width: 18px; text-align: center; font-size: 15px; font-weight: 900; color: #6a55a0;
+    font-variant-numeric: tabular-nums; line-height: 1; }
+  .seq .seq-lbl { font-size: 8px; font-weight: 800; color: #8573b0; margin: 0 2px 0 0; letter-spacing: .02em; }
+
+  .m-close { flex-shrink: 0; width: 30px; height: 30px; border: none; cursor: pointer; border-radius: 50%;
+    background: var(--surface); box-shadow: var(--clay-sm); position: relative; }
+  .m-close:active { box-shadow: var(--clay-inset-sm); }
+  .m-close::before, .m-close::after { content:""; position:absolute; left:50%; top:50%; width:14px; height:2.4px;
+    border-radius:2px; background: var(--ink-2); }
+  .m-close::before { transform: translate(-50%,-50%) rotate(45deg); }
+  .m-close::after { transform: translate(-50%,-50%) rotate(-45deg); }
+
+  /* 스크롤 본문 */
+  .m-scroll { flex: 1; overflow-y: auto; padding: 4px 16px 14px; }
+
+  /* ===== 케이스 기반 그리드 레이아웃 ===== */
+  /* 철거 계기번호(읽기전용) + 케이스 표시 */
+  .ro-block { display: flex; align-items: center; gap: 10px; padding: 12px 13px; border-radius: 16px;
+    background: var(--bg-deep); box-shadow: var(--clay-inset-sm); margin-bottom: 11px; }
+  .ro-left { flex: 1; min-width: 0; }
+  .ro-cap { font-size: 10.5px; font-weight: 700; color: var(--ink-3); margin-bottom: 3px; }
+  .ro-val { font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -.01em; white-space: nowrap; }
+  .case-seg { flex-shrink: 0; display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px;
+    background: var(--surface); box-shadow: var(--clay-inset-sm); }
+  .case-seg button { border: none; cursor: pointer; border-radius: 999px; padding: 6px 9px;
+    background: transparent; font-family: var(--font); font-size: 11px; font-weight: 800; color: var(--ink-2); transition: all .14s; }
+  .case-seg button.active { color: #fff; background: linear-gradient(145deg,#8f9389,#6f7468);
+    box-shadow: 1px 2px 4px rgba(110,116,104,.4), inset 1px 1px 2px rgba(255,255,255,.4); }
+
+  /* 그리드: 지침 + 새계기 */
+  .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+
+  /* 철거 지침 카드 */
+  .rd { display: flex; flex-direction: column; gap: 7px; padding: 11px 11px 12px; border-radius: 16px;
+    background: var(--bg-deep); box-shadow: var(--clay-inset-sm); }
+  .rd-cap { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 800; color: var(--ink-2); }
+
+  /* 새 계기 블록 */
+  .newmeter { background: var(--mint-soft); border-radius: 18px; padding: 12px 12px 14px; box-shadow: var(--clay-sm); }
+  .nm-tag { margin-bottom: 10px; }
+  .nm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .nm-cell { display: flex; flex-direction: column; gap: 7px; }
+  .nm-cell > label { font-size: 11px; font-weight: 700; color: var(--mint-strong); text-align: center; }
+  .qr-main { grid-column: 1 / -1; }
+  .nm-mfg { grid-column: 1 / -1; }
+
+  /* 케이스 1: 지침1 / 새계기 (세로 스택). 지침1은 사진 작게+값 가로 */
+  .layout.case-1 .rd[data-i="2"], .layout.case-1 .rd[data-i="3"], .layout.case-1 .rd[data-i="4"] { display: none; }
+  .layout.case-1 .rd[data-i="1"] { grid-column: 1 / -1; display: grid;
+    grid-template-columns: 150px 1fr; grid-template-areas: "cap cap" "photo val"; gap: 7px 10px; align-items: center; }
+  .layout.case-1 .rd[data-i="1"] .rd-cap { grid-area: cap; }
+  .layout.case-1 .rd[data-i="1"] .photo { grid-area: photo; aspect-ratio: auto; height: 78px; }
+  .layout.case-1 .rd[data-i="1"] .cin { grid-area: val; }
+  .layout.case-1 .newmeter { grid-column: 1 / -1; }
+
+  /* 케이스 2: 지침1 지침2 / 새계기(전체) */
+  .layout.case-2 .rd[data-i="3"], .layout.case-2 .rd[data-i="4"] { display: none; }
+  .layout.case-2 .newmeter { grid-column: 1 / -1; }
+
+  /* 케이스 4: 지침1 지침2 / 지침3 지침4 / 새계기(전체) */
+  .layout.case-4 .newmeter { grid-column: 1 / -1; }
+
+  .part-tag { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 800; padding: 6px 13px; border-radius: 999px; box-shadow: var(--clay-sm); }
+  .part-tag.new { background: linear-gradient(145deg,#5fbb8c,#3f9e6f); color: #fff; }
+  .part-tag .cdot { box-shadow: inset 0 0 0 2px rgba(255,255,255,.5); }
+
+  /* 클레이 입력 (모달 내부 — 작게) */
+  .cin {
+    font-family: var(--font); font-size: 16px; font-weight: 700; color: var(--ink); width: 100%;
+    padding: 12px 12px; border: none; border-radius: 12px; text-align: center;
+    background: var(--surface); box-shadow: var(--clay-inset-sm); outline: none; transition: box-shadow .16s;
+  }
+  .cin::placeholder { color: var(--ink-3); font-weight: 500; }
+  .cin:focus { box-shadow: var(--clay-inset-sm), var(--focus-glow); }
+  /* 사진 슬롯 */
+  .photo {
+    position: relative; width: 100%; aspect-ratio: 1/1; border: none; cursor: pointer;
+    border-radius: 14px; background: var(--surface); box-shadow: var(--clay-inset-sm);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    overflow: hidden; transition: box-shadow .16s;
+  }
+  .photo:active { box-shadow: var(--clay-inset); }
+  /* 카메라 모티프 (이모지 대체) */
+  .cam { width: 34px; height: 27px; border-radius: 7px; background: var(--bg-deep);
+    box-shadow: var(--clay-inset-sm); position: relative; }
+  .cam::before { content:""; position:absolute; left:50%; top:52%; transform:translate(-50%,-50%);
+    width: 13px; height: 13px; border-radius: 50%; border: 2.4px solid var(--ink-3); }
+  .cam::after { content:""; position:absolute; left:50%; top:-4px; transform:translateX(-50%);
+    width: 12px; height: 6px; border-radius: 3px 3px 0 0; background: var(--bg-deep); }
+  .photo .plabel { font-size: 11.5px; font-weight: 700; color: var(--ink-2); text-align: center; line-height: 1.3; }
+  .photo.has { box-shadow: var(--clay-sm); }
+  .photo.has .cam, .photo.has .plabel { display: none; }
+  .photo .pfill { display: none; position: absolute; inset: 0; }
+  .photo.has .pfill { display: block; background: linear-gradient(135deg,#b6d4c4,#8bbaa2); }
+  .photo.has::after { content:""; position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:50%;
+    background: linear-gradient(145deg,#5fbb8c,#3f9e6f); box-shadow: var(--clay-sm); }
+  .photo.has .pcheck { display:block; position:absolute; top:13px; right:14px; width:5px; height:9px;
+    border-right:2.4px solid #fff; border-bottom:2.4px solid #fff; transform: rotate(42deg); z-index:2; }
+  .photo .pcheck { display:none; }
+
+  /* 지침 개수 세그먼트 (제거됨 — 케이스로 강제) */
+
+  /* QR — 가장 중요, 크게 */
+  .qr-main { width: 100%; border: none; cursor: pointer; border-radius: 14px; padding: 14px 10px;
+    background: linear-gradient(145deg,#3a4038,#23281f); box-shadow: var(--clay-sm);
+    display: flex; flex-direction: column; align-items: center; gap: 7px; transition: box-shadow .12s; }
+  .qr-main:active { box-shadow: var(--clay-inset-sm); }
+  .qr-main .qr-ico { width: 30px; height: 30px; display: grid; grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr); gap: 2.5px; }
+  .qr-main .qr-ico i { background: #cfe6d8; border-radius: 2px; }
+  .qr-main .qr-ico i:nth-child(2), .qr-main .qr-ico i:nth-child(4), .qr-main .qr-ico i:nth-child(6), .qr-main .qr-ico i:nth-child(8) { opacity: .35; }
+  .qr-main .qr-txt { font-size: 13px; font-weight: 800; color: #eaf4ee; letter-spacing: .01em; }
+
+  /* 수기 보조 입력 (GLAB 한 줄) */
+
+  /* 알파벳 키패드 */
+  .alpha { display: flex; gap: 5px; flex-wrap: nowrap; }
+  .akey { flex: 1 1 0; min-width: 0; padding: 10px 0; border: none; cursor: pointer; border-radius: 10px;
+    background: var(--surface); box-shadow: var(--clay-sm); font-family: var(--font);
+    font-size: 15px; font-weight: 800; color: var(--ink); transition: box-shadow .1s; }
+  .akey:active { box-shadow: var(--clay-inset-sm); }
+
+  /* 제조년월 */
+  .mfg { display: flex; gap: 7px; }
+  .csel { flex: 1; min-width: 0; font-family: var(--font); font-size: 14px; font-weight: 700; color: var(--ink);
+    padding: 11px 26px 11px 12px; border: none; border-radius: 12px; text-align: center; text-align-last: center;
+    background: var(--surface); box-shadow: var(--clay-inset-sm); outline: none; -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a8a399' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 11px center; }
+  .csel:focus { box-shadow: var(--clay-inset-sm), var(--focus-glow); }
+
+  /* 추가 데이터 (철거 부가정보 — 새계기 위, 전체폭 · 컴팩트) */
+  .extra-wrap { grid-column: 1 / -1; padding: 8px 10px; border-radius: 13px;
+    background: var(--bg-deep); box-shadow: var(--clay-inset-sm); display: flex; align-items: center; gap: 10px; }
+  .extra-wrap .part-label { margin: 0; white-space: nowrap; flex-shrink: 0; }
+  .extra-wrap .extra-add { flex: 1; padding: 8px; font-size: 12px; }
+  .extra-wrap.has-rows { flex-direction: column; align-items: stretch; gap: 7px; }
+  .extra-wrap .part-label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800;
+    color: var(--ink-2); text-align: left; justify-content: flex-start; }
+  .extra-row { display: flex; gap: 5px; align-items: center; background: var(--surface);
+    border-radius: 11px; padding: 6px; box-shadow: var(--clay-sm); }
+  .ex-in { flex: 1 1 50px; min-width: 0; font-family: var(--font); font-size: 12.5px; font-weight: 600; color: var(--ink);
+    padding: 8px 9px; border: none; border-radius: 8px; background: var(--bg-deep); box-shadow: var(--clay-inset-sm); outline: none; }
+  .ex-in::placeholder { color: var(--ink-3); }
+  .ex-in:focus { box-shadow: var(--clay-inset-sm), var(--focus-glow); }
+  .ex-cam { width: 34px; flex-shrink: 0; border: none; cursor: pointer; border-radius: 8px; background: var(--bg-deep);
+    box-shadow: var(--clay-sm); position: relative; }
+  .ex-cam::before { content:""; position:absolute; left:50%; top:54%; transform:translate(-50%,-50%); width:11px; height:11px; border-radius:50%; border:2px solid var(--ink-3); }
+  .ex-cam::after { content:""; position:absolute; left:50%; top:6px; transform:translateX(-50%); width:9px; height:4px; border-radius:2px 2px 0 0; background:var(--ink-3); }
+  .ex-cam.has { background: var(--mint-soft); box-shadow: var(--clay-sm); }
+  .ex-cam.has::before { border-color: var(--mint-strong); }
+  .ex-cam.has::after { background: var(--mint-strong); }
+  .ex-del { width: 32px; flex-shrink: 0; border: none; cursor: pointer; border-radius: 8px; background: var(--rose-soft);
+    box-shadow: var(--clay-sm); position: relative; }
+  .ex-del::before, .ex-del::after { content:""; position:absolute; left:50%; top:50%; width:12px; height:2.2px; border-radius:2px; background: var(--rose); }
+  .ex-del::before { transform: translate(-50%,-50%) rotate(45deg); }
+  .ex-del::after { transform: translate(-50%,-50%) rotate(-45deg); }
+  .extra-add { width: 100%; border: none; cursor: pointer; border-radius: 11px; padding: 11px;
+    background: var(--surface); box-shadow: var(--clay-sm); font-family: var(--font); font-size: 13px; font-weight: 700; color: var(--ink-2); transition: box-shadow .14s; }
+  .extra-add:active { box-shadow: var(--clay-inset-sm); color: var(--mint-strong); }
+
+  .part-label { font-size: 11px; font-weight: 800; color: var(--ink-3); text-align: center; letter-spacing: .02em; }
+
+  /* 푸터 */
+  .m-footer { flex-shrink: 0; display: flex; flex-wrap: wrap; gap: 9px; padding: 13px 16px 18px;
+    background: var(--bg); border-radius: 0 0 42px 42px; box-shadow: 0 -3px 12px rgba(150,142,128,.18); }
+  .fbtn { flex: 1 1 0; min-width: 80px; border: none; cursor: pointer; border-radius: 14px; padding: 14px 8px;
+    font-family: var(--font); font-size: 14.5px; font-weight: 800; box-shadow: var(--clay-sm); transition: all .12s;
+    background: var(--surface); color: var(--ink-2); }
+  .fbtn:active { box-shadow: var(--clay-inset-sm); transform: translateY(1px); }
+  .fbtn.del { color: var(--rose); }
+  .fbtn.draft { color: #9a7220; background: var(--amber-soft); }
+  .fbtn.save { flex-basis: 100%; order: 5; color: #fff; background: linear-gradient(145deg,#4cb585,#2f9968);
+    box-shadow: var(--clay-mint); font-size: 16px; }
+  .fbtn.save:active { box-shadow: inset 4px 5px 10px rgba(40,120,85,.45), inset -4px -4px 10px rgba(190,240,215,.5); }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="dim"></div>
+
+      <div class="modal">
+        <!-- 헤더 -->
+        <div class="m-header">
+          <span class="grip"></span>
+          <div class="htitle">
+            <h3>계기 교체 등록</h3>
+            <p class="haddr">종로구 자하문로 31 · 청운동 5-12</p>
+          </div>
+          <div class="seq">
+            <button class="seq-btn" id="seq-minus" aria-label="이전">−</button>
+            <span class="seq-num" id="seq-num">7</span>
+            <button class="seq-btn" id="seq-plus" aria-label="다음">+</button>
+            <span class="seq-lbl">No.</span>
+          </div>
+          <button class="m-close" aria-label="닫기"></button>
+        </div>
+
+        <!-- 본문 -->
+        <div class="m-scroll">
+          <!-- 철거 계기번호 (읽기전용) + 케이스 (계기종류로 강제) -->
+          <div class="ro-block">
+            <div class="ro-left">
+              <div class="ro-cap">철거 계기번호 · 할당됨</div>
+              <div class="ro-val">08G 1247 5530</div>
+            </div>
+            <div class="case-seg" id="case-seg">
+              <button data-c="1">1지침</button>
+              <button data-c="2" class="active">2지침</button>
+              <button data-c="4">4지침</button>
+            </div>
+          </div>
+
+          <!-- 케이스별 레이아웃 -->
+          <div class="layout case-2" id="layout">
+            <!-- 철거 지침 (1·2·4 강제) -->
+            <div class="rd" data-i="1">
+              <div class="rd-cap"><span class="cdot gray"></span>철거 지침 1</div>
+              <div class="photo"><span class="cam"></span><span class="plabel">지침 촬영</span></div>
+              <input class="cin" placeholder="지침값" inputmode="numeric">
+            </div>
+            <div class="rd" data-i="2">
+              <div class="rd-cap"><span class="cdot gray"></span>철거 지침 2</div>
+              <div class="photo"><span class="cam"></span><span class="plabel">지침 촬영</span></div>
+              <input class="cin" placeholder="지침값" inputmode="numeric">
+            </div>
+            <div class="rd" data-i="3">
+              <div class="rd-cap"><span class="cdot gray"></span>철거 지침 3</div>
+              <div class="photo"><span class="cam"></span><span class="plabel">지침 촬영</span></div>
+              <input class="cin" placeholder="지침값" inputmode="numeric">
+            </div>
+            <div class="rd" data-i="4">
+              <div class="rd-cap"><span class="cdot gray"></span>철거 지침 4</div>
+              <div class="photo"><span class="cam"></span><span class="plabel">지침 촬영</span></div>
+              <input class="cin" placeholder="지침값" inputmode="numeric">
+            </div>
+
+            <!-- 철거 추가 데이터 (항목 추가 시에만 행 생성) — 새계기 위, 철거 묶음 -->
+            <div class="extra-wrap">
+              <div class="part-label"><span class="cdot gray"></span>철거 추가 데이터</div>
+              <button class="extra-add" id="add-extra">+ 항목 추가</button>
+            </div>
+
+            <!-- 새 계기 -->
+            <div class="newmeter">
+              <div class="nm-tag"><span class="part-tag new"><span class="cdot mint"></span>새 계기</span></div>
+              <div class="nm-grid">
+                <button class="qr-main" id="qr-btn">
+                  <span class="qr-ico"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+                  <span class="qr-txt">QR 스캔</span>
+                </button>
+                <div class="nm-cell">
+                  <label>계기번호 사진</label>
+                  <div class="photo"><span class="cam"></span><span class="plabel">계기번호 촬영</span></div>
+                </div>
+                <div class="nm-cell">
+                  <label>계기번호</label>
+                  <input class="cin" placeholder="번호 입력" inputmode="text" id="new-no">
+                  <div class="alpha">
+                    <button class="akey" data-ch="G">G</button>
+                    <button class="akey" data-ch="L">L</button>
+                    <button class="akey" data-ch="A">A</button>
+                    <button class="akey" data-ch="B">B</button>
+                  </div>
+                </div>
+                <div class="nm-cell nm-mfg">
+                  <label>제조년월</label>
+                  <div class="mfg">
+                    <select class="csel" id="mfg-y">
+                      <option>2026</option><option>2025</option><option selected>2024</option><option>2023</option>
+                    </select>
+                    <select class="csel" id="mfg-m">
+                      <option>01</option><option>02</option><option>03</option><option selected>04</option>
+                      <option>05</option><option>06</option><option>07</option><option>08</option>
+                      <option>09</option><option>10</option><option>11</option><option>12</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 푸터 -->
+        <div class="m-footer">
+          <button class="fbtn del" id="btn-del">삭제</button>
+          <button class="fbtn draft" id="btn-draft">임시저장</button>
+          <button class="fbtn cancel" id="btn-cancel">취소</button>
+          <button class="fbtn save" id="btn-save">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // daily_seq 카운터
+    var seq = 7;
+    var seqNum = document.getElementById('seq-num');
+    document.getElementById('seq-minus').onclick = function(){ if(seq>1){ seq--; seqNum.textContent = seq; } };
+    document.getElementById('seq-plus').onclick = function(){ seq++; seqNum.textContent = seq; };
+
+    // 사진 슬롯 토글 (데모)
+    function bindPhotos(scope){
+      (scope||document).querySelectorAll('.photo').forEach(function(p){
+        if(p.dataset.bound) return; p.dataset.bound='1';
+        p.addEventListener('click', function(){ p.classList.toggle('has'); });
+      });
+    }
+    bindPhotos();
+
+    // 케이스 전환 (실제는 계기종류로 강제) — 레이아웃만 바뀜
+    var layout = document.getElementById('layout');
+    document.querySelectorAll('#case-seg button').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.querySelectorAll('#case-seg button').forEach(function(x){ x.classList.remove('active'); });
+        b.classList.add('active');
+        var c = b.getAttribute('data-c');
+        layout.classList.remove('case-1','case-2','case-4');
+        layout.classList.add('case-' + c);
+      });
+    });
+
+    // 수기 GLAB 입력
+    var newNo = document.getElementById('new-no');
+    document.querySelectorAll('.akey').forEach(function(k){
+      k.addEventListener('click', function(){
+        newNo.value += k.getAttribute('data-ch');
+        newNo.focus();
+      });
+    });
+
+    // 추가 데이터 행 추가
+    var extraWrap = document.querySelector('.extra-wrap');
+    function syncExtra(){ extraWrap.classList.toggle('has-rows', extraWrap.querySelectorAll('.extra-row').length > 0); }
+    document.getElementById('add-extra').addEventListener('click', function(){
+      var row = document.createElement('div');
+      row.className = 'extra-row';
+      row.innerHTML = '<input class="ex-in" placeholder="항목"><input class="ex-in" placeholder="값"><button class="ex-cam" aria-label="사진"></button><button class="ex-del" aria-label="삭제"></button>';
+      this.parentNode.insertBefore(row, this);
+      row.querySelector('.ex-del').addEventListener('click', function(){ row.remove(); syncExtra(); });
+      row.querySelector('.ex-cam').addEventListener('click', function(){ this.classList.toggle('has'); });
+      syncExtra();
+    });
+  </script>
+</body>
+</html>

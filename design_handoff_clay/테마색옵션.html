@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>테마 강조색 추천 — 비교</title>
+<style>
+  :root{
+    --bg:#e9e6df; --bg-deep:#ddd9d0; --surface:#f6f4ef; --ink:#2c2a27; --ink-2:#6f6b62; --ink-3:#a8a399;
+    --font:'Pretendard',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    --clay:6px 7px 16px rgba(165,158,144,.55), -6px -6px 14px rgba(255,255,255,.88), inset 2px 2px 4px rgba(255,255,255,.75), inset -4px -4px 9px rgba(170,162,148,.26);
+    --clay-sm:3px 4px 10px rgba(165,158,144,.5), -3px -3px 9px rgba(255,255,255,.88), inset 1px 1px 2px rgba(255,255,255,.7), inset -2px -2px 5px rgba(170,162,148,.22);
+    --clay-inset-sm:inset 3px 3px 6px rgba(168,160,146,.46), inset -3px -3px 6px rgba(255,255,255,.8);
+  }
+  body{ margin:0; font-family:var(--font); background:radial-gradient(130% 80% at 50% -10%, #f1eee7, var(--bg) 55%, #e2ddd4); padding:30px 22px 50px; color:var(--ink); }
+  .head{ max-width:1080px; margin:0 auto 22px; }
+  .head h1{ font-size:22px; font-weight:800; letter-spacing:-.02em; }
+  .head p{ margin-top:6px; font-size:13.5px; color:var(--ink-2); font-weight:600; }
+  .grid{ max-width:1080px; margin:0 auto; display:grid; grid-template-columns:repeat(2,1fr); gap:20px; }
+  @media (max-width:780px){ .grid{ grid-template-columns:1fr; } }
+
+  .card{ background:var(--surface); border-radius:22px; box-shadow:var(--clay); padding:20px 20px 22px; }
+  .card.current{ box-shadow:var(--clay), 0 0 0 2.5px var(--ac); }
+  .ctop{ display:flex; align-items:center; gap:11px; margin-bottom:16px; }
+  .sw-stack{ display:flex; gap:5px; }
+  .sw{ width:22px; height:22px; border-radius:7px; box-shadow:var(--clay-sm); }
+  .cname{ font-size:16px; font-weight:800; letter-spacing:-.01em; }
+  .cname .tag{ font-size:10.5px; font-weight:800; color:var(--ac-strong); background:var(--ac-soft); padding:3px 8px; border-radius:999px; margin-left:7px; box-shadow:var(--clay-sm); vertical-align:middle; }
+  .chex{ font-size:11px; color:var(--ink-3); font-weight:600; margin-top:2px; font-variant-numeric:tabular-nums; }
+
+  .demo{ display:flex; flex-direction:column; gap:13px; }
+  .btn-primary{ border:none; cursor:pointer; border-radius:999px; padding:13px; font-family:var(--font); font-size:14.5px; font-weight:800;
+    color:var(--ac-deep); background:linear-gradient(145deg,var(--ac-l),var(--ac)); box-shadow:var(--clay-sm); }
+  .row{ display:flex; gap:9px; align-items:center; }
+  .seg{ display:inline-flex; gap:3px; padding:3px; border-radius:999px; background:var(--bg-deep); box-shadow:var(--clay-inset-sm); }
+  .seg button{ border:none; cursor:pointer; border-radius:999px; padding:8px 14px; background:transparent; font-family:var(--font); font-size:12.5px; font-weight:800; color:var(--ink-2); }
+  .seg button.on{ color:var(--ac-deep); background:linear-gradient(145deg,var(--ac-l),var(--ac)); box-shadow:var(--clay-sm); }
+  .chip{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:800; color:var(--ac-strong); background:var(--ac-soft); padding:7px 13px; border-radius:999px; box-shadow:var(--clay-sm); }
+  .chip .dot{ width:9px; height:9px; border-radius:50%; background:var(--ac); box-shadow:inset 0 0 0 2px rgba(255,255,255,.5); }
+  .field{ flex:1; display:flex; align-items:center; padding:11px 15px; border-radius:999px; background:var(--bg-deep); box-shadow:var(--clay-inset-sm), 0 0 0 3px var(--ac-glow); font-size:13px; color:var(--ink-3); font-weight:600; }
+  .mk{ position:relative; width:22px; height:29px; flex-shrink:0; }
+  .mk svg{ width:100%; height:100%; filter:drop-shadow(0 0 .7px #fff) drop-shadow(0 0 .7px #fff) drop-shadow(0 2px 2.5px rgba(0,0,0,.3)); }
+  .link{ color:var(--ac-strong); font-weight:800; font-size:13px; text-decoration:none; }
+
+  /* ===== 다크 클레이 ===== */
+  body.dark{
+    --bg:#201e1b; --bg-deep:#191714; --surface:#2c2925; --ink:#ece9e2; --ink-2:#a8a294; --ink-3:#746f64;
+    --clay:6px 7px 16px rgba(0,0,0,.55), -5px -5px 13px rgba(255,255,255,.045), inset 2px 2px 4px rgba(255,255,255,.06), inset -4px -4px 9px rgba(0,0,0,.45);
+    --clay-sm:3px 4px 10px rgba(0,0,0,.5), -3px -3px 8px rgba(255,255,255,.04), inset 1px 1px 2px rgba(255,255,255,.05), inset -2px -2px 5px rgba(0,0,0,.4);
+    --clay-inset-sm:inset 3px 3px 6px rgba(0,0,0,.5), inset -2px -2px 5px rgba(255,255,255,.035);
+    background:radial-gradient(130% 80% at 50% -10%, #2a2723, #1a1815 55%, #100f0d);
+  }
+  body.dark .chip{ background:var(--bg-deep); color:var(--ac); }
+  body.dark .field{ background:var(--bg-deep); }
+  body.dark .link{ color:var(--ac); }
+  .toggle{ position:fixed; top:20px; right:22px; z-index:50; border:none; cursor:pointer; border-radius:999px;
+    padding:11px 18px; font-family:var(--font); font-size:13px; font-weight:800; color:var(--ink);
+    background:var(--surface); box-shadow:var(--clay-sm); }
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>테마 강조색 추천 — 컴러 7 + 모노 4</h1>
+    <p>웜 크림 클레이 배경에 맞춘 강조색 후보. 버튼·세그먼트·칩·포커스링·마커·링크에 실제 적용. (현재=세이지 민트)</p>
+  </div>
+  <button class="toggle" id="toggle">다크모드 켜기</button>
+  <div class="grid" id="grid"></div>
+
+  <script>
+    // name, current?, [main, light(btn grad밝은쪽), strong(text), deep(btn label), soft(bg), glow(focus)]
+    var palettes = [
+      ['세이지 민트', 'current',  ['#a6dcc1','#bbe8d0','#3f8e6b','#2c5e44','#d6ecdf','rgba(70,224,163,.4)']],
+      ['테라코타',   null, ['#e0a48a','#ecc3ad','#b5613f','#7d3d22','#f2ddd0','rgba(214,120,80,.4)']],
+      ['슬레이트 블루',null,['#9fb3d4','#c2cfe8','#4f6b9b','#2f4670','#dde4f0','rgba(90,130,200,.4)']],
+      ['틸',         null, ['#8fcfc8','#aadbd3','#2f8077','#1c544d','#d2eae6','rgba(45,160,150,.4)']],
+      ['허니 골드',  null, ['#e6c67e','#efd79a','#a87b22','#6f4f12','#f4e8c8','rgba(220,180,80,.42)']],
+      ['더스티 로즈',null, ['#d9a8b8','#e8c2cf','#a25068','#6f2f43','#f0dce2','rgba(200,110,140,.4)']],
+      ['페리윙클',   null, ['#b0a6e0','#c8bce8','#6553a8','#3f2f70','#e2dcf2','rgba(150,120,210,.42)']],
+      // ===== 모노(중성) =====
+      ['잉크 블랙',  'mono', ['#3a3833','#4a473f','#2c2a27','#ffffff','#dcd8d0','rgba(60,56,50,.3)']],
+      ['차콜 그레이','mono', ['#6b665c','#7a7468','#46423a','#ffffff','#ddd9d0','rgba(107,102,92,.32)']],
+      ['웜 그레이지','mono', ['#a39c8e','#b3ad9f','#615d54','#34302a','#e6e2d9','rgba(140,132,120,.32)']],
+      ['스톤 그레이','mono', ['#9a9aa0','#aaaab0','#56555c','#ffffff','#e1e0e3','rgba(120,120,128,.32)']]
+    ];
+    var pinPath='M11 0C5 0 0 5 0 11c0 7.4 11 18 11 18s11-10.6 11-18C22 5 17 0 11 0z';
+    var grid=document.getElementById('grid');
+    palettes.forEach(function(p){
+      var n=p[0], tag=p[1], c=p[2];
+      var card=document.createElement('div');
+      card.className='card'+(tag==='current'?' current':'')+(tag==='mono'?' mono':'');
+      card.style.cssText='--ac:'+c[0]+';--ac-l:'+c[1]+';--ac-strong:'+c[2]+';--ac-deep:'+c[3]+';--ac-soft:'+c[4]+';--ac-glow:'+c[5]+';';
+      card.innerHTML=
+        '<div class="ctop">'+
+          '<div class="sw-stack"><div class="sw" style="background:'+c[4]+'"></div><div class="sw" style="background:'+c[0]+'"></div><div class="sw" style="background:'+c[2]+'"></div></div>'+
+          '<div><div class="cname">'+n+(tag?'<span class="tag">'+(tag==='current'?'현재':'모노')+'</span>':'')+'</div><div class="chex">'+c[4]+' · '+c[0]+' · '+c[2]+'</div></div>'+
+        '</div>'+
+        '<div class="demo">'+
+          '<button class="btn-primary">저장</button>'+
+          '<div class="row">'+
+            '<div class="seg"><button class="on">완료</button><button>보류</button><button>불가</button></div>'+
+            '<span class="chip"><span class="dot"></span>동그룹</span>'+
+          '</div>'+
+          '<div class="row">'+
+            '<div class="field">계기 검색 (포커스)</div>'+
+            '<span class="mk"><svg viewBox="0 0 22 29"><path d="'+pinPath+'" fill="'+c[0]+'"/><circle cx="11" cy="11" r="8" fill="#fff"/></svg></span>'+
+            '<a class="link" href="#">사용설명서 ›</a>'+
+          '</div>'+
+        '</div>';
+      grid.appendChild(card);
+    });
+    document.getElementById('toggle').addEventListener('click', function(){
+      var d=document.body.classList.toggle('dark');
+      this.textContent = d ? '라이트모드 켜기' : '다크모드 켜기';
+    });
+  </script>
+</body>
+</html>

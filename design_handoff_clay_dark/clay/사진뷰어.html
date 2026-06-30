@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>사진 뷰어 · 종로 합동시공 (클레이)</title>
+<link rel="stylesheet" href="clay.css">
+<style>
+  html, body { height: 100%; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100dvh; padding: 24px;
+    background: radial-gradient(120% 90% at 50% 0%, #f0ede6 0%, var(--bg) 55%, #e2ddd4 100%);
+  }
+  .phone {
+    width: 390px; max-width: 100%; height: 844px; max-height: calc(100dvh - 48px);
+    border-radius: 54px; padding: 13px;
+    background: linear-gradient(155deg, #f4f1ea, #dcd7cd);
+    box-shadow: 18px 22px 50px rgba(150,142,128,0.55), -14px -14px 40px rgba(255,255,255,0.9),
+      inset 2px 2px 4px rgba(255,255,255,0.7), inset -3px -3px 8px rgba(160,152,138,0.4);
+  }
+  .phone-screen {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 42px; overflow: hidden; background: #14130f;
+    box-shadow: var(--clay-inset); display: flex; flex-direction: column;
+  }
+
+  /* 상태바 (다크) */
+  .statusbar {
+    height: 50px; flex-shrink: 0; display: flex; align-items: center; z-index: 30;
+    justify-content: space-between; padding: 0 30px 0 34px;
+    font-size: 15px; font-weight: 700; color: #f4f1ea;
+  }
+  .statusbar .sb-right { display: flex; align-items: center; gap: 7px; }
+  .sb-bars { display: flex; align-items: flex-end; gap: 2px; height: 11px; }
+  .sb-bars i { width: 3px; border-radius: 1px; background: #f4f1ea; }
+  .sb-bars i:nth-child(1){height:4px} .sb-bars i:nth-child(2){height:6px}
+  .sb-bars i:nth-child(3){height:8px} .sb-bars i:nth-child(4){height:11px}
+  .sb-batt { width: 24px; height: 12px; border-radius: 3px; border: 1.6px solid #f4f1ea; position: relative; padding: 1.5px; }
+  .sb-batt::after { content:""; position:absolute; right:-3px; top:3.5px; width:2px; height:4px; background: #f4f1ea; border-radius: 0 1px 1px 0; }
+  .sb-batt b { display:block; width:72%; height:100%; background: var(--mint); border-radius:1px; }
+
+  /* ---- 헤더 ---- */
+  .pv-header { flex-shrink: 0; display: flex; align-items: center; gap: 11px; padding: 4px 16px 14px; z-index: 10; }
+  .pv-title { flex: 1; min-width: 0; }
+  .pv-title h3 { font-size: 16px; font-weight: 800; color: #f4f1ea; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pv-title p { margin-top: 2px; font-size: 11.5px; font-weight: 600; color: #b3ad9f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pv-close { flex-shrink: 0; width: 38px; height: 38px; border: none; cursor: pointer; border-radius: 50%;
+    background: linear-gradient(145deg,#2c2e29,#1a1c18); position: relative;
+    box-shadow: 3px 4px 9px rgba(0,0,0,0.5), -2px -2px 6px rgba(255,255,255,0.04), inset 1px 1px 2px rgba(255,255,255,0.08); }
+  .pv-close::before, .pv-close::after { content:""; position:absolute; left:50%; top:50%; width:14px; height:2.4px; border-radius:2px; background:#e8e4da; }
+  .pv-close::before { transform: translate(-50%,-50%) rotate(45deg); }
+  .pv-close::after { transform: translate(-50%,-50%) rotate(-45deg); }
+  .pv-close:active { box-shadow: inset 3px 3px 6px rgba(0,0,0,0.6); }
+
+  /* ---- 메인 사진 ---- */
+  .pv-stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 0 16px; }
+  .photo-frame { position: relative; width: 100%; aspect-ratio: 3/4; max-height: 100%; border-radius: 22px; overflow: hidden;
+    box-shadow: 0 18px 44px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.06); }
+
+  /* 모의 사진 (벽면 + 계기) */
+  .ph { position: absolute; inset: 0; display: none; }
+  .ph.active { display: block; }
+  .ph-wall { position: absolute; inset: 0; }
+  /* 철거 계기 — 오래된 계기 (벽돌 벽) */
+  .ph.removal .ph-wall { background:
+    radial-gradient(130% 110% at 40% 25%, #8a8174 0%, #6b6356 45%, #494337 100%); }
+  .ph.removal .ph-wall::after { content:""; position:absolute; inset:0; opacity:.4;
+    background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 30px),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.12) 0 2px, transparent 2px 62px); }
+  /* 설치 계기 — 새 계기 (밝은 벽) */
+  .ph.install .ph-wall { background:
+    radial-gradient(130% 110% at 50% 30%, #c6c0b0 0%, #a8a08e 50%, #837b69 100%); }
+  /* 지침 — 클로즈업 (LCD 강조) */
+  .ph.reading .ph-wall { background:
+    radial-gradient(120% 100% at 50% 45%, #4a4438 0%, #2e2a21 60%, #1a1712 100%); }
+
+  /* 계기 본체 */
+  .ph-meter { position: absolute; left: 50%; top: 46%; transform: translate(-50%,-50%);
+    width: 60%; aspect-ratio: 1.35/1; border-radius: 10px;
+    background: linear-gradient(150deg, #e0dacc, #b8b09c); box-shadow: 6px 12px 28px rgba(0,0,0,0.45), inset 0 2px 4px rgba(255,255,255,0.5); }
+  .ph.install .ph-meter { background: linear-gradient(150deg, #eef0ea, #ccd0c4); }
+  .ph.reading .ph-meter { width: 82%; aspect-ratio: 1.7/1; top: 47%; }
+  .ph-lcd { position: absolute; left: 11%; top: 16%; right: 11%; height: 30%; border-radius: 5px;
+    background: linear-gradient(160deg,#2c3530,#141a16); box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center; }
+  .ph-lcd span { font-family: 'Courier New', monospace; font-weight: 700; color: #7fe6b0; text-shadow: 0 0 7px rgba(127,230,176,.6);
+    font-size: 20px; letter-spacing: 3px; }
+  .ph.reading .ph-lcd span { font-size: 34px; }
+  .ph-barcode { position: absolute; left: 11%; bottom: 13%; width: 38%; height: 22%; border-radius: 3px; background: #f6f4ef;
+    display: flex; align-items: center; justify-content: center; gap: 1.5px; padding: 0 5px; overflow: hidden; }
+  .ph-barcode i { flex: 1; height: 70%; background: #1a1a1a; }
+  .ph-barcode i:nth-child(2n) { flex: .5; background: #fff; }
+  .ph-barcode i:nth-child(3n) { flex: 1.6; }
+  .ph-plate { position: absolute; right: 9%; bottom: 16%; font-size: 8px; font-weight: 700; color: #4a4536; text-align: right; line-height: 1.5; }
+
+  /* EXIF 오버레이 (촬영 정보) */
+  .ph-exif { position: absolute; left: 12px; bottom: 12px; right: 12px; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; z-index: 3; }
+  .exif-time { font-size: 11px; font-weight: 700; color: #f4f1ea; text-shadow: 0 1px 4px rgba(0,0,0,0.9); line-height: 1.5; }
+  .exif-gps { font-size: 10px; font-weight: 600; color: #cfe6d8; text-shadow: 0 1px 4px rgba(0,0,0,0.9); text-align: right; line-height: 1.5; }
+  /* 비네팅 */
+  .ph-vignette { position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    box-shadow: inset 0 0 90px 20px rgba(0,0,0,0.45); }
+
+  /* 캡션 (사진 종류) */
+  .pv-caption { flex-shrink: 0; text-align: center; padding: 14px 18px 8px; }
+  .pv-cap-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 999px;
+    font-size: 13px; font-weight: 800; box-shadow: var(--clay-sm); background: var(--surface); color: var(--ink); }
+  .pv-cap-badge .cdot { box-shadow: inset -1px -1px 2px rgba(0,0,0,.18), inset 1px 1px 2px rgba(255,255,255,.6); }
+  .pv-counter { margin-top: 7px; font-size: 11px; font-weight: 700; color: #8d8779; }
+  .pv-counter b { color: var(--mint); }
+
+  /* ---- 썸네일 스트립 ---- */
+  .pv-thumbs { flex-shrink: 0; display: flex; gap: 9px; padding: 8px 16px 18px; }
+  .thumb { flex: 1; aspect-ratio: 1/1; border: none; cursor: pointer; border-radius: 14px; position: relative; overflow: hidden;
+    box-shadow: 3px 4px 10px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.05); transition: transform .12s; padding: 0; }
+  .thumb:active { transform: scale(0.95); }
+  .thumb .tb-wall { position: absolute; inset: 0; }
+  .thumb.removal .tb-wall { background: radial-gradient(120% 110% at 40% 30%, #8a8174, #494337); }
+  .thumb.install .tb-wall { background: radial-gradient(120% 110% at 50% 30%, #c6c0b0, #837b69); }
+  .thumb.reading .tb-wall { background: radial-gradient(120% 100% at 50% 45%, #4a4438, #1a1712); }
+  .thumb .tb-mini { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 56%; height: 40%; border-radius: 4px;
+    background: linear-gradient(150deg,#e0dacc,#b8b09c); }
+  .thumb.install .tb-mini { background: linear-gradient(150deg,#eef0ea,#ccd0c4); }
+  .thumb .tb-mini::after { content:""; position:absolute; left:14%; top:20%; right:14%; height:34%; border-radius:2px; background:#1a201c; }
+  .thumb.reading .tb-mini { width: 70%; height: 30%; }
+  .thumb .tb-label { position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 0 5px; font-size: 9.5px; font-weight: 800;
+    color: #f4f1ea; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); text-align: center; }
+  .thumb.active { box-shadow: 0 0 0 2.5px var(--mint), 3px 4px 12px rgba(0,0,0,0.5); }
+  .thumb.active .tb-label { color: var(--mint); }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="statusbar">
+        <span>9:41</span>
+        <span class="sb-right">
+          <span class="sb-bars"><i></i><i></i><i></i><i></i></span>
+          <span class="sb-batt"><b></b></span>
+        </span>
+      </div>
+
+      <!-- 헤더 -->
+      <div class="pv-header">
+        <div class="pv-title">
+          <h3>08G 1247 5530</h3>
+          <p>종로구 자하문로 31 · 김작업</p>
+        </div>
+        <button class="pv-close" aria-label="닫기"></button>
+      </div>
+
+      <!-- 메인 사진 -->
+      <div class="pv-stage">
+        <div class="photo-frame" id="frame">
+          <!-- 철거 계기 -->
+          <div class="ph removal active" data-cap="철거 계기" data-color="gray">
+            <div class="ph-wall"></div>
+            <div class="ph-meter">
+              <div class="ph-lcd"><span>12345</span></div>
+              <div class="ph-barcode"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="ph-plate">단상2선<br>220V 30A</div>
+            </div>
+            <div class="ph-vignette"></div>
+            <div class="ph-exif"><span class="exif-time">2026.06.05<br>14:08:22</span><span class="exif-gps">37.5862, 126.9670<br>±4m</span></div>
+          </div>
+          <!-- 철거 지침 -->
+          <div class="ph reading" data-cap="철거 지침" data-color="gray">
+            <div class="ph-wall"></div>
+            <div class="ph-meter">
+              <div class="ph-lcd"><span>12345</span></div>
+            </div>
+            <div class="ph-vignette"></div>
+            <div class="ph-exif"><span class="exif-time">2026.06.05<br>14:08:40</span><span class="exif-gps">37.5862, 126.9670<br>±4m</span></div>
+          </div>
+          <!-- 설치 계기 -->
+          <div class="ph install" data-cap="설치 계기" data-color="mint">
+            <div class="ph-wall"></div>
+            <div class="ph-meter">
+              <div class="ph-lcd"><span>00000</span></div>
+              <div class="ph-barcode"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="ph-plate">전자식<br>2024.04</div>
+            </div>
+            <div class="ph-vignette"></div>
+            <div class="ph-exif"><span class="exif-time">2026.06.05<br>14:21:05</span><span class="exif-gps">37.5862, 126.9670<br>±4m</span></div>
+          </div>
+          <!-- 설치 지침 -->
+          <div class="ph reading install" data-cap="설치 지침" data-color="mint">
+            <div class="ph-wall"></div>
+            <div class="ph-meter">
+              <div class="ph-lcd"><span>00000</span></div>
+            </div>
+            <div class="ph-vignette"></div>
+            <div class="ph-exif"><span class="exif-time">2026.06.05<br>14:21:18</span><span class="exif-gps">37.5862, 126.9670<br>±4m</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 캡션 -->
+      <div class="pv-caption">
+        <span class="pv-cap-badge" id="cap-badge"><span class="cdot gray"></span>철거 계기</span>
+        <div class="pv-counter"><b id="cur">1</b> / 4</div>
+      </div>
+
+      <!-- 썸네일 -->
+      <div class="pv-thumbs" id="thumbs">
+        <button class="thumb removal active" data-i="0"><span class="tb-wall"></span><span class="tb-mini"></span><span class="tb-label">철거 계기</span></button>
+        <button class="thumb reading" data-i="1"><span class="tb-wall"></span><span class="tb-mini"></span><span class="tb-label">철거 지침</span></button>
+        <button class="thumb install" data-i="2"><span class="tb-wall"></span><span class="tb-mini"></span><span class="tb-label">설치 계기</span></button>
+        <button class="thumb reading install" data-i="3"><span class="tb-wall"></span><span class="tb-mini"></span><span class="tb-label">설치 지침</span></button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var phs = Array.prototype.slice.call(document.querySelectorAll('.ph'));
+    var thumbs = Array.prototype.slice.call(document.querySelectorAll('.thumb'));
+    var capBadge = document.getElementById('cap-badge');
+    var cur = document.getElementById('cur');
+
+    function show(i){
+      phs.forEach(function(p,idx){ p.classList.toggle('active', idx===i); });
+      thumbs.forEach(function(t,idx){ t.classList.toggle('active', idx===i); });
+      var ph = phs[i];
+      capBadge.innerHTML = '<span class="cdot ' + ph.getAttribute('data-color') + '"></span>' + ph.getAttribute('data-cap');
+      cur.textContent = (i+1);
+    }
+    thumbs.forEach(function(t){
+      t.addEventListener('click', function(){ show(parseInt(t.getAttribute('data-i'),10)); });
+    });
+
+    // 좌우 스와이프 (메인 사진 탭 좌/우)
+    var stage = document.querySelector('.pv-stage');
+    stage.addEventListener('click', function(e){
+      var idx = thumbs.findIndex(function(t){ return t.classList.contains('active'); });
+      var rect = stage.getBoundingClientRect();
+      if(e.clientX - rect.left < rect.width/2){ if(idx>0) show(idx-1); }
+      else { if(idx<phs.length-1) show(idx+1); }
+    });
+  </script>
+</body>
+</html>

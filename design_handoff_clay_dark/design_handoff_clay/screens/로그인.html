@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>로그인 · 종로 합동시공 (클레이)</title>
+<link rel="stylesheet" href="clay.css">
+<style>
+  html, body { height: 100%; }
+  body {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100dvh; padding: 24px;
+    background:
+      radial-gradient(120% 90% at 50% 0%, #f0ede6 0%, var(--bg) 55%, #e2ddd4 100%);
+  }
+
+  /* ---- 폰 프레임 ---- */
+  .phone {
+    width: 390px; max-width: 100%; height: 844px; max-height: calc(100dvh - 48px);
+    border-radius: 54px; padding: 13px;
+    background: linear-gradient(155deg, #f4f1ea, #dcd7cd);
+    box-shadow:
+      18px 22px 50px rgba(150,142,128,0.55),
+      -14px -14px 40px rgba(255,255,255,0.9),
+      inset 2px 2px 4px rgba(255,255,255,0.7),
+      inset -3px -3px 8px rgba(160,152,138,0.4);
+  }
+  .phone-screen {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 42px; overflow: hidden;
+    background: var(--bg);
+    box-shadow: var(--clay-inset);
+    display: flex; flex-direction: column;
+  }
+
+  /* 상태바 */
+  .statusbar {
+    height: 50px; flex-shrink: 0; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 30px 0 34px;
+    font-size: 15px; font-weight: 700; color: var(--ink);
+  }
+  .statusbar .sb-right { display: flex; align-items: center; gap: 7px; }
+  .sb-bars { display: flex; align-items: flex-end; gap: 2px; height: 11px; }
+  .sb-bars i { width: 3px; border-radius: 1px; background: var(--ink); }
+  .sb-bars i:nth-child(1){height:4px} .sb-bars i:nth-child(2){height:6px}
+  .sb-bars i:nth-child(3){height:8px} .sb-bars i:nth-child(4){height:11px}
+  .sb-batt { width: 24px; height: 12px; border-radius: 3px; border: 1.6px solid var(--ink);
+    position: relative; padding: 1.5px; }
+  .sb-batt::after { content:""; position:absolute; right:-3px; top:3.5px; width:2px; height:4px;
+    background: var(--ink); border-radius: 0 1px 1px 0; }
+  .sb-batt b { display:block; width:72%; height:100%; background: var(--mint-ink); border-radius:1px; }
+
+  /* 스크롤 본문 */
+  .screen-body {
+    flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+    justify-content: center; padding: 24px 26px 34px;
+  }
+
+  /* 로고 + 헤더 */
+  .login-head { text-align: center; margin-bottom: 34px; }
+  .logo-tile {
+    width: 92px; height: 92px; margin: 0 auto 20px; border-radius: 26px;
+    background: linear-gradient(150deg, #f6f4ef, #e6e2d9);
+    box-shadow: var(--clay);
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* 종로 모티프 — 한옥 처마/기와지붕 (이모지 대체, 순수 SVG) */
+  .logo-mark { width: 56px; height: 50px; display: block; }
+  .logo-mark svg { width: 100%; height: 100%; display: block; }
+  .logo-mark .roof { fill: var(--mint-ink); }
+  .logo-mark .roof-2 { fill: var(--mint-strong); opacity: .55; }
+  .logo-mark .pillar { fill: var(--mint-ink); opacity: .9; }
+  .logo-mark .base { fill: var(--mint-strong); opacity: .7; }
+
+  .login-title { font-size: 25px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+  .login-sub  { margin-top: 7px; font-size: 14px; font-weight: 600; color: var(--mint-strong); }
+  .login-ver  { margin-top: 5px; font-size: 11px; font-weight: 600; color: var(--ink-3); letter-spacing: .04em; }
+
+  /* 폼 */
+  .login-form { display: flex; flex-direction: column; gap: 16px; }
+  .field label {
+    display: block; margin: 0 0 8px 6px; font-size: 13px; font-weight: 700; color: var(--ink-2);
+  }
+  .error-msg { min-height: 18px; margin: -4px 0 0; text-align: center;
+    font-size: 13px; font-weight: 700; color: #c14f4f; }
+  .login-form .cbtn-primary { margin-top: 4px; padding: 16px; font-size: 16px; }
+
+  .guide-link {
+    display: block; margin-top: 24px; padding-top: 20px; text-align: center;
+    font-size: 13px; font-weight: 700; color: var(--ink-2); text-decoration: none;
+    border-top: 1.5px solid rgba(170,162,148,0.3);
+  }
+  .guide-link span {
+    padding: 9px 18px; border-radius: 999px; box-shadow: var(--clay-sm);
+    background: var(--surface); display: inline-block; transition: box-shadow .15s, color .15s;
+  }
+  .guide-link:active span { box-shadow: var(--clay-inset-sm); color: var(--mint-strong); }
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="statusbar">
+        <span>9:41</span>
+        <span class="sb-right">
+          <span class="sb-bars"><i></i><i></i><i></i><i></i></span>
+          <span class="sb-batt"><b></b></span>
+        </span>
+      </div>
+
+      <div class="screen-body">
+        <div class="login-head">
+          <div class="logo-tile">
+            <div class="logo-mark">
+              <svg viewBox="0 0 56 50" aria-label="한옥 지붕">
+                <path class="roof" d="M28 4c-1.2 0-2 .5-3 1.6L7 21c-2.2 1.9-3.4 3-3.4 4 0 .9.8 1.4 2.3 1.4h44.2c1.5 0 2.3-.5 2.3-1.4 0-1-1.2-2.1-3.4-4L31 5.6C30 4.5 29.2 4 28 4Z"/>
+                <rect class="roof-2" x="6" y="27" width="44" height="4" rx="2"/>
+                <rect class="pillar" x="13" y="33" width="5" height="12" rx="1.6"/>
+                <rect class="pillar" x="25.5" y="33" width="5" height="12" rx="1.6"/>
+                <rect class="pillar" x="38" y="33" width="5" height="12" rx="1.6"/>
+                <rect class="base" x="8" y="45" width="40" height="4" rx="2"/>
+              </svg>
+          </div>
+          </div>
+          <h1 class="login-title">종로 합동시공 지도</h1>
+          <p class="login-ver">v2026.06.06</p>
+        </div>
+
+        <form class="login-form" id="login-form" onsubmit="handleLogin(event)">
+          <div class="field">
+            <label for="input-id">아이디</label>
+            <input class="cinput" type="text" id="input-id" placeholder="아이디 입력"
+              autocomplete="username" autocapitalize="none" required>
+          </div>
+          <div class="field">
+            <label for="input-pw">비밀번호</label>
+            <input class="cinput" type="password" id="input-pw" placeholder="비밀번호 입력"
+              autocomplete="current-password" required>
+          </div>
+
+          <p class="error-msg" id="error-msg" aria-live="polite"></p>
+
+          <button type="submit" id="login-btn" class="cbtn cbtn-primary">로그인</button>
+        </form>
+
+        <a href="#" class="guide-link"><span>사용설명서 보기</span></a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function handleLogin(e){
+      e.preventDefault();
+      var id = document.getElementById('input-id').value.trim();
+      var pw = document.getElementById('input-pw').value;
+      var btn = document.getElementById('login-btn');
+      var err = document.getElementById('error-msg');
+      err.textContent = '';
+      if(!id || !pw){ err.textContent = '아이디와 비밀번호를 입력하세요'; return; }
+      btn.disabled = true; btn.textContent = '로그인 중...';
+      setTimeout(function(){
+        // 데모: 아무 값이나 통과 (실제 앱은 authLogin 사용)
+        btn.textContent = '로그인 성공';
+        setTimeout(function(){ btn.disabled = false; btn.textContent = '로그인'; }, 900);
+      }, 700);
+    }
+  </script>
+</body>
+</html>
