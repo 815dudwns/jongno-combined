@@ -783,6 +783,7 @@ function buildAddrCandidates() {
     Object.entries(grouped).forEach(([addr, data]) => {
         _addrData.set(addr, { lat: data.lat, lng: data.lng, meters: data.meters });
     });
+    buildReplacedIndex();   // 계기번호 완료 인덱스 갱신 (mid 폴백용)
 }
 
 // 화면에 그려진 마커 전부 제거 (markers + _markerByAddr 동시)
@@ -795,6 +796,7 @@ function clearAllMarkers() {
 // 뷰포트 컬링 — 화면(+여유 20%) 안 후보만 마커 유지, 밖은 제거
 function renderViewport() {
     if (!map) return;
+    buildReplacedIndex();   // workStatus 갱신(FB 동기화 등) 반영 — 계기번호 완료 인덱스 최신화
     const b = map.getBounds();
     if (!b) return;   // bounds 미준비(초기) — 다음 idle에서 재시도
     const sw = b.getSW(), ne = b.getNE();
@@ -902,6 +904,23 @@ function spreadOverlappingMarkers(grouped) {
     });
 }
 
+// 계기번호(mid) → 완료(replaced) 전역 인덱스.
+// 주소 표기 불일치(번지 유무·지번 끝자리 차이, KEPCO_IMPORT 일괄등록 등)로 주소키 매칭이 깨져도
+// 계기번호로 완료를 잡기 위함. workStatus 갱신/렌더 시 재구축. 완료 = replaced_at 있고 draft 아님.
+let _replacedMids = new Set();
+function buildReplacedIndex() {
+    const s = new Set();
+    const ws = (typeof workStatus !== 'undefined' && workStatus) ? workStatus : {};
+    for (const st of Object.values(ws)) {
+        const rl = (st && st.replacement_list) || {};
+        for (const mid in rl) {
+            const r = rl[mid];
+            if (r && r.replaced_at && !r.draft) s.add(String(mid).trim());
+        }
+    }
+    _replacedMids = s;
+}
+
 // ── 마커 스타일 결정 함수 ────────────────────────────────────────
 function decideMarkerStyle(meters, status, session) {
     let role = session?.role || 'admin';
@@ -972,8 +991,20 @@ function decideMarkerStyle(meters, status, session) {
         // replacement_list를 완료(done)/이어서(draft) 분리 — draft를 완료로 오인 방지 (영준님 2026-06-09)
         // 마커당 호출되므로 2회 filter 대신 1패스 카운트 (대규모 지도 누적비용 절감)
         let doneCount = 0, draftCount = 0;
-        for (const r of Object.values(status.replacement_list || {})) {
+        const _rl = status.replacement_list || {};
+        const _counted = new Set();
+        for (const [mid, r] of Object.entries(_rl)) {
             if (r && r.draft) draftCount++; else doneCount++;
+            _counted.add(String(mid).trim());
+        }
+        // mid 폴백 — 주소 표기차로 이 주소 레코드엔 없지만 계기번호로는 완료된 계기를 완료로 친다
+        // (KEPCO_IMPORT 등 "번지" 표기·지번 끝자리 불일치 대응. 완료 표시 한정, hold/fail/comm은 불변)
+        for (const _m of meters) {
+            const _mid = String(_m.계기번호 || '').trim();
+            if (_mid && !_counted.has(_mid) && _replacedMids.has(_mid)) {
+                doneCount++;
+                _counted.add(_mid);
+            }
         }
         const isAllReplaced = (totalAll > 0 && doneCount === totalAll);
         const isPartialReplaced = (doneCount > 0 && !isAllReplaced);
