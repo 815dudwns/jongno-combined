@@ -1189,7 +1189,6 @@
                 <button class="cbtn cbtn-sm" id="loadResultsBtn" onclick="_loadResultsAndSummary()">새로고침</button>
                 <button class="cbtn cbtn-sm hidden" id="resetDryrunBtn" onclick="resetDryrun()"
                     style="color:var(--a-rose)">테스트 DB 초기화</button>
-                <span style="font-size:11px;color:var(--ink-3)">통과(자동·확인완료)하면 자동 검증완료</span>
             </div>
             <div class="work-chips" id="workChips"></div>
         </div>
@@ -1272,11 +1271,6 @@
                         <tbody id="resultBody"></tbody>
                     </table>
                 </div>
-            </div>
-
-            <!-- 자동적용 안내 -->
-            <div class="apply-section">
-                <span class="apply-note">[확인필요]에서 ① 할당점검 → ② 검침·신설 순으로 처리하세요. 항목별 [반영 미리보기] → [확정 반영], 또는 그룹 헤더의 [완료 처리]로 종로 DB를 직접 수정할 수 있습니다.</span>
             </div>
 
         </div><!-- #resultsSection -->
@@ -1710,7 +1704,7 @@ async function initApp() {
     await fetchDatasets();
 
     // 작업일 목록 로드 → 검증탭(기본 페이지) 기본 날짜 = 최근 작업일(데이터 있는 마지막 날)
-    await _loadWorkDates(document.getElementById('datasetSel').value || 'jongno_dryrun');
+    await _loadWorkDates(document.getElementById('datasetSel').value || 'jongno');
     const _wk = [..._workDates].sort();
     let initStr = todayStr, initDate = today;
     if (_wk.length) {
@@ -1980,11 +1974,7 @@ async function fetchDatasets() {
                 sel.appendChild(opt);
             }
         }
-        // 검증탭(기본 페이지) 기본 자료 = 종로 드라이런 (사장님 시연용)
-        const mainSel = document.getElementById('datasetSel');
-        if (mainSel && [...mainSel.options].some(o => o.value === 'jongno_dryrun')) {
-            mainSel.value = 'jongno_dryrun';
-        }
+        // 검증탭 기본 자료 = 종로 라이브 (jongno)
     } catch (e) {
         showErr('백엔드 연결 실패: ' + e.message + '\n(http://127.0.0.1:8765 서버가 실행 중인지 확인)');
         ['datasetSel','reportDatasetSel','auditDatasetSel'].forEach(id => {
@@ -2758,6 +2748,18 @@ async function autoValidatePassed(range) {
 // ══════════════════════════════════════════════════════
 // 전체 렌더
 // ══════════════════════════════════════════════════════
+// 검증완료 판정 (영준님 모델 2026-06-30): 검증상태 기반.
+//   자동통과(pass)  = 항상 검증완료 (완료/미완료 무관 — 사진 OCR이 맞다고 확인)
+//   확인완료(done)  = 완료(non-draft)일 때만 검증완료 (사람이 판정한 값)
+//   확인필요(need)/OCR미판독/미검증 = 미검증
+// 별도 도장(g.validated, awms 게이트용)은 호환 위해 OR.
+function isVerified(g) {
+    const b = groupBucket(g);
+    if (b === 'pass') return true;
+    if (b === 'done') return !g.is_draft;
+    return false;
+}
+
 function renderAll() {
     renderSummaryBadges();
     renderTable();
@@ -2774,7 +2776,7 @@ function renderSummaryBadges() {
         else if (b === 'unverified') unverified++;
         else skip++;
         if (g._swapPartner != null) swap++;
-        if (g.validated) validated++;
+        if (isVerified(g) || g.validated) validated++;
     }
     const el = document.getElementById('summaryBadges');
     el.innerHTML = `
@@ -2864,7 +2866,7 @@ function renderTable() {
                 ${bucket !== 'unverified' && groupConsistency(g).hasError ? '<span class="st st-consistency" style="margin-left:4px">정합성오류</span>' : ''}
                 ${bucket !== 'unverified' && g._swapPartner != null ? '<span class="st st-swap" style="margin-left:4px">스왑 의심</span>' : ''}
             </td>
-            <td>${g.validated
+            <td>${(isVerified(g) || g.validated)
                 ? '<span class="st st-validated">검증완료</span>'
                 : '<span style="color:var(--ink-3);font-size:12px">-</span>'}</td>
         </tr>`;
