@@ -154,6 +154,12 @@ function getEffectiveRole() {
     return role;
 }
 
+// 명륜 팀 배분 잠금(auth.js lock). 종로/중구 계정이 남의 배분분을 못 보게 필터 소스에서 강제.
+//   { team } → 명륜에서 그 팀 배분분만 / { dong } → 그 동그룹 고정. admin·구로는 null.
+function getSessionLock() {
+    try { return authGetSession()?.lock || null; } catch { return null; }
+}
+
 // 가장 최근 계기팀 완료 주소 — 통신팀 입장 "다음 가야 할 곳" (찐초록)
 // 조건: meter_state='complete' AND comm_state!='complete', meter_updatedAt 최대
 let meterLatestAddress = null;
@@ -270,6 +276,11 @@ async function initMap() {
     updateCheckdayFilterVisibility();
     updateGaFilterVisibility();
     updateTeamFilterVisibility();  // [임시] 명륜 팀 필터 표시/숨김
+    // 잠금계정(중구): 동그룹이 명륜 고정 → 동그룹 드롭다운 숨김(못 바꾸게)
+    if (getSessionLock() && getSessionLock().dong) {
+        const _dg = document.querySelector('.dong-group-filter');
+        if (_dg) _dg.style.display = 'none';
+    }
     // ★즉시 렌더(렌더-우선): siteData(IDB) + workStatus 미러(loadStatusLocal, 완료 포함)로 마커를 먼저 그림.
     //   아이폰 PWA 재진입 시 "빈 화면→Firebase 응답 후 마커"의 빈 화면 구간 제거.
     //   미러는 마지막 FB 동기화 스냅샷 → 완료 첫 화면 표시(빈 렌더 아님). Firebase가 권위로 곧 갱신.
@@ -368,6 +379,9 @@ async function initMap() {
 function loadSelectedGroups() {
     // MYUNGROON_MODE: 명륜 동그룹 고정 (다른 동 표시 안 함)
     if (window.MYUNGROON_MODE) return new Set(['명륜']);
+    // 잠금계정(중구): 동그룹 고정 — 다른 동 안 보임
+    const _lk = getSessionLock();
+    if (_lk && _lk.dong) return new Set([_lk.dong]);
     try {
         const saved = localStorage.getItem(regionKey('_selected_groups'));
         if (saved) {
@@ -547,6 +561,9 @@ function updateGaFilterVisibility() {
 
 // ── [임시] 명륜 팀 필터 (계기팀 시각 + 동그룹=명륜 전용) ──────────
 function loadSelectedTeam() {
+    // 잠금계정(종로/중구): 팀 고정 — 저장값 무시하고 자기 팀만
+    const _lk = getSessionLock();
+    if (_lk && _lk.team) return new Set([_lk.team]);
     try {
         const saved = localStorage.getItem('jongno_team_filter_temp');
         if (saved) {
@@ -610,9 +627,11 @@ function onTeamChange() {
 
 // 계기팀 시각 + 동그룹=명륜일 때만 팀 필터 UI 표시
 function updateTeamFilterVisibility() {
-    const role = getEffectiveRole();
     const filterEl = document.getElementById('team-filter');
     if (!filterEl) return;
+    // 잠금계정: 팀이 계정단위로 고정됐으므로 팀 필터 UI 자체를 숨김(선택 무의미)
+    if (getSessionLock()) { filterEl.style.display = 'none'; return; }
+    const role = getEffectiveRole();
     const selectedGroups = loadSelectedGroups();
     const isMeter = (role === 'meter');
     const isMyungryun = selectedGroups.has('명륜');
@@ -736,6 +755,7 @@ function buildAddrCandidates() {
     const selectedCheckdays = loadSelectedCheckdays();
     const selectedGa = loadSelectedGa();
     const selectedTeam = loadSelectedTeam();   // [임시] 명륜 팀 필터
+    const _lock = getSessionLock();            // 명륜 팀 잠금(종로/중구 계정) — 역할·미연계모드 무관 강제
     const role = getEffectiveRole();
     const applyCheckdayFilter = (role === 'meter');
     // 미연계(통신팀 누락만)는 통신팀 개념 — 계기팀 시각에서는 적용 안 함
@@ -744,6 +764,14 @@ function buildAddrCandidates() {
     const grouped = {};
     sampleData.forEach(item => {
         if (item.lat == null || item.lng == null) return;
+        // ★잠금계정 강제 필터 — commMissingOnly/역할과 무관하게 최상단에서 거른다(누수 방지, advisor 2026-07-02)
+        if (_lock) {
+            if (_lock.dong && item.동그룹 !== _lock.dong) return;   // 중구 계정: 명륜 외 동 전부 제외
+            if (_lock.team && item.동그룹 === '명륜') {              // 팀 잠금은 명륜에만 적용(타 동은 팀 개념 없음)
+                if (teamByMeter.size === 0) return;                 // 팀매핑 미로드 시 명륜 숨김(종로↔중구 누수 방지)
+                if (teamByMeter.get(item.계기번호) !== _lock.team) return; // 자기 팀 아니면(미배정 포함) 제외 = strict
+            }
+        }
         // 통신팀 누락만 모드 = 동그룹/검침일 필터 전부 무시
         if (!commMissingOnly) {
             if (!selectedGroups.has(item.동그룹)) return;
@@ -1687,6 +1715,8 @@ initMap().then(handleDeeplink).catch(() => {});
     function _taGate() {
         // MYUNGROON_MODE: 게이트 없이 항상 허용
         if (window.MYUNGROON_MODE) return true;
+        // 잠금계정(종로/중구 작업자)은 팀 재배정 도구 금지 — 배분은 admin/공개페이지만
+        if (typeof getSessionLock === 'function' && getSessionLock()) return false;
         // 로컬 임시 팀할당 도구: 동그룹 '명륜' 선택만 충족하면 노출 (admin/계기팀 게이트 완화)
         const groups = (typeof loadSelectedGroups === 'function') ? loadSelectedGroups() : new Set();
         return groups.has('명륜');
