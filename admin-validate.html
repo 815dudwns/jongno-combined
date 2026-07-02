@@ -1187,6 +1187,7 @@
                     ~ <input id="valTo" type="number" min="1" placeholder="30" class="cinput seq-input" oninput="_onRangeInput()">
                 </label>
                 <button class="cbtn cbtn-primary cbtn-sm" id="runBtn" onclick="runValidate()">검증 실행</button>
+                <label class="cbtn cbtn-sm" style="display:inline-flex;align-items:center;gap:5px;cursor:pointer" title="켜면 날짜 열 때 검증대기(OCR 미실행)건을 자동으로 OCR 검증"><input type="checkbox" id="autoOcrToggle" onchange="_setAutoOcr(this.checked)" style="margin:0"> OCR 자동</label>
                 <button class="cbtn cbtn-sm hidden" id="stopBtn" onclick="stopValidate()" style="color:var(--a-rose);font-weight:700">■ 멈춤</button>
                 <button class="cbtn cbtn-sm" id="loadResultsBtn" onclick="_loadResultsAndSummary()">새로고침</button>
                 <button class="cbtn cbtn-sm hidden" id="resetDryrunBtn" onclick="resetDryrun()"
@@ -1243,6 +1244,7 @@
                         <button id="filterIncomplete" onclick="setFilter('incomplete')">미완료</button>
                         <button id="filterNeed" onclick="setFilter('need')">확인필요</button>
                         <button id="filterProblem" onclick="setFilter('problem')">문제만</button>
+                        <button id="filterPending" onclick="setFilter('pending')">검증대기</button>
                     </div>
                     <select id="chaFilter" class="cinput" style="margin-left:8px;max-width:130px" onchange="setChaFilter(this.value)"><option value="">전체 차수</option></select>
                 </div>
@@ -2095,7 +2097,21 @@ function ts15(ts) {
 // ══════════════════════════════════════════════════════
 // 검증 실행
 // ══════════════════════════════════════════════════════
-async function runValidate() {
+// ── 4b: OCR 자동/수동 토글 ──
+const _autoOcrRan = new Set();   // 날짜별 자동 1회 가드(무한루프·재과금 방지)
+function _autoOcrOn() { return localStorage.getItem('av_autoOcr') === '1'; }
+function _setAutoOcr(v) { localStorage.setItem('av_autoOcr', v ? '1' : ''); }
+function _maybeAutoOcr() {
+    if (!_autoOcrOn() || !_groups.length) return;
+    const key = _currentDataset + ':' + _currentDate;
+    if (_autoOcrRan.has(key)) return;                        // 이 날짜 이미 자동 실행함
+    const pending = _groups.filter(g => groupBucket(g) === 'unverified').length;
+    if (!pending) return;                                    // 검증대기 없으면 안 함
+    _autoOcrRan.add(key);
+    runValidate(true);                                       // 무거운 OCR을 확인 없이 백그라운드 실행(검증대기만 대상)
+}
+
+async function runValidate(auto = false) {
     const dataset = document.getElementById('datasetSel').value;
     const dateRaw = document.getElementById('dateInput').value;
     if (!dataset) { showErr('자료를 선택하세요.'); return; }
@@ -2129,7 +2145,7 @@ async function runValidate() {
                  + (skipDone ? `\n(이미 검증완료 ${skipDone}건 제외)` : '')
                  + `\n\n※ 일부만 하려면: 취소 → 순번칸에 1~3 입력 후 다시 실행`;
     }
-    if (!confirm(scopeMsg + '\n\n계속할까요?')) return;
+    if (!auto && !confirm(scopeMsg + '\n\n계속할까요?')) return;
 
     document.getElementById('runBtn').disabled = true;
 
@@ -2371,6 +2387,7 @@ async function loadResults() {
         clearErr();
         renderAll();
         document.getElementById('resultsSection').classList.remove('hidden');
+        _maybeAutoOcr();   // 4b: OCR 자동 토글 ON이면 검증대기건 자동 검증(날짜별 1회)
     } catch (e) {
         showErr('결과 로드 실패: ' + e.message);
     }
@@ -2693,7 +2710,7 @@ const BUCKET_LABEL = {
     skip:    '사진없음',
     need:    '확인필요',
     ocrfail: 'OCR미판독',
-    unverified: '미검증',
+    unverified: '검증대기',
     kepco:   '준공반영',
 };
 
@@ -2770,6 +2787,7 @@ function setFilter(f) {
     document.getElementById('filterIncomplete').classList.toggle('active', f === 'incomplete');
     document.getElementById('filterNeed').classList.toggle('active', f === 'need');
     { const _pb = document.getElementById('filterProblem'); if (_pb) _pb.classList.toggle('active', f === 'problem'); }
+    { const _pd = document.getElementById('filterPending'); if (_pd) _pd.classList.toggle('active', f === 'pending'); }
     renderTable();
 }
 
@@ -2893,6 +2911,7 @@ function isVerified(g) {
 function renderAll() {
     renderSummaryBadges();
     _fillChaOptions();   // 3b 차수 드롭다운 옵션 갱신
+    { const _at = document.getElementById('autoOcrToggle'); if (_at) _at.checked = _autoOcrOn(); }  // 4b 토글 상태 동기화
     renderTable();
 }
 
@@ -2912,7 +2931,7 @@ function renderSummaryBadges() {
     }
     el.innerHTML = `
         <span class="sbadge sb-total">전체: ${_groups.length}</span>
-        ${unverified ? `<span class="sbadge sb-skip">미검증: ${unverified}</span>` : ''}
+        ${unverified ? `<span class="sbadge sb-skip">검증대기: ${unverified}</span>` : ''}
         <span class="sbadge sb-pass">자동통과: ${pass}</span>
         <span class="sbadge sb-need">확인필요: ${need}</span>
         <span class="sbadge sb-skip">OCR미판독: ${ocrfail}</span>
@@ -2946,6 +2965,7 @@ function renderTable() {
     let groups = _groups;
     if (_filter === 'incomplete') groups = _groups.filter(g => g.is_draft);   // 미완료 = 임시저장(계기 단위)
     if (_filter === 'problem') groups = _groups.filter(isProblemGroup);       // 문제만 = 미해결 검증문제
+    if (_filter === 'pending') groups = _groups.filter(g => groupBucket(g) === 'unverified');  // 4a 검증대기(OCR 미실행)
     if (_chaFilter) groups = groups.filter(g => g.cha === _chaFilter);        // 3b 차수 필터(AND)
     if (!groups.length) {
         const _emptyMsg = _filter === 'incomplete' ? '미완료 항목이 없습니다 (전부 완료).'
