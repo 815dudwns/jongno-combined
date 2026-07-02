@@ -14,3 +14,10 @@ data/original/
 # Firebase service account
 *-firebase-adminsdk-*.json
 *-service-account*.json
+
+# 대용량 백업 (배포 artifact 제외 — GitHub Pages deploy 타임아웃 방지)
+data/*.bak
+data/*.bak-*
+data/*.backup*
+data/backup-*
+data/백업-*
