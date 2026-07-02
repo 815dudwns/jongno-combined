@@ -90,7 +90,7 @@
     td { padding: 11px 8px; border-bottom: 1px solid rgba(170,162,148,0.18); vertical-align: middle; color: var(--ink); }
     tr:hover td { background: color-mix(in srgb, var(--mint) 14%, transparent); }
 
-    .photo-thumb { width: 56px; height: 56px; border-radius: 10px; background: var(--bg-deep); background-size: cover; background-position: center; cursor: pointer; display: inline-block; vertical-align: middle; box-shadow: var(--clay-inset-sm); }
+    .photo-thumb { width: 56px; height: 56px; border-radius: 10px; background: var(--bg-deep); cursor: pointer; display: inline-block; vertical-align: middle; box-shadow: var(--clay-inset-sm); object-fit: cover; }
     .photo-thumb.empty { display: inline-flex; align-items: center; justify-content: center; color: var(--ink-3); font-size: 10px; font-weight: 700; }
 
     .v-state { font-size: 11px; padding: 4px 10px; border-radius: var(--radius-pill); font-weight: 800; display: inline-block; }
@@ -498,7 +498,7 @@
         <td>${escapeHtml(item.new_meter_mfg_ym || '-')}</td>
         <td>${escapeHtml(item.worker)}</td>
         <td>
-          ${photoCell(item.old_photo)} ${photoCell(item.new_photo)}
+          ${photoCell(item.old_photo, item.old_photo_thumb)} ${photoCell(item.new_photo, item.new_photo_thumb)}
         </td>
         <td class="actions">
           <button class="btn pass" onclick="actVerify('${escAttr(item.address)}','${item.old_meter_id}','verified')">통과</button>
@@ -525,7 +525,7 @@
           <div><div>제조</div><div class="v">${escapeHtml(item.new_meter_mfg_ym || '-')}</div></div>
           <div><div>작업자</div><div class="v">${escapeHtml(item.worker)}</div></div>
         </div>
-        <div class="m-row-photos">${photoCell(item.old_photo)}${photoCell(item.new_photo)}</div>
+        <div class="m-row-photos">${photoCell(item.old_photo, item.old_photo_thumb)}${photoCell(item.new_photo, item.new_photo_thumb)}</div>
         <div class="m-row-actions">
           <button class="btn pass" onclick="actVerify('${escAttr(item.address)}','${item.old_meter_id}','verified')">통과</button>
           <button class="btn fix" onclick="actVerify('${escAttr(item.address)}','${item.old_meter_id}','needs_fix')">수정</button>
@@ -792,9 +792,15 @@
   function shortAddr(a) { return (a || '').replace('서울특별시 종로구 ', ''); }
   function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function escAttr(s) { return String(s || '').replace(/'/g, "\\'"); }
-  function photoCell(url) {
+  // thumbUrl: 썸네일 URL (RTDB *_thumb 필드). 없으면 원본(url)으로 표시.
+  // onerror: 썸네일 로드 실패 시 원본으로 폴백 (6/17 이전 구 사진은 썸네일 없음).
+  // onclick: 모달 확대는 항상 원본(url) 사용.
+  function photoCell(url, thumbUrl) {
     if (!url) return '<span class="photo-thumb empty">없음</span>';
-    return `<span class="photo-thumb" style="background-image:url('${url}')" onclick="showPhoto('${url}')"></span>`;
+    const src = thumbUrl || url;
+    const urlAttr = url.replace(/'/g, "\\'");
+    const srcAttr = src.replace(/'/g, "\\'");
+    return `<img class="photo-thumb" src="${srcAttr}" onerror="this.onerror=null;this.src='${urlAttr}'" onclick="showPhoto('${urlAttr}')" alt="사진">`;
   }
   function vStateLabel(s) {
     return ({unverified:'대기', verified:'통과', needs_fix:'수정', rework_requested:'재요청'})[s] || s;
