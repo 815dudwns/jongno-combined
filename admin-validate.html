@@ -1688,7 +1688,7 @@ let _appInited = false;
 async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1752 (구로/종로 import[한전준공·awms]=준공반영 회색배지·완료처리 / 집계뷰 롤백→기존테이블 유지)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1753 (폰 속도개선: 판정 즉시반영[전체 재조회 제거]·검증중 곁다리조회 제거·날짜없는 전체조회 차단 / 백엔드 gzip+workStatus 공유캐시 워밍)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -2193,10 +2193,8 @@ async function pollJob(jobId) {
             }
         }
 
-        // 잡 도는 동안에도 결과 표를 주기적으로 갱신 (트랙 끝날 때마다 통과분 반영)
-        if (job.status === 'running' && (++_pollTick % 2 === 0)) {
-            loadResults().catch(() => {});
-        }
+        // (검증 진행 중 결과표 곁다리 재조회 제거 — 8초 재조회가 폴링 주기와 겹쳐 밀리던 원인.
+        //  진행 상황은 위 진행패널로만 표시, 결과 반영은 아래 done에서 1회.)
 
         if (job.status === 'done') {
             clearInterval(_pollTimer); _pollTimer = null;
@@ -2241,6 +2239,8 @@ async function loadResults() {
     const dateRaw = document.getElementById('dateInput').value;
     const date    = dateRaw ? toApiDate(dateRaw) : _currentDate;
     if (!dataset) { showErr('자료를 선택하세요.'); return; }
+    // 날짜 없이 전체(9.87MB) 받는 것 차단 — 폰 셀룰러 데이터·속도 방어
+    if (!date) { showErr('날짜를 선택하세요. (날짜 없이 전체 조회는 데이터가 매우 커서 막습니다.)'); return; }
 
     _currentDataset = dataset;
     _currentDate    = date;
@@ -3195,6 +3195,7 @@ async function nhApplyVal(mid, field, value) {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ dataset: _currentDataset, mids: [mid], actor, validated: true }),
         }).catch(() => {});
+        _nhMarkValidated(mid);
         await nhAfterAction();
     } catch (e) { alert('적용 실패: ' + e.message); }
 }
@@ -3205,6 +3206,7 @@ async function nhComplete(mid) {
             body: JSON.stringify({ dataset: _currentDataset, mids: [mid], actor: _nhActor(), validated: true }),
         });
         if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.detail || `HTTP ${resp.status}`); }
+        _nhMarkValidated(mid);
         await nhAfterAction();
     } catch (e) { alert('완료 처리 실패: ' + e.message); }
 }
@@ -3220,6 +3222,7 @@ async function nhUnreadable(mid) {
             body: JSON.stringify({ dataset: _currentDataset, mids: [mid], actor: `${_nhActor()} [식별불가:${reason}]`, validated: true }),
         });
         if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error(d.detail || `HTTP ${resp.status}`); }
+        _nhMarkValidated(mid);
         await nhAfterAction();
     } catch (e) { alert('식별불가 처리 실패: ' + e.message); }
 }
@@ -3244,12 +3247,21 @@ async function nhDoSwap(midA, midB) {
         let msg = '맞바꾸기 완료 · 양쪽 검증완료.';
         if (b.awms_resync_needed) msg += '\n※ awms에 이미 올라간 건이라 awms 수정 필요(자동수정 안 함).';
         alert(msg);
+        _nhMarkValidated(midA, midB);
         await nhAfterAction();
     } catch (e) { alert('맞바꾸기 실패: ' + e.message); }
 }
+// 판정한 계기를 로컬에서 검증완료 처리 → buildNhQueue의 isStage1/2가 g.validated로 즉시 제외.
+// (서버 재조회 없이 큐에서 빠짐. 백엔드는 apply/set_validated/swap에서 캐시 무효화하므로
+//  다음 전체조회 때 최신 반영됨.)
+function _nhMarkValidated(...mids) {
+    for (const mid of mids) { const g = _nhFindGroup(mid); if (g) g.validated = true; }
+}
 async function nhAfterAction() {
     _nhCropFail = false;              // 다음 건 넘어가며 크롭실패 토글 초기화
-    await _loadResultsAndSummary();   // 데이터 갱신
+    // 판정 결과는 _nhMarkValidated로 로컬 반영됨 → 매 판정마다 전체 재조회(8초·네트워크) 제거.
+    // 결과 테이블만 로컬 상태로 다시 렌더(네트워크 0).
+    renderAll();
     const remain = buildNhQueue();
     if (!remain.length) {             // 남은 확인필요 0 → 전부 완료 화면
         _nhKeepQueue = false;
