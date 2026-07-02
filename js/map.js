@@ -288,6 +288,10 @@ async function initMap() {
     renderViewport();
     // Firebase = 권위. 첫 콜백이 workStatus를 정확한 FB 집합으로 교체 → 재색칠로 미러 보정.
     await initFirebase();
+    // [사진 유실 방지] workStatus FB 권위 데이터 준비 후 IDB 대기 큐 드레인 (미완료 사진 복구)
+    if (typeof RplModal !== 'undefined' && typeof RplModal.drainPhotoQueue === 'function') {
+        RplModal.drainPhotoQueue().catch(() => {});
+    }
     // ★명륜 팀 배분 매핑을 마커 생성 전에 로드 → 첫 렌더부터 종로/중구 색 적용(레이스 방지)
     await loadTeamAssign();
     buildAddrCandidates();

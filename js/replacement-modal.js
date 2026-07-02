@@ -639,6 +639,15 @@ const RplModal = (() => {
     try {
       const compressed = await PhotoUploader.compress(mem, { square });
       setPhoto(slotId, compressed);
+      // [사진 유실 방지] 압축 성공 직후 IDB 대기 큐에 blob 영속화 (저장 성공 후 자동 삭제)
+      if (typeof PhotoQueue !== 'undefined') {
+        const _addrKey = (typeof encodeKey === 'function') ? encodeKey(currentAddress) : currentAddress;
+        const _mid = currentMeter ? String(currentMeter.계기번호 || currentMeter.meter_id || '') : '';
+        const _field = (field && RV_FIELDS[field]) ? field : (slotId === 'rpl-new-photo' ? 'new' : '');
+        if (_addrKey && _mid && _field) {
+          PhotoQueue.put(_addrKey, _mid, _field, compressed).catch(() => {});
+        }
+      }
     } catch (e) {
       console.warn('압축 실패, 원본 사용', e);
       setPhoto(slotId, mem);
@@ -1387,6 +1396,12 @@ const RplModal = (() => {
       // 불러온(확정된) 보조앱 temp 노드 정리 (저장 성공 후에만 — 사진 URL은 이미 record에 복사됨)
       if (_pendingTempPath) { db.ref(_pendingTempPath).remove().catch(() => {}); }
 
+      // [사진 유실 방지] node.set 성공 → IDB 대기 큐에서 이번 저장분 전 칸 삭제
+      if (typeof PhotoQueue !== 'undefined') {
+        const _savedFields = [...activeFields, 'new'];
+        PhotoQueue.deleteForMeter(addrKey, String(oldMeterId), _savedFields).catch(() => {});
+      }
+
       // 로컬 반영
       if (!workStatus[currentAddress]) workStatus[currentAddress] = makeEmptyEntry();
       if (!workStatus[currentAddress].replacement_list) workStatus[currentAddress].replacement_list = {};
@@ -1611,7 +1626,170 @@ const RplModal = (() => {
     }
   }
 
-  return { open, close, init };
+  // ─────────────────────────────────────────────────────────────────
+  // [사진 유실 방지] IDB 대기 큐 드레인
+  //   workStatus가 Firebase 권위 데이터로 채워진 후 1회 호출.
+  //   pending 엔트리를 workStatus.replacement_list와 교차검증:
+  //     - 이미 저장됨(URL 있음) → 조용히 큐에서 삭제 (오탐 방지)
+  //     - 미저장(URL 없음)     → 배너 표시 + 모달 재오픈 시 blob 주입
+  // ─────────────────────────────────────────────────────────────────
+  async function drainPhotoQueue() {
+    if (typeof PhotoQueue === 'undefined') return;
+    let pending = [];
+    try {
+      pending = await PhotoQueue.getAll();
+    } catch (e) { return; }
+    if (!pending.length) return;
+
+    // workStatus 교차검증: 이미 저장된 건 조용히 삭제
+    const ws = (typeof workStatus !== 'undefined') ? workStatus : {};
+    const genuinelyLost = [];
+    const staleKeys = [];
+
+    for (const entry of pending) {
+      const { key, addrKey, mid, field } = entry;
+      // addrKey → address: workStatus는 원주소(한글)가 키 → encodeKey 역방향은 없음.
+      //   대신 workStatus 전체를 순회해 replacement_list[mid] 존재 여부로 판별.
+      let alreadySaved = false;
+      for (const addr in ws) {
+        const rl = ws[addr] && ws[addr].replacement_list;
+        if (!rl || !rl[mid]) continue;
+        const rp = rl[mid].removal_photos || {};
+        const hasMid = (field === 'new')
+          ? !!(rl[mid].new_meter_photo)
+          : !!(rp[field]);
+        if (hasMid) { alreadySaved = true; break; }
+      }
+      if (alreadySaved) {
+        staleKeys.push(key);
+      } else {
+        genuinelyLost.push(entry);
+      }
+    }
+
+    // 이미 저장된 stale 엔트리 일괄 삭제
+    if (staleKeys.length) PhotoQueue.deleteBatch(staleKeys).catch(() => {});
+
+    // 진짜 유실 분이 없으면 끝
+    if (!genuinelyLost.length) return;
+
+    // 배너 표시 — 복구 필요 건 수 + 클릭 시 첫 건 모달 재오픈
+    _showDrainBanner(genuinelyLost);
+  }
+
+  // 드레인 배너 DOM
+  function _showDrainBanner(lostEntries) {
+    const existing = document.getElementById('rpl-drain-banner');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'rpl-drain-banner';
+    // clay --surface-2 기반, 눈에 띄도록 mint-soft 배경
+    banner.style.cssText = [
+      'position:fixed', 'bottom:72px', 'left:50%', 'transform:translateX(-50%)',
+      'z-index:9990', 'max-width:92vw', 'width:360px',
+      'background:var(--mint-soft,#d1fae5)', 'color:var(--ink,#111)',
+      'border-radius:var(--radius-sm,14px)', 'box-shadow:var(--clay-sm)',
+      'padding:14px 16px', 'font-size:14px', 'line-height:1.5',
+      'display:flex', 'flex-direction:column', 'gap:10px',
+    ].join(';');
+
+    const msg = document.createElement('div');
+    msg.textContent = `미완료 사진 ${lostEntries.length}장이 대기 중입니다. 이전 촬영 중 앱이 닫혔을 수 있습니다.`;
+    banner.appendChild(msg);
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+
+    const dismissBtn = document.createElement('button');
+    dismissBtn.className = 'cbtn';
+    dismissBtn.style.cssText = 'font-size:13px;padding:6px 14px';
+    dismissBtn.textContent = '무시';
+    dismissBtn.onclick = () => {
+      banner.remove();
+      // 무시 시에는 큐를 삭제하지 않음 — 다음 앱 시작 시 다시 표시
+    };
+    btnRow.appendChild(dismissBtn);
+
+    const recoverBtn = document.createElement('button');
+    recoverBtn.className = 'cbtn cbtn-primary';
+    recoverBtn.style.cssText = 'font-size:13px;padding:6px 14px';
+    recoverBtn.textContent = '복구하기';
+    recoverBtn.onclick = () => {
+      banner.remove();
+      _startRecovery(lostEntries);
+    };
+    btnRow.appendChild(recoverBtn);
+    banner.appendChild(btnRow);
+
+    document.body.appendChild(banner);
+  }
+
+  // 복구: 첫 번째 lost 엔트리의 모달을 재오픈 → setPhoto로 blob 주입
+  //   작업자가 검침값·계기번호 확인 후 정상 저장 버튼 → 기존 onSave 경로로 처리 → 큐 자동 삭제
+  function _startRecovery(lostEntries) {
+    if (!lostEntries.length) return;
+
+    // 같은 mid 기준으로 groupBy — 같은 계기의 모든 칸을 한 번에 복구
+    const byMid = {};
+    for (const e of lostEntries) {
+      if (!byMid[e.mid]) byMid[e.mid] = { entries: [], addrKey: e.addrKey };
+      byMid[e.mid].entries.push(e);
+    }
+    const firstMid = Object.keys(byMid)[0];
+    const group    = byMid[firstMid];
+
+    // workStatus에서 address(한글) 찾기 — replacement_list[mid] 또는 sampleData 활용
+    let addr = null;
+    let meter = null;
+    const ws = (typeof workStatus !== 'undefined') ? workStatus : {};
+    for (const a in ws) {
+      const rl = ws[a] && ws[a].replacement_list;
+      if (rl && rl[firstMid]) { addr = a; break; }
+      // added_meters에도 있을 수 있음
+      const am = ws[a] && ws[a].added_meters;
+      if (am && am[firstMid]) { addr = a; break; }
+    }
+    // sampleData에서 계기 객체 찾기
+    if (typeof sampleData !== 'undefined') {
+      meter = sampleData.find(s => String(s.계기번호) === String(firstMid)) || null;
+    }
+    // 주소를 못 찾으면 addrKey만으로 알림 (지도 이동 경로 없음)
+    if (!addr) {
+      toast(`복구 대상(${firstMid}) 주소를 찾지 못했습니다. 해당 계기를 직접 열어 재촬영하세요.`);
+      return;
+    }
+
+    // 기존 replacement 데이터 (수정 모드 prefill — 검침값 등 유지)
+    const existing = (ws[addr] && ws[addr].replacement_list && ws[addr].replacement_list[firstMid]) || null;
+
+    // 모달 오픈
+    open(addr, meter, null, existing || undefined);
+
+    // 모달이 init된 후(다음 tick) blob 주입
+    // IDB 엔트리는 ArrayBuffer(buf+type)로 저장 — entryToBlob()으로 재조립 후 주입
+    setTimeout(() => {
+      let injected = 0;
+      for (const entry of group.entries) {
+        const blob = (typeof PhotoQueue !== 'undefined' && PhotoQueue._entryToBlob)
+          ? PhotoQueue._entryToBlob(entry)
+          : (entry.buf ? new Blob([entry.buf], { type: entry.type || 'image/jpeg' }) : null);
+        if (!blob) continue;
+        const slotId = (entry.field === 'new')
+          ? 'rpl-new-photo'
+          : (RV_FIELDS[entry.field] && RV_FIELDS[entry.field].photo);
+        if (slotId) {
+          setPhoto(slotId, blob);
+          injected++;
+        }
+      }
+      if (injected > 0) {
+        toast(`복구: ${firstMid} 사진 ${injected}장 불러왔습니다. 확인 후 저장하세요.`);
+      }
+    }, 150);
+  }
+
+  return { open, close, init, drainPhotoQueue };
 })();
 
 if (document.readyState === 'loading') {
