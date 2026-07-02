@@ -1209,6 +1209,39 @@
         #panel-transmit .tx-account-del {
             color: var(--a-rose);
         }
+        /* ── awms 로그인 섹션 ── */
+        #panel-transmit .tx-login-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        #panel-transmit .tx-login-hint {
+            font-size: 12px;
+            color: var(--ink-2);
+            margin-top: 8px;
+            padding: 8px 10px;
+            background: var(--bg-deep);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--clay-inset-sm);
+        }
+        #panel-transmit .tx-login-hint.hidden {
+            display: none;
+        }
+        #panel-transmit .tx-session-status {
+            font-size: 12px;
+            margin-top: 8px;
+            min-height: 18px;
+        }
+        #panel-transmit .tx-session-ok {
+            color: var(--mint-strong);
+            font-weight: 700;
+        }
+        #panel-transmit .tx-session-ng {
+            color: var(--a-rose);
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -1545,6 +1578,23 @@
                 </div>
             </div>
             <div id="txConfigMsg" class="tx-config-msg"></div>
+        </div>
+
+        <!-- awms 로그인 -->
+        <div class="card">
+            <div class="tx-section-title">awms 로그인</div>
+            <div class="tx-section-sub">
+                폰(계기큐)에서 로그인을 시작합니다. OTP는 폰에서 직접 입력하세요.
+            </div>
+            <div class="tx-login-row">
+                <select id="txLoginAcctSel" class="cinput" style="font-size:13px;min-width:180px">
+                    <option value="">아이디 없음 — 먼저 전송 설정에서 추가</option>
+                </select>
+                <button class="cbtn cbtn-sm cbtn-primary" onclick="transmitAwmsLogin()">로그인</button>
+                <button class="cbtn cbtn-sm" onclick="transmitCheckSession()">세션 확인</button>
+            </div>
+            <div id="txLoginHint" class="tx-login-hint hidden"></div>
+            <div id="txSessionStatus" class="tx-session-status"></div>
         </div>
 
         <!-- 미전송 / 전송완료 서브탭 -->
@@ -1893,7 +1943,7 @@ let _appInited = false;
 async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1755 (전송탭 clay 리디자인: 인라인 스타일 clay 토큰/클래스 치환)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1756 (전송탭 awms 로그인 섹션 추가: /transmit/login 트리거 + /transmit/session 확인 + 전송전 세션 가드)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5274,6 +5324,7 @@ let _txAccounts       = [];          // [{id, start_seal}, ...]
 let _txSubTab         = 'unsent';    // 'unsent' | 'sent'
 let _txGroups         = [];          // 검증완료 그룹 전체 (isVerified 필터됨)
 let _txPollTimer      = null;        // 검증탭 _pollTimer와 분리
+let _txSessionOk      = false;       // awms 로그인 세션 확인 여부
 
 // ── 전송탭 진입 ──────────────────────────────────────
 function transmitOnEnter() {
@@ -5339,7 +5390,7 @@ function _txRenderAccountList() {
         '<button class="cbtn cbtn-xs tx-account-del" onclick="transmitRemoveAccount(' + i + ')">삭제</button>' +
         '</div>'
     ).join('');
-    // 계정 드롭다운 갱신
+    // 전송 계정 드롭다운 갱신 (txActionBar)
     const sel = document.getElementById('txAccountSel');
     if (sel) {
         sel.innerHTML = _txAccounts.length === 1
@@ -5349,6 +5400,20 @@ function _txRenderAccountList() {
     }
     const wrap = document.getElementById('txAccountSelWrap');
     if (wrap) wrap.classList.toggle('hidden', _txAccounts.length <= 1);
+    // 로그인 계정 드롭다운 갱신 (txLoginAcctSel)
+    const loginSel = document.getElementById('txLoginAcctSel');
+    if (loginSel) {
+        if (_txAccounts.length === 0) {
+            loginSel.innerHTML = '<option value="">아이디 없음 — 먼저 전송 설정에서 추가</option>';
+        } else {
+            loginSel.innerHTML = (_txAccounts.length > 1 ? '<option value="">계정 선택...</option>' : '') +
+                _txAccounts.map(a => '<option value="' + esc(a.id) + '">' + esc(a.id) + '</option>').join('');
+        }
+    }
+    // 계정이 바뀌면 이전 세션 확인 무효화
+    _txSessionOk = false;
+    const stEl = document.getElementById('txSessionStatus');
+    if (stEl) stEl.textContent = '';
 }
 
 function transmitAddAccount() {
@@ -5545,6 +5610,11 @@ async function transmitRun() {
     const account = _txPickAccount();
     if (!account) { alert('계정을 선택하세요.'); return; }
 
+    // 세션 미확인 경고 (awms 로그인 섹션에서 세션 확인 권장)
+    if (!_txSessionOk) {
+        if (!confirm('awms 세션이 확인되지 않았습니다. 세션 확인 없이 전송을 계속할까요?')) return;
+    }
+
     if (!confirm('검증완료 미전송 ' + unsent.length + '건을 awms에 등록합니다. 계속할까요?')) return;
 
     const assignments = unsent.map(g => ({ ..._txBuildAssignment(g, account), addr: g.addr || '' }));
@@ -5650,6 +5720,79 @@ function _txBuildAssignment(g, account) {
     if (g.mi && g.mi.new_meter_id) asgn.meter_no = g.mi.new_meter_id;
     if (g.cntr_clas_cd) asgn.cntr_clas_cd = g.cntr_clas_cd;
     return asgn;
+}
+
+// ── awms 로그인 트리거 ────────────────────────────────
+async function transmitAwmsLogin() {
+    const ds = document.getElementById('datasetSel').value;
+    if (!ds) { alert('데이터셋을 먼저 선택하세요.'); return; }
+    const loginSel = document.getElementById('txLoginAcctSel');
+    const account  = loginSel ? loginSel.value : '';
+    if (!account) { alert('로그인할 계정을 선택하세요.'); return; }
+
+    const hintEl  = document.getElementById('txLoginHint');
+    const statusEl = document.getElementById('txSessionStatus');
+    if (hintEl)  { hintEl.textContent = '로그인 요청 중...'; hintEl.classList.remove('hidden'); }
+    if (statusEl) statusEl.textContent = '';
+    _txSessionOk = false;
+
+    try {
+        const resp = await fetch(API_BASE + '/transmit/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dataset: ds, account }),
+        });
+        const b = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
+        if (hintEl) {
+            hintEl.innerHTML =
+                (b.msg ? '<div>' + esc(b.msg) + '</div>' : '') +
+                '<div>폰(계기큐)에서 카톡 OTP를 입력하세요.</div>';
+            hintEl.classList.remove('hidden');
+        }
+    } catch (e) {
+        if (hintEl) {
+            hintEl.textContent = '로그인 요청 실패: ' + esc(e.message);
+            hintEl.classList.remove('hidden');
+        }
+    }
+}
+
+// ── awms 세션 확인 ────────────────────────────────────
+async function transmitCheckSession() {
+    const ds = document.getElementById('datasetSel').value;
+    if (!ds) { alert('데이터셋을 먼저 선택하세요.'); return; }
+
+    const statusEl = document.getElementById('txSessionStatus');
+    if (statusEl) { statusEl.textContent = '확인 중...'; statusEl.className = 'tx-session-status'; }
+    _txSessionOk = false;
+
+    try {
+        const resp = await fetch(API_BASE + '/transmit/session?dataset=' + encodeURIComponent(ds));
+        if (!resp.ok) {
+            const b = await resp.json().catch(() => ({}));
+            throw new Error(b.detail || 'HTTP ' + resp.status);
+        }
+        const d = await resp.json();
+        if (d.logged_in) {
+            _txSessionOk = true;
+            if (statusEl) {
+                statusEl.innerHTML = '<span class="tx-session-ok">로그인됨: ' +
+                    esc(d.account || '') + (d.cons_no ? ', 공사 ' + esc(d.cons_no) : '') + '</span>';
+                statusEl.className = 'tx-session-status';
+            }
+        } else {
+            if (statusEl) {
+                statusEl.innerHTML = '<span class="tx-session-ng">로그인 안 됨</span>';
+                statusEl.className = 'tx-session-status';
+            }
+        }
+    } catch (e) {
+        if (statusEl) {
+            statusEl.innerHTML = '<span class="tx-session-ng">세션 확인 실패: ' + esc(e.message) + '</span>';
+            statusEl.className = 'tx-session-status';
+        }
+    }
 }
 
 function _txSetMsg(el, msg, type) {
