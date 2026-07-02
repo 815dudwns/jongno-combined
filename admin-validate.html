@@ -1242,7 +1242,9 @@
                         <button id="filterAll" class="active" onclick="setFilter('all')">전체리스트</button>
                         <button id="filterIncomplete" onclick="setFilter('incomplete')">미완료</button>
                         <button id="filterNeed" onclick="setFilter('need')">확인필요</button>
+                        <button id="filterProblem" onclick="setFilter('problem')">문제만</button>
                     </div>
+                    <select id="chaFilter" class="cinput" style="margin-left:8px;max-width:130px" onchange="setChaFilter(this.value)"><option value="">전체 차수</option></select>
                 </div>
                 <!-- 게이트 배너 -->
                 <div id="gateBanner" class="hidden" style="margin:8px 0;padding:10px 14px;border-radius:var(--radius-sm);background:var(--a-amber-soft);box-shadow:var(--clay-inset-sm);font-size:13px;color:var(--a-amber)"></div>
@@ -2498,6 +2500,7 @@ function groupByEvent(mvRows, miRows, riRows) {
         if (r.addr && !g.addr) g.addr = r.addr;
         if (r.validated) g.validated = true;
         if (r.is_draft) g.is_draft = true;   // 계기 단위 임시저장(미완료) 여부
+        if (r.cha && !g.cha) g.cha = r.cha;  // 3b 차수(예: '6차')
         if (r.remark    && !g.remark)      g.remark      = r.remark;
         if (r.meter_state && !g.meter_state) g.meter_state = r.meter_state;
         if (r.new_meter_mfg_ym && !g.new_meter_mfg_ym) g.new_meter_mfg_ym = r.new_meter_mfg_ym;
@@ -2518,6 +2521,7 @@ function groupByEvent(mvRows, miRows, riRows) {
         if (r.addr && !g.addr) g.addr = r.addr;
         if (r.validated) g.validated = true;
         if (r.is_draft) g.is_draft = true;   // 계기 단위 임시저장(미완료) 여부
+        if (r.cha && !g.cha) g.cha = r.cha;  // 3b 차수(예: '6차')
         if (r.remark    && !g.remark)      g.remark      = r.remark;
         if (r.meter_state && !g.meter_state) g.meter_state = r.meter_state;
         if (r.new_meter_mfg_ym && !g.new_meter_mfg_ym) g.new_meter_mfg_ym = r.new_meter_mfg_ym;
@@ -2537,6 +2541,7 @@ function groupByEvent(mvRows, miRows, riRows) {
         if (r.addr && !g.addr) g.addr = r.addr;
         if (r.validated) g.validated = true;
         if (r.is_draft) g.is_draft = true;   // 계기 단위 임시저장(미완료) 여부
+        if (r.cha && !g.cha) g.cha = r.cha;  // 3b 차수(예: '6차')
         if (r.remark    && !g.remark)      g.remark      = r.remark;
         if (r.meter_state && !g.meter_state) g.meter_state = r.meter_state;
         if (r.new_meter_mfg_ym && !g.new_meter_mfg_ym) g.new_meter_mfg_ym = r.new_meter_mfg_ym;
@@ -2738,11 +2743,33 @@ function stage1Unresolved() {
     return _groups.filter(g => isStage1(g) && !g.validated).length;
 }
 
+// 문제만 필터: 아직 검증 안 끝난 실제 문제 그룹 (자동통과·확인완료·미완료 제외)
+function isProblemGroup(g) {
+    if (g.validated) return false;                       // 이미 검증완료 = 해결됨
+    const b = groupBucket(g);
+    return b === 'need' || b === 'ocrfail'
+        || g._swapPartner != null
+        || (typeof groupConsistency === 'function' && groupConsistency(g).hasError);
+}
+
+// ── 차수 필터 (3b) — 상태·드롭다운 채우기 ──
+let _chaFilter = '';
+function setChaFilter(v) { _chaFilter = v || ''; renderTable(); }
+function _fillChaOptions() {
+    const sel = document.getElementById('chaFilter');
+    if (!sel) return;
+    const chas = [...new Set(_groups.map(g => g.cha).filter(Boolean))]
+        .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
+    sel.innerHTML = '<option value="">전체 차수</option>'
+        + chas.map(c => `<option value="${c}"${c === _chaFilter ? ' selected' : ''}>${c}</option>`).join('');
+}
+
 function setFilter(f) {
     _filter = f;
     document.getElementById('filterAll').classList.toggle('active', f === 'all');
     document.getElementById('filterIncomplete').classList.toggle('active', f === 'incomplete');
     document.getElementById('filterNeed').classList.toggle('active', f === 'need');
+    { const _pb = document.getElementById('filterProblem'); if (_pb) _pb.classList.toggle('active', f === 'problem'); }
     renderTable();
 }
 
@@ -2865,6 +2892,7 @@ function isVerified(g) {
 
 function renderAll() {
     renderSummaryBadges();
+    _fillChaOptions();   // 3b 차수 드롭다운 옵션 갱신
     renderTable();
 }
 
@@ -2917,8 +2945,13 @@ function renderTable() {
 
     let groups = _groups;
     if (_filter === 'incomplete') groups = _groups.filter(g => g.is_draft);   // 미완료 = 임시저장(계기 단위)
+    if (_filter === 'problem') groups = _groups.filter(isProblemGroup);       // 문제만 = 미해결 검증문제
+    if (_chaFilter) groups = groups.filter(g => g.cha === _chaFilter);        // 3b 차수 필터(AND)
     if (!groups.length) {
-        tbody.innerHTML = `<tr><td colspan="13" class="empty">${_filter === 'incomplete' ? '미완료 항목이 없습니다 (전부 완료).' : '결과 없음'}</td></tr>`;
+        const _emptyMsg = _filter === 'incomplete' ? '미완료 항목이 없습니다 (전부 완료).'
+                        : _filter === 'problem'    ? '문제 있는 항목이 없습니다 (전부 정상).'
+                        : '결과 없음';
+        tbody.innerHTML = `<tr><td colspan="13" class="empty">${_emptyMsg}</td></tr>`;
         return;
     }
 
