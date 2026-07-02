@@ -1629,6 +1629,7 @@
             <!-- 전송 진행 -->
             <div id="txJobCard" class="hidden">
                 <div class="job-box" id="txJobBox"></div>
+                <div id="txSummaryLine" class="hidden" style="font-size:12px;color:var(--ink-2);padding:4px 8px;font-variant-numeric:tabular-nums;"></div>
                 <div id="txProgressWrap" class="hidden tx-progress-wrap">
                     <div class="tx-progress-lbl" id="txProgressLabel"></div>
                     <div class="progress-track"><div class="progress-fill" id="txProgressFill" style="width:0%"></div></div>
@@ -1946,7 +1947,7 @@ let _appInited = false;
 async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1757 (전송탭 공사번호 공사명 드롭다운: /transmit/busilist 로드, CONS_NO 저장·복원, 폴백 직접입력 유지)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1758 (전송 로그 형식 개선: 상단 요약 계정·공사·진행·봉인범위, 건별 KST HH:MM:SS 구조화 라인)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5331,6 +5332,7 @@ let _txSubTab         = 'unsent';    // 'unsent' | 'sent'
 let _txGroups         = [];          // 검증완료 그룹 전체 (isVerified 필터됨)
 let _txPollTimer      = null;        // 검증탭 _pollTimer와 분리
 let _txSessionOk      = false;       // awms 로그인 세션 확인 여부
+let _txConsName       = '';          // 전송 시 선택한 공사명 (상단 요약용)
 
 // ── 전송탭 진입 ──────────────────────────────────────
 async function transmitOnEnter() {
@@ -5685,18 +5687,26 @@ async function transmitRun() {
 
     if (!confirm('검증완료 미전송 ' + unsent.length + '건을 awms에 등록합니다. 계속할까요?')) return;
 
+    // 공사명 캡처 (상단 요약 표시용)
+    const consSel = document.getElementById('txConsNo');
+    _txConsName = (consSel && !consSel.classList.contains('hidden') && consSel.selectedIndex >= 0)
+        ? (consSel.options[consSel.selectedIndex].text || '')
+        : (document.getElementById('txConsNoFallback') || {}).value || '';
+
     const assignments = unsent.map(g => ({ ..._txBuildAssignment(g, account), addr: g.addr || '' }));
 
-    const jobCard  = document.getElementById('txJobCard');
-    const jobBox   = document.getElementById('txJobBox');
-    const jobLog   = document.getElementById('txJobLog');
-    const progWrap = document.getElementById('txProgressWrap');
-    const progFill = document.getElementById('txProgressFill');
-    const progLbl  = document.getElementById('txProgressLabel');
+    const jobCard   = document.getElementById('txJobCard');
+    const jobBox    = document.getElementById('txJobBox');
+    const jobLog    = document.getElementById('txJobLog');
+    const summLine  = document.getElementById('txSummaryLine');
+    const progWrap  = document.getElementById('txProgressWrap');
+    const progFill  = document.getElementById('txProgressFill');
+    const progLbl   = document.getElementById('txProgressLabel');
 
     jobCard.classList.remove('hidden');
     jobBox.className = 'job-box job-running';
     jobBox.innerHTML = '<span class="spinner"></span> <span>전송 중...</span>';
+    if (summLine) summLine.classList.add('hidden');
     jobLog.classList.add('hidden');
     jobLog.textContent = '';
     progWrap.classList.remove('hidden');
@@ -5717,7 +5727,7 @@ async function transmitRun() {
 
         // 폴링 시작 (검증탭 _pollTimer와 분리)
         if (_txPollTimer) clearInterval(_txPollTimer);
-        _txPollTimer = setInterval(() => _txPollJob(jobId, jobBox, jobLog, progWrap, progFill, progLbl), 1500);
+        _txPollTimer = setInterval(() => _txPollJob(jobId, jobBox, jobLog, summLine, progWrap, progFill, progLbl), 1500);
     } catch (e) {
         jobBox.className = 'job-box job-error';
         jobBox.textContent = '전송 실패: ' + e.message;
@@ -5725,7 +5735,7 @@ async function transmitRun() {
     }
 }
 
-async function _txPollJob(jobId, jobBox, jobLog, progWrap, progFill, progLbl) {
+async function _txPollJob(jobId, jobBox, jobLog, summLine, progWrap, progFill, progLbl) {
     try {
         const resp = await fetch(API_BASE + '/transmit/job/' + encodeURIComponent(jobId));
         if (!resp.ok) return;
@@ -5740,15 +5750,63 @@ async function _txPollJob(jobId, jobBox, jobLog, progWrap, progFill, progLbl) {
         progFill.style.width = pct + '%';
         progLbl.textContent  = done + ' / ' + total + '  (성공: ' + ok + ', 실패: ' + fail + ')';
 
-        // 로그 렌더
+        // 상단 요약 라인 — 계정 · 공사명 · 진행 N/M(%) · 봉인 <시작>~<현재>
+        if (summLine) {
+            const accts  = d.accounts || {};
+            // 계정: 첫 번째 계정 id
+            const acctId = Object.keys(accts)[0] || '';
+            const consName = _txConsName || (d.cons_no || '');
+            const sealStart = d.seal_start || '';
+            const sealCur   = d.seal_current || sealStart;
+            const sealRange = sealStart
+                ? (sealStart === sealCur ? sealStart : sealStart + '~' + sealCur)
+                : '';
+            const pctStr = total ? ' (' + pct + '%)' : '';
+            const parts = [];
+            if (acctId) parts.push('계정 ' + esc(acctId));
+            if (consName) parts.push('공사 ' + esc(consName));
+            parts.push('진행 ' + done + '/' + total + pctStr);
+            if (sealRange) parts.push('봉인 ' + esc(sealRange));
+            summLine.textContent = parts.join(' · ');
+            summLine.classList.remove('hidden');
+        }
+
+        // 로그 렌더 — 최신 위로, 건별 구조화 라인
         if (Array.isArray(d.logs) && d.logs.length) {
             jobLog.classList.remove('hidden');
-            jobLog.textContent = d.logs.slice().reverse().map(l =>
-                '[' + esc(l.ts || '') + '] ' + esc(l.mid || '') + ' ' + esc(l.account || '') +
-                (l.seal ? ' 봉인:' + esc(l.seal) : '') +
-                ' ' + (l.ok ? '성공' : '실패') +
-                (l.msg ? ' — ' + esc(l.msg) : '')
-            ).join('\n');
+            const lines = d.logs.slice().reverse().map(function(l) {
+                const phase = l.phase || '';
+                // 시스템 메시지(mid 없음) — 회색 plain 라인
+                if (phase === '시스템' || !l.mid) {
+                    const tsStr = l.ts ? new Date(l.ts).toLocaleTimeString('ko-KR', {hour12: false, timeZone: 'Asia/Seoul'}) : '';
+                    return '<div style="color:var(--ink-3);font-size:11px">' +
+                        (tsStr ? esc(tsStr) + '  ' : '') + esc(l.msg || '') +
+                        '</div>';
+                }
+                const tsStr  = l.ts ? new Date(l.ts).toLocaleTimeString('ko-KR', {hour12: false, timeZone: 'Asia/Seoul'}) : '';
+                const seqStr = l.seq != null && l.seq !== '' ? '순번' + esc(String(l.seq)) : '';
+                const oldM   = esc(l.old_mid || l.mid || '');
+                const newM   = esc(l.new_mid || '');
+                const sealN  = esc(l.seal || '');
+                const flowStr = (oldM ? oldM + '->' : '->') + newM;
+
+                let color, label;
+                if (phase === '완료') {
+                    color = 'var(--mint-strong)';
+                    label = '완료';
+                } else if (phase === '검증') {
+                    color = 'var(--ink-3)';
+                    label = '미전송(LIVE 꺼짐)';
+                } else {
+                    color = 'var(--a-rose)';
+                    label = '실패: ' + esc(l.reason || l.msg || '');
+                }
+                return '<div style="color:' + color + ';font-variant-numeric:tabular-nums">' +
+                    esc(tsStr) + '  ' + seqStr + (seqStr ? '  ' : '') +
+                    flowStr + (sealN ? '  봉인' + sealN : '') + '  ' + label +
+                    '</div>';
+            });
+            jobLog.innerHTML = lines.join('');
         }
 
         if (d.status === 'done') {
