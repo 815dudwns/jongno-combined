@@ -2,11 +2,11 @@
 
 const PhotoUploader = (() => {
 
-  // 사진 압축: 해상도 원본 유지(awms 최소 해상도·용량 검증 충족), JPEG quality 0.85
-  // awms는 저해상도/저용량(과압축) 사진을 "파일 업로드 실패"로 거부 → 약압축만 (2~4MB → 1~2MB)
+  // 사진 압축: 800px/q40 = awms통과+OCR검증 하한(2026-07-02). 원본이 800px 이하면 업스케일 금지.
+  // awms는 저해상도/저용량(과압축) 사진을 "파일 업로드 실패"로 거부 → 800px·q40까지 확인 완료.
   // opts.square=true → 촬영 사진 1:1 센터크롭 (계기교체 촬영본 강제, 업로드본은 원본 비율)
   async function compress(fileOrBlob, opts = {}) {
-    const { maxW = 4096, quality = 0.85, square = false } = opts;
+    const { maxW = 800, quality = 0.40, square = false } = opts;
     const img = await createImageBitmap(fileOrBlob);
 
     // 소스 사각형: square면 짧은 변 기준 센터크롭, 아니면 원본 전체
@@ -87,10 +87,10 @@ const PhotoUploader = (() => {
     return /\.jpg$/i.test(path) ? path.replace(/\.jpg$/i, '_thumb.jpg') : path + '_thumb.jpg';
   }
 
-  // 목록(stats) 표시용 썸네일 생성+업로드 (~320px·q0.6 → 장당 30~60KB).
+  // 목록(stats) 표시용 썸네일 생성+업로드 (~200px·q0.5 → 장당 10~15KB 목표).
   // 원본과 별개의 추가분 — 실패해도 호출부에서 best-effort로 무시(stats가 원본 폴백).
   async function uploadThumb(fileOrBlob, origPath) {
-    const thumb = await compress(fileOrBlob, { maxW: 320, quality: 0.6, square: false });
+    const thumb = await compress(fileOrBlob, { maxW: 200, quality: 0.5, square: false });
     return await upload(thumb, thumbPathOf(origPath));
   }
 
