@@ -23,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: 배포 artifact에서 .git 제외 (.git 517MB → 463MB artifact → deploy 타임아웃 방지)
+        run: rm -rf .git
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
