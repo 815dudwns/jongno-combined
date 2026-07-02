@@ -1562,8 +1562,11 @@
             <div class="tx-section-title">전송 설정</div>
             <div class="tx-config-row">
                 <div class="form-group">
-                    <label>공사번호 (cons_no)</label>
-                    <input type="text" id="txConsNo" class="cinput" placeholder="예) 397820263153" style="width:200px">
+                    <label>공사명</label>
+                    <select id="txConsNo" class="cinput" style="width:280px">
+                        <option value="">로딩 중...</option>
+                    </select>
+                    <input type="text" id="txConsNoFallback" class="cinput hidden" placeholder="예) 397820263153" style="width:200px" title="공사번호 직접 입력 (공사목록 로드 실패 시)">
                 </div>
                 <button class="cbtn cbtn-sm" onclick="transmitLoadConfig()">설정 불러오기</button>
                 <button class="cbtn cbtn-sm cbtn-primary" onclick="transmitSaveConfig()">설정 저장</button>
@@ -1943,7 +1946,7 @@ let _appInited = false;
 async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1756 (전송탭 awms 로그인 섹션 추가: /transmit/login 트리거 + /transmit/session 확인 + 전송전 세션 가드)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1757 (전송탭 공사번호 공사명 드롭다운: /transmit/busilist 로드, CONS_NO 저장·복원, 폴백 직접입력 유지)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -2283,7 +2286,8 @@ async function runValidate(auto = false) {
     _currentDate    = toApiDate(dateRaw);
 
     clearErr();
-    _validateScope = _readValidateScope();   // 검증 후 자동 검증완료에 쓸 범위 저장
+    // 자동(OCR 자동 토글) 경로는 항상 전체 — 이전 순번범위가 localStorage에서 복원돼 부분범위만 처리되는 함정 방지
+    _validateScope = auto ? { scope: 'all' } : _readValidateScope();
 
     if (!_groups.length) { showErr('먼저 [새로고침]으로 리스트를 불러오세요.'); return; }
 
@@ -2322,6 +2326,7 @@ async function runValidate(auto = false) {
         if (resp.status === 409) {
             showJobBox('conflict', body.detail, false);
             document.getElementById('runBtn').disabled = false;
+            if (auto) _autoOcrRan.delete(_currentDataset + ':' + _currentDate);  // 갭2: 자동 실패 시 가드 해제 → 다음 로드에서 재시도
             return;
         }
         if (!resp.ok) throw new Error(body.detail || `HTTP ${resp.status}`);
@@ -2330,6 +2335,7 @@ async function runValidate(auto = false) {
     } catch (e) {
         showErr('검증 요청 실패: ' + e.message);
         document.getElementById('runBtn').disabled = false;
+        if (auto) _autoOcrRan.delete(_currentDataset + ':' + _currentDate);  // 갭2: 자동 실패 시 가드 해제
     }
 }
 
@@ -5327,9 +5333,52 @@ let _txPollTimer      = null;        // 검증탭 _pollTimer와 분리
 let _txSessionOk      = false;       // awms 로그인 세션 확인 여부
 
 // ── 전송탭 진입 ──────────────────────────────────────
-function transmitOnEnter() {
+async function transmitOnEnter() {
     _txUpdateScopeLabel();
-    transmitLoadConfig().then(() => transmitLoadList());
+    // busilist 먼저 채운 뒤 config 복원 (순서 중요: option 없으면 .value 복원 실패)
+    await transmitLoadBusiList();
+    await transmitLoadConfig();
+    transmitLoadList();
+}
+
+// ── 공사 목록 드롭다운 로드 ───────────────────────────
+async function transmitLoadBusiList() {
+    const ds  = document.getElementById('datasetSel').value;
+    const sel = document.getElementById('txConsNo');
+    const fb  = document.getElementById('txConsNoFallback');
+    if (!sel || !fb) return;
+    // dataset 없으면 폴백 모드로 전환
+    if (!ds) {
+        _txUseBusiListFallback(sel, fb);
+        return;
+    }
+    try {
+        const resp = await fetch(API_BASE + '/transmit/busilist?dataset=' + encodeURIComponent(ds));
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        const list = Array.isArray(data.list) ? data.list : [];
+        if (!list.length) throw new Error('공사 목록이 비어 있습니다');
+        // select 모드 활성화
+        sel.classList.remove('hidden');
+        fb.classList.add('hidden');
+        // 현재 저장값 보존 (option 채우기 전 미리 읽기)
+        const prevVal = sel.value && sel.value !== '' ? sel.value : fb.value.trim();
+        sel.innerHTML = '<option value="">공사 선택...</option>' +
+            list.map(function(item) {
+                return '<option value="' + esc(String(item.cons_no)) + '">' + esc(item.name) + '</option>';
+            }).join('');
+        // 이전 저장값 복원
+        if (prevVal) sel.value = String(prevVal);
+    } catch (e) {
+        // 로드 실패 시 텍스트 입력 폴백
+        _txUseBusiListFallback(sel, fb);
+    }
+}
+
+function _txUseBusiListFallback(sel, fb) {
+    if (!sel || !fb) return;
+    sel.classList.add('hidden');
+    fb.classList.remove('hidden');
 }
 
 function _txUpdateScopeLabel() {
@@ -5347,7 +5396,21 @@ async function transmitLoadConfig() {
         const resp = await fetch(API_BASE + '/transmit/config?dataset=' + encodeURIComponent(ds));
         if (!resp.ok) return;
         const cfg = await resp.json();
-        if (cfg.cons_no) document.getElementById('txConsNo').value = cfg.cons_no;
+        if (cfg.cons_no) {
+            const sel = document.getElementById('txConsNo');
+            const fb  = document.getElementById('txConsNoFallback');
+            const val = String(cfg.cons_no);
+            if (sel && !sel.classList.contains('hidden')) {
+                // select 모드: option 있으면 선택, 없으면 폴백에도 세팅
+                sel.value = val;
+                if (sel.value !== val && fb) {
+                    // 해당 option 미존재 — 폴백 입력에 보존
+                    fb.value = val;
+                }
+            } else if (fb) {
+                fb.value = val;
+            }
+        }
         if (Array.isArray(cfg.accounts)) {
             _txAccounts = cfg.accounts.slice();
             _txRenderAccountList();
@@ -5357,9 +5420,14 @@ async function transmitLoadConfig() {
 
 // ── 전송 설정 저장 ────────────────────────────────────
 async function transmitSaveConfig() {
-    const ds       = document.getElementById('datasetSel').value;
-    const cons_no  = document.getElementById('txConsNo').value.trim();
-    const msgEl    = document.getElementById('txConfigMsg');
+    const ds      = document.getElementById('datasetSel').value;
+    const selEl   = document.getElementById('txConsNo');
+    const fbEl    = document.getElementById('txConsNoFallback');
+    // select 모드이면 option value(cons_no), 폴백이면 text 직접입력
+    const cons_no = (selEl && !selEl.classList.contains('hidden'))
+        ? (selEl.value || '').trim()
+        : (fbEl ? fbEl.value.trim() : '');
+    const msgEl   = document.getElementById('txConfigMsg');
     if (!ds) { _txSetMsg(msgEl, '데이터셋을 먼저 선택하세요.', 'err'); return; }
     try {
         const resp = await fetch(API_BASE + '/transmit/config', {
