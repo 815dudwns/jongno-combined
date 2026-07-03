@@ -1,5 +1,5 @@
 {
-  "versionName": "20260630.1",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260630.1.apk",
-  "notes": "아이디별 지역 대응 — 종로/구로 작업자 계정에 따라 데이터 자동 분리(구로 보조앱 지원)"
+  "versionName": "20260703.1",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260703.1.apk",
+  "notes": "사진 800px/q40 압축 반영 — awms 통과+OCR 검증 하한, 용량 절감"
 }
