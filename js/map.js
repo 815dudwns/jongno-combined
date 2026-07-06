@@ -247,7 +247,7 @@ async function initMap() {
         if (container) container.innerHTML = `<div style="padding:16px;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;margin:12px;font-size:13px;line-height:1.5;">${e.message}</div>`;
         return;
     }
-    workStatus = loadStatusLocal();
+    workStatus = {};   // 미러는 아래 siteData 로드와 함께 IDB에서 async로 채움(즉시렌더 직전)
     const container = document.getElementById('map');
 
     // 마지막 지도 위치/줌 레벨 복원 + 현재 테마 지도 타일 적용
@@ -265,6 +265,15 @@ async function initMap() {
         sampleData = [];
     }
     console.log('[siteData] 로드 완료:', sampleData.length, '개');
+
+    // workStatus 미러 로드(IndexedDB) — siteData와 함께 async로 받아 즉시렌더에 사용(깜빡임 없음).
+    //   (미러는 localStorage→IDB 이전됨: 5.9MB가 iOS 5MB 한도 넘겨 불가 버그 나던 것 근본해결)
+    try {
+        workStatus = await loadStatusMirror();
+    } catch (e) {
+        console.warn('[Mirror] 로드 실패 — 빈 상태로 시작(Firebase가 곧 채움):', e && e.message);
+        workStatus = {};
+    }
 
     populateDongGroups();
     populateCheckdayFilter();

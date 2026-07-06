@@ -212,7 +212,7 @@ function showDetail(address, meters) {
         const _role = (typeof getEffectiveRole === 'function') ? getEffectiveRole() : (_session?.role || 'meter');
         const _prefix = (_role === 'comm') ? 'comm' : 'meter';
         workStatus[currentAddress][`${_prefix}_reason`] = e.target.value;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+        saveStatusMirror();
     };
     // blur/Enter 시 이벤트 큐에 추가
     const flushFailReason = () => {
@@ -405,12 +405,12 @@ function toggleMeterFail(meterNumber) {
     if (status.failedMeters[meterNumber] !== undefined) {
         // 이미 불가 → 해제
         delete status.failedMeters[meterNumber];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+        saveStatusMirror();
         renderMetersList();
     } else {
         // 불가 처리 → 일단 빈 사유로 등록하고 입력창 표시 (renderMetersList에서 처리)
         status.failedMeters[meterNumber] = '';
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+        saveStatusMirror();
         renderMetersList();
         // 렌더링 후 해당 입력창에 포커스
         setTimeout(() => {
@@ -426,7 +426,7 @@ function saveMeterFailReason(meterNumber, reason) {
     const status = workStatus[currentAddress];
     if (!status.failedMeters) status.failedMeters = {};
     status.failedMeters[meterNumber] = reason;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+    saveStatusMirror();
 }
 
 // 계기 목록 HTML 생성 및 렌더링

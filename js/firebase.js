@@ -56,42 +56,44 @@ function loadEventQueue() {
     return saved ? JSON.parse(saved) : [];
 }
 
+// localStorage.setItem 안전 래퍼 — iOS 5MB quota 초과 시 throw를 삼켜 흐름이 안 끊기게.
+//   (실패해도 Firebase가 권위라 무해. 상태변경 이벤트는 addEvent가 직접전송으로 보강.)
+//   버그(영준님 2026-07-05): workStatus 미러(~5.9MB)가 iOS 한도 초과 → setItem throw로
+//   불가(개별/전체)가 renderMetersList/addEvent/closeDetail 앞에서 죽던 문제 핫픽스.
+function safeSetItem(key, val) {
+    try { localStorage.setItem(key, val); return true; }
+    catch (e) { console.warn('[quota] localStorage.setItem 실패:', key, e && e.name); return false; }
+}
+
 function saveEventQueue(queue) {
-    localStorage.setItem(EVENTS_KEY, JSON.stringify(queue));
+    return safeSetItem(EVENTS_KEY, JSON.stringify(queue));
 }
 
 function addEvent(ev) {
+    const withId = { ...ev, id: Date.now().toString(36) + Math.random().toString(36).slice(2) };
     const queue = loadEventQueue();
-    queue.push({ ...ev, id: Date.now().toString(36) + Math.random().toString(36).slice(2) });
-    saveEventQueue(queue);
+    queue.push(withId);
+    // 큐 저장 실패(quota) = 이벤트를 로컬에 못 담음 → Firebase로 직접 전송(큐 우회).
+    //   Firebase가 권위라 이게 실제 저장. try/catch만으론 큐 쓰기가 같이 터져 전송이 유실됨.
+    if (!saveEventQueue(queue)) {
+        sendEventsDirect([withId]);
+    }
 }
 
-// 큐를 Firebase에 전송 (이벤트별 update, set 안 씀)
-async function flushEventQueue() {
-    if (!statusRef) return;
-    const queue = loadEventQueue();
-    if (!queue.length) return;
-
-    // 같은 대상(address+role)의 중복 이벤트는 ts 최신 것만 유지
-    // 키: address+'||'+role  — 양 팀이 같은 주소에 동시에 완료해도 각자 보존
-    const stateMap = {};
-    const checkMap = {};   // address+'||'+meter → latest check event
-
-    queue.forEach(ev => {
+// 이벤트 배열 → Firebase multi-path update 객체 (flushEventQueue·sendEventsDirect 공용 빌더)
+function buildEventUpdates(events) {
+    const stateMap = {};   // address||role → latest state/reset event
+    const checkMap = {};   // address||meter → latest check event
+    events.forEach(ev => {
         if (ev.type === 'state' || ev.type === 'reset') {
             const key = ev.address + '||' + (ev.role || 'meter');
-            if (!stateMap[key] || ev.ts > stateMap[key].ts)
-                stateMap[key] = ev;
+            if (!stateMap[key] || ev.ts > stateMap[key].ts) stateMap[key] = ev;
         } else if (ev.type === 'check' || ev.type === 'uncheck') {
             const key = ev.address + '||' + ev.meter;
-            if (!checkMap[key] || ev.ts > checkMap[key].ts)
-                checkMap[key] = ev;
+            if (!checkMap[key] || ev.ts > checkMap[key].ts) checkMap[key] = ev;
         }
     });
-
-    // Firebase multi-path update 객체 생성
     const updates = {};
-
     Object.values(stateMap).forEach(ev => {
         const p = encodeKey(ev.address);
         const ts = new Date(ev.ts).toISOString();
@@ -103,7 +105,6 @@ async function flushEventQueue() {
                 updates[`${p}/${prefix}_updatedBy`]     = ev.updatedBy || '';
                 updates[`${p}/${prefix}_updatedByName`] = ev.updatedByName || '';
             });
-            // 강제 완료 플래그 — complete 시 true, reset 시 false
             updates[`${p}/meter_forced_by_comm`] = (ev.state === 'complete');
         } else {
             const prefix = (ev.role === 'comm') ? 'comm' : 'meter';
@@ -114,12 +115,35 @@ async function flushEventQueue() {
             updates[`${p}/${prefix}_updatedByName`] = ev.updatedByName || '';
         }
     });
-
     Object.values(checkMap).forEach(ev => {
         const p = encodeKey(ev.address);
         const m = encodeKey(ev.meter);
         updates[`${p}/meterChecks/${m}`] = { checked: ev.type === 'check', ts: ev.ts };
     });
+    return updates;
+}
+
+// 큐 우회 직접전송 — localStorage quota로 큐 저장이 실패했을 때만 호출. Firebase가 권위라 안전.
+function sendEventsDirect(events) {
+    if (!statusRef) { console.warn('[Queue] 직접전송 스킵 — statusRef 없음'); return; }
+    try {
+        const updates = buildEventUpdates(events);
+        statusRef.update(updates)
+            .then(() => console.log('[Queue] quota 우회 직접전송 완료:', events.length))
+            .catch(e => console.warn('[Queue] 직접전송 실패:', e && e.message));
+    } catch (e) {
+        console.warn('[Queue] 직접전송 빌드 실패:', e && e.message);
+    }
+}
+
+// 큐를 Firebase에 전송 (이벤트별 update, set 안 씀)
+async function flushEventQueue() {
+    if (!statusRef) return;
+    const queue = loadEventQueue();
+    if (!queue.length) return;
+
+    // 같은 대상(address+role/meter)의 중복 이벤트는 ts 최신만 유지 → multi-path update 빌드(공용)
+    const updates = buildEventUpdates(queue);
 
     try {
         await statusRef.update(updates);
@@ -162,16 +186,45 @@ function subscribeMarkerMode(callback) {
     });
 }
 
-// ── localStorage 접근 ─────────────────────────────────────────
-function loadStatusLocal() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : {};
+// ── workStatus 미러 (IndexedDB) ───────────────────────────────
+//   전환(영준님 2026-07-06): 미러를 localStorage(5MB 한도) → IndexedDB(수십MB 여유)로 이동.
+//   이유: 종로 workStatus 전체(~5.9MB)가 iOS localStorage 한도를 넘겨 setItem이 throw →
+//         불가(개별/전체)가 죽던 근본원인. IDB는 한도 사실상 없음(1년치 성장도 OK, persist() 요청됨).
+//   Firebase가 권위 · 미러는 오프라인/즉시표시용 · 데이터·통계·서버 무변경(클라 저장위치만 변경).
+const MIRROR_IDB_KEY = 'workStatus-mirror';
+
+// 부팅 미러 로드 — IDB에서 읽고, 옛 localStorage 미러(quota로 반쯤 쓰다 만 쓰레기)는 제거해 5MB 회수.
+async function loadStatusMirror() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* 무시 */ }
+    try {
+        if (typeof idbGet === 'function') {
+            const v = await idbGet(MIRROR_IDB_KEY);
+            if (v && typeof v === 'object') return v;
+        }
+    } catch (e) { console.warn('[Mirror] IDB 로드 실패:', e && e.message); }
+    return {};
 }
 
-// saveStatus — failedMeters 전용 로컬 저장 (Firebase 미전송)
-// 주의: state/checkedMeters 변경은 saveStateEvent/saveCheckEvent 사용
+// 미러 저장 — IDB fire-and-forget(UI 안 막음). 실패해도 Firebase 권위라 무해.
+function saveStatusMirror() {
+    try {
+        if (typeof idbSet === 'function') {
+            idbSet(MIRROR_IDB_KEY, workStatus)
+                .catch(e => console.warn('[Mirror] IDB 저장 실패:', e && e.message));
+        }
+    } catch (e) { console.warn('[Mirror] IDB 저장 예외:', e && e.message); }
+}
+
+// ── localStorage 접근 (하위호환 유지 — 현재 미러는 IDB) ─────────
+function loadStatusLocal() {
+    // 옛 동기 로더. 남은 호출부 방어용 — 실제 미러는 loadStatusMirror(IDB)가 담당.
+    try { const saved = localStorage.getItem(STORAGE_KEY); return saved ? JSON.parse(saved) : {}; }
+    catch (e) { return {}; }
+}
+
+// saveStatus — 미러 저장 진입점(이제 IDB). 주의: state/checkedMeters 변경은 saveStateEvent/saveCheckEvent 사용
 function saveStatus(status) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(status));
+    saveStatusMirror();
 }
 
 function loadCheckedLocal() {
@@ -180,7 +233,7 @@ function loadCheckedLocal() {
 }
 
 function saveCheckedLocal(checkedMap) {
-    localStorage.setItem(CHECKED_KEY, JSON.stringify(checkedMap));
+    safeSetItem(CHECKED_KEY, JSON.stringify(checkedMap));
 }
 
 function applyLocalChecked() {
@@ -206,7 +259,7 @@ function saveStateEvent(address, state, reason, updatedBy, updatedByName, role) 
     workStatus[address][`${prefix}_updatedAt`]     = now;
     workStatus[address][`${prefix}_updatedBy`]     = updatedBy || '';
     workStatus[address][`${prefix}_updatedByName`] = updatedByName || '';
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+    saveStatusMirror();
 
     addEvent({
         address,
@@ -236,7 +289,7 @@ function saveBothCompleteEvent(address, updatedBy, updatedByName) {
     workStatus[address].comm_updatedBy      = updatedBy || '';
     workStatus[address].comm_updatedByName  = updatedByName || '';
     workStatus[address].meter_forced_by_comm = true;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+    saveStatusMirror();
 
     addEvent({
         address,
@@ -265,7 +318,7 @@ function saveResetBothEvent(address, updatedBy, updatedByName) {
     workStatus[address].comm_updatedBy      = updatedBy || '';
     workStatus[address].comm_updatedByName  = updatedByName || '';
     workStatus[address].meter_forced_by_comm = false;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+    saveStatusMirror();
 
     addEvent({
         address,
@@ -287,7 +340,7 @@ function saveCheckEvent(address, meter, checked) {
     if (checked && idx === -1) cm.push(meter);
     if (!checked && idx > -1) cm.splice(idx, 1);
     workStatus[address].checkedMeters = cm;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+    saveStatusMirror();
 
     addEvent({
         address,
@@ -409,7 +462,7 @@ function mergeFirebaseData(firebaseData) {
     });
 
     // applyLocalChecked 제거 (코덱스 #2: Firebase가 source of truth, local check 덮어쓰기 금지)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+    saveStatusMirror();
 }
 
 // Firebase에서 workStatus 읽기
@@ -450,10 +503,12 @@ async function initFirebase() {
 
     const firebaseOk = initFirebaseApp();
 
-    // === Firebase = source of truth, localStorage = 마지막 DB 미러(폴백·즉시표시) ===
-    // 미러로 우선 채움 → on('value') 첫 콜백 전에도 빈 상태 아님.
-    const mirror = loadStatusLocal();
-    workStatus = (mirror && Object.keys(mirror).length > 0) ? mirror : {};
+    // === Firebase = source of truth, IDB = 마지막 DB 미러(폴백·즉시표시) ===
+    // map.js가 이미 loadStatusMirror(IDB)로 workStatus를 채우고 즉시렌더함 →
+    // 비어있을 때만(다른 진입/방어) IDB에서 재로드. on('value') 첫 콜백이 곧 FB 권위로 교체.
+    if (!workStatus || Object.keys(workStatus).length === 0) {
+        workStatus = await loadStatusMirror();
+    }
 
     if (!firebaseOk) {
         if (Object.keys(workStatus).length === 0) applyLocalChecked();
@@ -483,7 +538,7 @@ async function initFirebase() {
         if (_mirrorTimer) clearTimeout(_mirrorTimer);
         _mirrorTimer = setTimeout(() => {
             _mirrorTimer = null;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+            saveStatusMirror();
         }, 400);
     }
 
@@ -540,7 +595,7 @@ async function initFirebase() {
             //   pendingWrite 손실 없음: flushEventQueue가 리스너 부착 전 await됨(미전송분은 스냅샷에 포함).
             if (data) {
                 workStatus = buildWorkStatusFromFirebase(data);
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(workStatus));
+                saveStatusMirror();
                 // _seenKeys: child_added replay 가드용 — 초기 snapshot 키 전부 기록
                 _seenKeys = new Set(Object.keys(data));
             }
