@@ -1623,6 +1623,16 @@
                 <button class="cbtn cbtn-sm cbtn-primary" onclick="transmitRun()">전송 시작</button>
             </div>
 
+            <!-- 수동 일괄 전송완료 처리 (awms·폰 없이 Firebase 플래그만 — 이미 awms에 등록된 건 반영, 되돌리기 가능) -->
+            <div id="txManualBar" class="tx-action-bar" style="gap:6px;flex-wrap:wrap;align-items:center">
+                <span style="font-size:12px;color:var(--ink-2);font-weight:700">수동 전송완료:</span>
+                <button class="cbtn cbtn-sm" onclick="txToggleAll(true)">전체선택</button>
+                <button class="cbtn cbtn-sm" onclick="txToggleAll(false)">선택해제</button>
+                <button id="txMarkBtn"   class="cbtn cbtn-sm cbtn-primary" onclick="txMarkSelected(true)">선택 전송완료 처리</button>
+                <button id="txUnmarkBtn" class="cbtn cbtn-sm hidden"       onclick="txMarkSelected(false)">선택 미전송으로 되돌리기</button>
+                <span style="font-size:11px;color:var(--ink-3)">실패는 체크 해제 후 처리 · awms 실전송 아님(이미 등록된 건 표시만)</span>
+            </div>
+
             <!-- 봉인 미리보기 결과 -->
             <div id="txPlanBox" class="hidden tx-plan-box"></div>
 
@@ -1642,7 +1652,7 @@
                 <table>
                     <thead id="txTableHead"></thead>
                     <tbody id="txTableBody">
-                        <tr><td colspan="6" class="empty">전송탭을 진입하면 목록이 로드됩니다.</td></tr>
+                        <tr><td colspan="7" class="empty">전송탭을 진입하면 목록이 로드됩니다.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -2693,6 +2703,7 @@ function groupByEvent(mvRows, miRows, riRows) {
         if (r.old_meter_mfg_ym && !g.old_meter_mfg_ym) g.old_meter_mfg_ym = r.old_meter_mfg_ym;
         // 전송탭용 필드 (awms_synced / awms_seal)
         if (r.awms_synced) g.awms_synced = true;
+        if (r.awms_synced_manual) g.awms_synced_manual = true;
         if (r.awms_seal && !g.awms_seal) g.awms_seal = r.awms_seal;
         if (r.cntr_clas_cd && !g.cntr_clas_cd) g.cntr_clas_cd = r.cntr_clas_cd;
     }
@@ -2713,6 +2724,7 @@ function groupByEvent(mvRows, miRows, riRows) {
         if (r.new_meter_mfg_ym && !g.new_meter_mfg_ym) g.new_meter_mfg_ym = r.new_meter_mfg_ym;
         if (r.old_meter_mfg_ym && !g.old_meter_mfg_ym) g.old_meter_mfg_ym = r.old_meter_mfg_ym;
         if (r.awms_synced) g.awms_synced = true;
+        if (r.awms_synced_manual) g.awms_synced_manual = true;
         if (r.awms_seal && !g.awms_seal) g.awms_seal = r.awms_seal;
         if (r.cntr_clas_cd && !g.cntr_clas_cd) g.cntr_clas_cd = r.cntr_clas_cd;
     }
@@ -2733,6 +2745,7 @@ function groupByEvent(mvRows, miRows, riRows) {
         if (r.new_meter_mfg_ym && !g.new_meter_mfg_ym) g.new_meter_mfg_ym = r.new_meter_mfg_ym;
         if (r.old_meter_mfg_ym && !g.old_meter_mfg_ym) g.old_meter_mfg_ym = r.old_meter_mfg_ym;
         if (r.awms_synced) g.awms_synced = true;
+        if (r.awms_synced_manual) g.awms_synced_manual = true;
         if (r.awms_seal && !g.awms_seal) g.awms_seal = r.awms_seal;
         if (r.cntr_clas_cd && !g.cntr_clas_cd) g.cntr_clas_cd = r.cntr_clas_cd;
     }
@@ -2870,6 +2883,18 @@ function groupBucket(g) {
     upd(rowBucketRefined(g.ri, true, 'ri'));
     upd(rowBucketRefined(g.mi, true, 'mi'));
     return worst;
+}
+
+// 표시용 버킷 — 사람이 확인완료(g.validated) 처리한 건은 확인필요→확인완료로 승격 표시.
+//   버그(영준님 2026-07-03): 확인완료 처리 후에도 라벨이 확인필요 그대로였음.
+//   원인 = 확인완료는 로컬 g.validated=true만 찍고 전체 재조회는 생략(성능) → row.status는
+//   여전히 need_human이라 groupBucket이 'need' 반환. 전체 새로고침해야만 반영되던 staleness.
+//   해결 = 라벨/배지 계산 시 g.validated를 반영. 자동통과·미검증·준공은 그대로.
+function displayBucket(g) {
+    const b = groupBucket(g);
+    if (b === 'pass' || b === 'unverified' || b === 'kepco') return b;  // 자동통과·미검증·준공 = 그대로
+    if (g.validated) return 'done';                                     // 사람이 확인완료 처리 = 확인완료
+    return b;
 }
 
 // 버킷 → 한글
@@ -3088,7 +3113,7 @@ function renderSummaryBadges() {
     const el = document.getElementById('summaryBadges');
     let pass = 0, need = 0, ocrfail = 0, done = 0, skip = 0, swap = 0, validated = 0, unverified = 0;
     for (const g of _groups) {
-        const b = groupBucket(g);
+        const b = displayBucket(g);   // 확인완료(validated) 반영 집계
         if (b === 'pass')    pass++;
         else if (b === 'need')    need++;
         else if (b === 'ocrfail') ocrfail++;
@@ -3148,7 +3173,7 @@ function renderTable() {
     const FIDS = ['whme_day', 'whme_mngt', 'var_day', 'dm_mt_day'];
 
     tbody.innerHTML = groups.map(g => {
-        const bucket = groupBucket(g);
+        const bucket = displayBucket(g);   // 확인완료(validated) 반영 라벨
 
         // 계기번호 강조 (3~4번째 자리 = index 2,3)
         const oldMid = g.ri ? (g.ri.old_meter_id || '') : '';
@@ -5508,6 +5533,10 @@ function txSetSubTab(name) {
     document.getElementById('txTabUnsent').classList.toggle('active', name === 'unsent');
     document.getElementById('txTabSent').classList.toggle('active', name === 'sent');
     document.getElementById('txActionBar').classList.toggle('hidden', name === 'sent');
+    // 수동마킹 바: 미전송=전송완료 처리 버튼 / 전송완료=되돌리기 버튼
+    const mb = document.getElementById('txMarkBtn'), ub = document.getElementById('txUnmarkBtn');
+    if (mb) mb.classList.toggle('hidden', name === 'sent');
+    if (ub) ub.classList.toggle('hidden', name !== 'sent');
     _txRenderList();
 }
 
@@ -5519,10 +5548,10 @@ async function transmitLoadList() {
 
     const tbody = document.getElementById('txTableBody');
     if (!ds || !date) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">검증탭에서 날짜와 데이터셋을 먼저 선택하세요.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">검증탭에서 날짜와 데이터셋을 먼저 선택하세요.</td></tr>';
         return;
     }
-    tbody.innerHTML = '<tr><td colspan="6" class="empty">불러오는 중...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">불러오는 중...</td></tr>';
 
     try {
         const qs   = 'dataset=' + encodeURIComponent(ds) + '&date=' + toApiDate(date);
@@ -5560,19 +5589,20 @@ function _txRenderList() {
             '<span class="sbadge sb-pass">전송완료: ' + sent.length + '</span>';
     }
 
-    // 헤더
+    // 헤더 (맨 앞 = 수동마킹용 체크박스 컬럼 + 전체선택)
     const thead = document.getElementById('txTableHead');
+    const chkTh = '<th style="width:34px"><input type="checkbox" id="txChkAll" onclick="txToggleAll(this.checked)"></th>';
     if (thead) {
         if (_txSubTab === 'unsent') {
-            thead.innerHTML = '<tr><th>순번</th><th>철거계기번호</th><th>주소</th><th>완료상태</th><th>봉인(미리보기)</th><th>계정(선택)</th></tr>';
+            thead.innerHTML = '<tr>' + chkTh + '<th>순번</th><th>철거계기번호</th><th>주소</th><th>완료상태</th><th>봉인(미리보기)</th><th>계정(선택)</th></tr>';
         } else {
-            thead.innerHTML = '<tr><th>순번</th><th>철거계기번호</th><th>주소</th><th>봉인번호</th><th>계정</th><th>공사번호</th></tr>';
+            thead.innerHTML = '<tr>' + chkTh + '<th>순번</th><th>철거계기번호</th><th>주소</th><th>봉인번호</th><th>계정</th><th>공사번호</th></tr>';
         }
     }
 
     const tbody = document.getElementById('txTableBody');
     if (!shown.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">' +
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">' +
             (_txSubTab === 'unsent' ? '미전송 계기 없음.' : '전송완료 계기 없음.') + '</td></tr>';
         return;
     }
@@ -5583,9 +5613,13 @@ function _txRenderList() {
             const sealStr = seal
                 ? esc(seal.seal_no || '-') + (seal.seal_no2 ? ' / ' + esc(seal.seal_no2) : '')
                 : '-';
+            // 전송완료탭 체크박스 = 되돌리기 대상 선택(기본 해제). 수동마킹 건은 '수동' 배지.
+            const manualBadge = g.awms_synced_manual
+                ? ' <span class="sbadge sb-warn" style="font-size:10px">수동</span>' : '';
             return '<tr>' +
+                '<td><input type="checkbox" class="tx-chk" value="' + esc(g.mid) + '"></td>' +
                 '<td class="seq-col">' + g.seq + '</td>' +
-                '<td class="mid-col">' + esc(g.mid) + '</td>' +
+                '<td class="mid-col">' + esc(g.mid) + manualBadge + '</td>' +
                 '<td class="tx-addr-cell">' + esc(g.addr || '-') + '</td>' +
                 '<td>' + sealStr + '</td>' +
                 '<td>' + esc((seal && seal.account) || '-') + '</td>' +
@@ -5602,7 +5636,9 @@ function _txRenderList() {
                 const sel = document.getElementById('txAccountSel');
                 acctCell = (sel && sel.value) ? esc(sel.value) : '(선택 필요)';
             }
+            // 미전송탭 체크박스 = 전송완료 처리 대상(기본 체크 — 실패만 해제하면 됨)
             return '<tr>' +
+                '<td><input type="checkbox" class="tx-chk" value="' + esc(g.mid) + '" checked></td>' +
                 '<td class="seq-col">' + g.seq + '</td>' +
                 '<td class="mid-col">' + esc(g.mid) + '</td>' +
                 '<td class="tx-addr-cell">' + esc(g.addr || '-') + '</td>' +
@@ -5612,6 +5648,44 @@ function _txRenderList() {
                 '</tr>';
         }
     }).join('');
+}
+
+// ── 수동 일괄 전송완료 마킹 (awms·폰 없이 Firebase 플래그만, 되돌리기 가능) ──
+function txSelectedMids() {
+    return Array.from(document.querySelectorAll('#txTableBody .tx-chk:checked')).map(c => c.value);
+}
+function txToggleAll(checked) {
+    document.querySelectorAll('#txTableBody .tx-chk').forEach(c => { c.checked = checked; });
+    const all = document.getElementById('txChkAll'); if (all) all.checked = checked;
+}
+async function txMarkSelected(synced) {
+    const ds = document.getElementById('datasetSel').value;
+    if (!ds) { alert('데이터셋을 선택하세요.'); return; }
+    const mids = txSelectedMids();
+    if (!mids.length) { alert(synced ? '전송완료로 표시할 계기를 선택하세요.' : '되돌릴 계기를 선택하세요.'); return; }
+    // 표시용 공사명/계정 (선택 — 수동이라 봉인번호는 없음)
+    const account = (typeof _txPickAccount === 'function' ? (_txPickAccount() || '') : '');
+    const consSel = document.getElementById('txConsNo');
+    const consNo = (consSel && !consSel.classList.contains('hidden') && consSel.value)
+        ? consSel.value
+        : ((document.getElementById('txConsNoFallback') || {}).value || '');
+    const verb = synced ? '전송완료로 표시' : '미전송으로 되돌리기';
+    if (!confirm(mids.length + '건을 ' + verb + '합니다.\n(awms 실제 전송 아님 — 이미 등록된 건 데이터관리자에 반영)\n계속할까요?')) return;
+    try {
+        const resp = await fetch(API_BASE + '/transmit/mark', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dataset: ds, mids, synced,
+                cons_no: synced ? consNo : '', account: synced ? account : '' }),
+        });
+        const b = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
+        const c = b.counts || {};
+        let msg = verb + ' 완료: ' + (c.marked || 0) + '건';
+        if (c.skipped)   msg += '\n실전송 기록 보호(제외): ' + c.skipped + '건';
+        if (c.not_found) msg += '\n주소 못 찾음: ' + c.not_found + '건';
+        alert(msg);
+        await transmitLoadList();   // 목록 재로드 → 미전송/전송완료 갱신
+    } catch (e) { alert('처리 실패: ' + e.message); }
 }
 
 function _txMeterStateCls(s) {
