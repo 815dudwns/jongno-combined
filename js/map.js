@@ -1036,7 +1036,10 @@ function decideMarkerStyle(meters, status, session) {
                 _counted.add(_mid);
             }
         }
-        const isAllReplaced = (totalAll > 0 && doneCount === totalAll);
+        // 완료 = 모든 계기가 "교체완료 or 개별불가"로 해결(최소 1건은 실제 완료).
+        //   3불가+1완료도 완료(영준님 2026-07-07) — 불가는 작업불가라 남은 대상 아님.
+        //   doneCount>0 가드: 전부 불가(완료 0)면 완료 아님(불가만 = 아래 fail 분기).
+        const isAllReplaced = (totalAll > 0 && doneCount > 0 && (doneCount + failedCount) >= totalAll);
         const isPartialReplaced = (doneCount > 0 && !isAllReplaced);
         const hasDraft = draftCount > 0;
 
