@@ -1,5 +1,5 @@
 {
-  "versionName": "20260707.2",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260707.2.apk",
-  "notes": "신설 사진 촬영 카메라에서 실시간 QR 인식(계기번호·제조월 자동저장)+셔터 촬영 통합 / 철거검침 위에 작업번호 네비 박스 하나 더(스크롤 중 이전·다음 이동)"
+  "versionName": "20260707.3",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260707.3.apk",
+  "notes": "신설 실시간 QR카메라 개선(QR 재인식·인식 초록박스·손전등, 줌 제거, 상단 X·하단 [재인식/손전등/촬영] 3버튼·1:1 크게) / 철거검침·신설 박스 완료 초록띠(활성 옵션 기준) / 철거검침 위 작업번호 박스 / YOLO 옵션 제거"
 }

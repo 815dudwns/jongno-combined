@@ -21,7 +21,6 @@ const QrScanner = (() => {
 
   const LS_CAM = 'qr_camera_id';
   const LS_CAM_LABEL = 'qr_camera_label';
-  const LS_ZOOM = 'qr_zoom';
 
   function saveCameraId(id, label) {
     try {
@@ -32,12 +31,6 @@ const QrScanner = (() => {
   function loadCameraId() { try { return localStorage.getItem(LS_CAM) || ''; } catch { return ''; } }
   function loadCameraLabel() { try { return localStorage.getItem(LS_CAM_LABEL) || ''; } catch { return ''; } }
   function clearCameraId() { try { localStorage.removeItem(LS_CAM); } catch {} }
-  function saveZoom(z) { try { if (z > 0) localStorage.setItem(LS_ZOOM, String(z)); } catch {} }
-  function loadZoom() {
-    try { const v = parseFloat(localStorage.getItem(LS_ZOOM)); return isNaN(v) ? null : v; }
-    catch { return null; }
-  }
-
   function setLabel(text) {
     const lbl = document.getElementById('qr-cam-label');
     if (lbl) lbl.textContent = text;
@@ -273,9 +266,6 @@ const QrScanner = (() => {
       setLabel(`잡힘 → ...${actShort}`);
     }
 
-    // zoom 적용
-    await applyZoom(loadZoom() ?? 2.0);
-
     // torch 버튼 표시 여부 갱신 (새 스트림은 torch 꺼진 상태)
     _torchOn = false;
     updateTorchBtn();
@@ -404,43 +394,23 @@ const QrScanner = (() => {
   }
   async function toggleTorch() { await setTorch(!_torchOn); }
   function paintTorchBtn() {
-    const btn = document.getElementById('qr-torch-btn');
-    if (!btn) return;
-    btn.style.background = _torchOn ? '#f59e0b' : '#374151';
-    btn.style.color = _torchOn ? '#1f2937' : 'white';
+    // 정적 qr-torch-btn(QR모드) + 동적 cam-torch-btn(카메라모드) 모두 갱신
+    [document.getElementById('qr-torch-btn'), document.getElementById('cam-torch-btn')].forEach(btn => {
+      if (!btn) return;
+      btn.style.background = _torchOn ? '#f59e0b' : '#374151';
+      btn.style.borderColor = _torchOn ? '#f59e0b' : '#6b7280';
+      btn.style.color = _torchOn ? '#1f2937' : 'white';
+    });
   }
   function updateTorchBtn() {
+    const has = trackHasTorch();
+    // 정적 qr-torch-btn(QR모드)
     const btn = document.getElementById('qr-torch-btn');
-    if (!btn) return;
-    btn.style.display = trackHasTorch() ? '' : 'none';   // 미지원 기기는 숨김
+    if (btn) btn.style.display = has ? '' : 'none';
+    // 동적 cam-torch-btn(카메라모드) — display:none(미지원) or ''(지원)
+    const camBtn = document.getElementById('cam-torch-btn');
+    if (camBtn) camBtn.style.display = has ? '' : 'none';
     paintTorchBtn();
-  }
-
-  // ─── zoom ─────────────────────────
-  async function applyZoom(z) {
-    try {
-      if (!_stream) return;
-      const t = _stream.getVideoTracks()[0];
-      const cap = t?.getCapabilities?.() || {};
-      if (cap.zoom) {
-        const zoom = Math.min(Math.max(z, cap.zoom.min), cap.zoom.max);
-        await t.applyConstraints({ advanced: [{ zoom }] });
-        saveZoom(zoom);
-      }
-    } catch {}
-  }
-
-  async function adjustZoom(delta) {
-    try {
-      if (!_stream) return;
-      const t = _stream.getVideoTracks()[0];
-      const cap = t?.getCapabilities?.();
-      if (!cap?.zoom) return;
-      const cur = t.getSettings().zoom || 1;
-      const next = Math.max(cap.zoom.min, Math.min(cap.zoom.max, cur + delta));
-      await t.applyConstraints({ advanced: [{ zoom: next }] });
-      saveZoom(next);
-    } catch {}
   }
 
   // ─── 카메라 전환 (select onchange) ─────────────────────────
@@ -499,6 +469,39 @@ const QrScanner = (() => {
   let _onCamError = null;
   let _qrDone = false;        // 카메라 모드: QR 1회 저장 후 추가 인식 억제
 
+  // QR 인식 박스(초록 사각형) 캔버스 — #qr-reader 위에 절대위치
+  function ensureQrBoxCanvas() {
+    if (document.getElementById('cam-qr-box')) return;
+    const host = document.getElementById('qr-reader');
+    if (!host) return;
+    const cv = document.createElement('canvas');
+    cv.id = 'cam-qr-box';
+    cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;';
+    host.appendChild(cv);
+  }
+  function clearQrBox() {
+    const cv = document.getElementById('cam-qr-box');
+    if (!cv) return;
+    cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+  }
+  function drawQrBox(bx, by, bw, bh, out) {
+    // ROI = 중앙 70% 정사각. #qr-reader는 정사각 D×D + object-fit:cover.
+    // 따라서 ROI = 0.7D 정사각 (중앙 offset 0.15D).
+    // out(ROI 캔버스 픽셀) → 화면 좌표: x_screen = 0.15D + (bx/out)*0.7D
+    const cv = document.getElementById('cam-qr-box');
+    if (!cv) return;
+    const D = cv.offsetWidth || cv.clientWidth || 300;
+    cv.width = D; cv.height = D;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, D, D);
+    const scale = 0.7 * D / out;
+    const offX = 0.15 * D;
+    const offY = 0.15 * D;
+    ctx.strokeStyle = '#34d399';
+    ctx.lineWidth = Math.max(3, Math.round(D * 0.008));
+    ctx.strokeRect(offX + bx * scale, offY + by * scale, bw * scale, bh * scale);
+  }
+
   // 카메라 모드용 오버레이 요소 생성/참조 (DOM에 없으면 동적 삽입)
   function ensureCamOverlay() {
     if (document.getElementById('cam-shutter-bar')) return;
@@ -508,24 +511,50 @@ const QrScanner = (() => {
     const bar = document.createElement('div');
     bar.id = 'cam-shutter-bar';
     bar.style.cssText = 'display:none;flex-direction:column;align-items:center;' +
-      'padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#111;gap:8px;';
-    // QR 결과 표시 오버레이 (프리뷰 위에 절대 위치)
+      'padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:#111;gap:10px;';
+    // QR 결과 표시 (프리뷰 위에)
     const qrTag = document.createElement('div');
     qrTag.id = 'cam-qr-tag';
     qrTag.style.cssText = 'display:none;background:rgba(0,0,0,.75);color:#34d399;' +
-      'font-size:16px;font-weight:800;padding:10px 16px;border-radius:12px;' +
+      'font-size:17px;font-weight:800;padding:12px 18px;border-radius:14px;' +
       'text-align:center;max-width:90%;word-break:break-all;';
     bar.appendChild(qrTag);
-    // 셔터 버튼
+    // 버튼 행 (QR재인식 + 손전등 + 촬영)
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:12px;align-items:center;width:100%;justify-content:center;';
+    // QR 재인식 버튼
+    const reBtn = document.createElement('button');
+    reBtn.id = 'cam-rescan-btn';
+    reBtn.textContent = 'QR 재인식';
+    reBtn.style.cssText = 'flex:1;max-width:140px;padding:18px 12px;background:#374151;color:#fff;border:2px solid #6b7280;' +
+      'border-radius:999px;font-size:18px;font-weight:800;cursor:pointer;min-height:64px;';
+    reBtn.onclick = () => {
+      _qrDone = false;
+      setCamQrTag('');
+      clearQrBox();
+    };
+    btnRow.appendChild(reBtn);
+    // 손전등 버튼
+    const torchBtn = document.createElement('button');
+    torchBtn.id = 'cam-torch-btn';
+    torchBtn.textContent = '손전등';
+    torchBtn.style.cssText = 'flex:1;max-width:140px;padding:18px 12px;background:#374151;color:#fff;border:2px solid #6b7280;' +
+      'border-radius:999px;font-size:18px;font-weight:800;cursor:pointer;min-height:64px;display:none;';
+    torchBtn.onclick = () => toggleTorch();
+    btnRow.appendChild(torchBtn);
+    // 촬영 버튼
     const btn = document.createElement('button');
     btn.id = 'cam-shutter-btn';
     btn.textContent = '촬영';
-    btn.style.cssText = 'padding:16px 40px;background:linear-gradient(145deg,#5fe0c0,#2bb89a);' +
-      'color:#04261f;border:none;border-radius:999px;font-size:22px;font-weight:800;' +
-      'box-shadow:0 8px 20px rgba(43,184,154,.35);cursor:pointer;';
+    btn.style.cssText = 'flex:1;max-width:180px;padding:18px 16px;background:linear-gradient(145deg,#5fe0c0,#2bb89a);' +
+      'color:#04261f;border:none;border-radius:999px;font-size:24px;font-weight:800;' +
+      'box-shadow:0 8px 20px rgba(43,184,154,.35);cursor:pointer;min-height:64px;';
     btn.onclick = shutterClick;
-    bar.appendChild(btn);
+    btnRow.appendChild(btn);
+    bar.appendChild(btnRow);
     overlay.appendChild(bar);
+    // QR 박스 캔버스 (#qr-reader 안에)
+    ensureQrBoxCanvas();
   }
 
   function setCamOverlayVisible(visible) {
@@ -542,16 +571,17 @@ const QrScanner = (() => {
 
   async function shutterClick() {
     // 현재 video 프레임을 원본 해상도(jpeg 0.95)로 캡처 → onShutter
+    // ★ drawImage(동기)로 프레임을 먼저 그래브한 뒤 카메라 즉시 닫음 → toBlob(비동기) 중 프리뷰 잔류 방지
     try {
       if (!_video || !_video.videoWidth) { return; }
       const c = document.createElement('canvas');
       c.width = _video.videoWidth; c.height = _video.videoHeight;
-      c.getContext('2d').drawImage(_video, 0, 0);
+      c.getContext('2d').drawImage(_video, 0, 0);  // 프레임 그래브 (동기)
+      await stopCameraMode();                       // 카메라 즉시 닫기 (toBlob 전)
       const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.95));
-      await stop();
       _onShutter && _onShutter(blob || null);
     } catch(e) {
-      await stop();
+      await stopCameraMode();
       _onCamError && _onCamError('셔터 캡처 실패: ' + (e?.message || e));
     }
   }
@@ -674,7 +704,6 @@ const QrScanner = (() => {
     populateCamSelect();
     setLabel('카메라 준비됨');
 
-    await applyZoom(loadZoom() ?? 1.0);
     _torchOn = false;
     updateTorchBtn();
 
@@ -704,6 +733,11 @@ const QrScanner = (() => {
         _qrDone = true;
         try { if (navigator.vibrate) navigator.vibrate(80); } catch {}
         const raw = codes[0].rawValue || '';
+        // 인식 위치 초록 박스 표시
+        try {
+          const bb = codes[0].boundingBox;
+          if (bb) drawQrBox(bb.x, bb.y, bb.width, bb.height, roi.width);
+        } catch(e) {}
         _onQr && _onQr(raw);
       }
     } finally {
@@ -718,6 +752,7 @@ const QrScanner = (() => {
     await stopAll();
     setCamOverlayVisible(false);
     setCamQrTag('');
+    clearQrBox();
     document.getElementById('qr-scan-overlay').style.display = 'none';
     _mode = 'qr';
     // close 버튼 복원 (QR 모드 init 설정값)
@@ -740,8 +775,6 @@ const QrScanner = (() => {
     closeBtn.onclick = stopUnified;
     const sw = document.getElementById('qr-switch-btn');
     if (sw) sw.onclick = switchCamera;
-    document.getElementById('qr-zoom-in').onclick = () => adjustZoom(+0.5);
-    document.getElementById('qr-zoom-out').onclick = () => adjustZoom(-0.5);
     const torchBtn = document.getElementById('qr-torch-btn');
     if (torchBtn) torchBtn.onclick = toggleTorch;
     const sel = document.getElementById('qr-cam-select');

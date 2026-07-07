@@ -57,6 +57,7 @@
 
       .shot{background:var(--card); border:1px solid var(--line); border-radius:18px;
         padding:14px; margin-bottom:14px;}
+      .shot.done-band{ box-shadow:inset 0 3px 0 var(--mint); border-color:var(--mint); }
       .shot-title{font-size:20px; font-weight:800; margin:0 2px 10px; display:flex; justify-content:space-between; align-items:center;}
       .shot-status{font-size:15px; font-weight:700;}
       .shot-status.saving{color:var(--amber);}
@@ -245,14 +246,7 @@
             </div>
             <div class="sw" id="sw-qr" data-opt="qr"><span class="knob"></span></div>
         </div>
-        <div class="opt-row">
-            <div>
-                <div class="label">LCD 자동검출(YOLO)</div>
-                <div class="desc">철거 사진의 계기판 위치를 자동으로 잡습니다</div>
-            </div>
-            <div class="sw" id="sw-yolo" data-opt="yolo"><span class="knob"></span></div>
-        </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260707.2</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260707.3</div>
     </div>
 
     <!-- 작업번호 네비 박스 2 (철거 검침 섹션 위 — 상단 박스와 동기화) -->
@@ -267,7 +261,7 @@
     </div>
 
     <!-- 철거 검침 (종로앱과 동일: 철거사진 칸 없음. 주/야/무효/최대 검침사진이 전부, 대표=old_meter_photo) -->
-    <div class="shot">
+    <div class="shot" id="sec-removal">
         <div class="shot-title">철거 검침</div>
         <div class="reading" id="reading-wrap">
             <div class="rv-head">
@@ -299,7 +293,7 @@
     </div>
 
     <!-- 신설 사진 -->
-    <div class="shot">
+    <div class="shot" id="sec-new">
         <div class="shot-title">신설 사진 <span class="shot-status" id="st-new"></span></div>
         <div class="shot-box" id="box-new" data-slot="new">
             <span class="hint">탭해서 사진 넣기</span>
@@ -337,26 +331,18 @@
     <input class="hidden-input" type="file" accept="image/*" capture="environment" id="in-cam">
     <input class="hidden-input" type="file" accept="image/*" id="in-alb">
 
-    <!-- QR 스캔 오버레이 (map.html과 동일 — qr-scanner.js가 이 DOM 사용) -->
+    <!-- QR 스캔 오버레이 (qr-scanner.js가 이 DOM 사용) -->
     <div id="qr-scan-overlay" style="display:none;position:fixed;inset:0;background:black;z-index:3000;flex-direction:column;">
-      <div style="display:flex;align-items:center;padding:10px 14px;background:#111;color:white;gap:8px;">
-        <span id="qr-cam-label" style="font-size:12px;font-weight:600;white-space:nowrap;">카메라</span>
-        <select id="qr-cam-select" style="flex:1;min-width:140px;padding:8px 10px;background:#374151;color:white;border:1.5px solid #6b7280;border-radius:6px;font-size:13px;font-weight:600;appearance:auto;-webkit-appearance:auto;"><option>카메라 로드 중...</option></select>
-        <button id="qr-close-btn" style="padding:6px 12px;background:#ef4444;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">×</button>
+      <div style="display:flex;align-items:center;justify-content:flex-end;padding:14px 16px;background:#111;">
+        <button id="qr-close-btn" style="padding:12px 22px;background:#ef4444;color:white;border:none;border-radius:999px;font-size:22px;font-weight:800;min-width:56px;min-height:56px;">X</button>
       </div>
       <div style="flex:1;display:flex;align-items:center;justify-content:center;background:black;overflow:hidden;">
         <div id="qr-reader" style="width:min(100vw, 100%); aspect-ratio:1/1; max-height:100%; background:black; position:relative; overflow:hidden;"></div>
       </div>
       <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
-      <div style="display:flex;gap:6px;padding:8px;background:#111;">
-        <button id="qr-switch-btn" style="display:none;flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">카메라 전환</button>
-        <button id="qr-zoom-out" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">- 줌</button>
-        <button id="qr-zoom-in" style="flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">+ 줌</button>
-        <button id="qr-torch-btn" style="display:none;flex:1;padding:10px;background:#374151;color:white;border:none;border-radius:6px;font-size:14px;font-weight:700;">손전등</button>
-      </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260707.2</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260707.3</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -396,7 +382,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260707.2";
+      const APP_VER = "20260707.3";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
@@ -805,7 +791,7 @@
           await autoSave(slot, mem, localSeq, jobId);
           // 상태 전이는 전부 job 모델로: 네이티브=워커 구독, 폴백=autoSave가 ujSet('ok'). 여기선 DOM 안 건드림.
           // LCD 자동검출(옵션) — 대표 검침칸(주간/심야야간) 사진에. box-old 제거로 여기로 이전.
-          if (_opt.yolo && slot === 'rv_' + snapAutoFields(localSeq)[0]) runYoloOnOld(mem, localSeq, snapAutoFields(localSeq)[0]);
+          if (slot === 'rv_' + snapAutoFields(localSeq)[0]) runYoloOnOld(mem, localSeq, snapAutoFields(localSeq)[0]);
           await loadToday();                 // RTDB 반영(번호 점유)
           if (seq === localSeq) renderSeq();
         } catch (e) {
@@ -994,8 +980,8 @@
       }
 
       // ════════════ 옵션(설정) + 부가기능: 철거지침 / QR / YOLO ════════════
-      const OPT_KEYS = { reading:'snap_opt_reading', qr:'snap_opt_qr', yolo:'snap_opt_yolo' };
-      const _opt = { reading:false, qr:false, yolo:false };
+      const OPT_KEYS = { reading:'snap_opt_reading', qr:'snap_opt_qr' };
+      const _opt = { reading:false, qr:false };
       function loadOpts(){ for (const k in OPT_KEYS){ _opt[k] = localStorage.getItem(OPT_KEYS[k]) === '1'; } }
       function applyOpts(){
         $('reading-wrap').classList.add('show');   // 검침 사진슬롯+토글은 항상 표시
@@ -1003,8 +989,6 @@
         $('qr-row').classList.toggle('show', _opt.qr);
         $('sw-reading').classList.toggle('on', _opt.reading);
         $('sw-qr').classList.toggle('on', _opt.qr);
-        $('sw-yolo').classList.toggle('on', _opt.yolo);
-        if (_opt.yolo) loadYolo().then(()=>{ try{ LcdYolo.preload(); }catch(e){} });
       }
       $('gear').onclick = ()=> $('opt').classList.add('open');
       $('opt-close').onclick = ()=> $('opt').classList.remove('open');
@@ -1122,7 +1106,7 @@
         el.addEventListener('change', async ()=>{
           const v = el.value.trim(); if(v==='') return;
           const localSeq = seq;
-          try { await saveRvField(localSeq, fid, m.dec?Number(v):parseInt(v,10)); toast('검침값 저장됨 ('+localSeq+'번)'); }
+          try { await saveRvField(localSeq, fid, m.dec?Number(v):parseInt(v,10)); toast('검침값 저장됨 ('+localSeq+'번)'); if(seq===localSeq) updateDoneBands(); }
           catch(e){ console.error('[검침값]', e); toast('검침값 저장 실패'); }
         });
       });
@@ -1168,6 +1152,8 @@
             ujSet(jobId, 'ok');
             $('qr-result').textContent = '새 계기 '+meterId+(mfg?(' / '+mfg):'')+' (계기 직접)';
             toast('계기번호 저장됨 — 계기 직접 ('+localSeq+'번)');
+            try { await loadToday(); } catch(e2){ console.warn('[QR loadToday 직접]', e2); }
+            if (seq === localSeq) renderSeq();
             return;
           }
           // 미할당 — 임시보관(메인앱이 그 번호에 계기 할당 시 흡수)
@@ -1177,6 +1163,8 @@
           ujSet(jobId, 'ok');
           $('qr-result').textContent = '새 계기 '+meterId+(mfg?(' / '+mfg):'')+' (임시보관)';
           toast('계기번호 저장됨 ('+localSeq+'번)');
+          try { await loadToday(); } catch(e2){ console.warn('[QR loadToday 임시]', e2); }
+          if (seq === localSeq) renderSeq();
         } catch(e){ console.error('[QR저장]', e); ujSet(jobId, 'fail'); toast('QR 저장 실패'); }
       }
       $('qr-btn').onclick = ()=>{
@@ -1222,6 +1210,8 @@
         // ★사진슬롯 칸 수는 '검침값 입력' 옵션과 무관하게 항상 자동판별을 따른다(옵션 OFF여도 1칸/4칸 정확히).
         //   기존엔 if(_opt.reading) 안에서만 불려 옵션 OFF 시 hide 미적용 → 사진슬롯 4칸이 다 노출되는 버그.
         applySnapRv(s);
+        // YOLO 항상 동작 — yolo-tag는 reading 옵션과 무관하게 항상 복원
+        $('yolo-tag').textContent = (tmp && tmp.removal_lcd_region) ? 'LCD 위치 저장됨' : '';
         if (_opt.reading){
           for(const fid of SNAP_RV_ALL){
             let rv = '';
@@ -1231,13 +1221,51 @@
             else if (fid==='whme_day' && tmp && tmp.removal_value != null) rv = tmp.removal_value;
             const el = $(SNAP_RV[fid].id); if(el) el.value = (rv === '' ? '' : String(rv));
           }
-          $('yolo-tag').textContent = (tmp && tmp.removal_lcd_region) ? 'LCD 위치 저장됨' : '';
         }
         if (_opt.qr){
           const mid = (entry && entry.new_meter_id) || (tmp && tmp.new_meter_id) || '';
           const mfg = (entry && entry.new_meter_mfg_ym) || (tmp && tmp.new_meter_mfg_ym) || '';
           $('qr-result').textContent = mid ? ('새 계기 '+mid+(mfg?(' / '+mfg):'')) : '';
         }
+        updateDoneBands();
+      }
+
+      // ── 완료 띠 판정 (6번: 철거검침 / 7번: 신설사진) ──
+      // 완료 조건:
+      //   철거검침 — 활성 검침사진 슬롯(rv_*) 전부 ok + (reading 옵션 ON이면 활성 검침값 입력 칸 전부 non-empty)
+      //   신설사진  — new 사진 ok + (qr 옵션 ON이면 new_meter_id 있음)
+      // 검침값 완료 기준 = non-empty (종로맵 replacement-modal.js + validation_rules.py 동일 기준 — 자릿수 강제 없음)
+      function updateDoneBands(){
+        const secR = $('sec-removal'), secN = $('sec-new');
+        if (!secR || !secN) return;
+
+        // -- 철거검침 완료 판정 --
+        const activeRv = snapRvFields(seq);          // 현재 seq의 활성 검침칸 목록(snapRvFields 재사용)
+        const allRvPhotoOk = activeRv.every(fid => {
+          const v = slotView(seq, 'rv_' + fid);
+          return v && v.status === 'ok';
+        });
+        let rvValueOk = true;
+        if (_opt.reading){
+          rvValueOk = activeRv.every(fid => {
+            const el = $(SNAP_RV[fid].id);
+            return el && String(el.value).trim() !== '';   // non-empty
+          });
+        }
+        secR.classList.toggle('done-band', allRvPhotoOk && rvValueOk);
+
+        // -- 신설사진 완료 판정 --
+        const newV = slotView(seq, 'new');
+        const newPhotoOk = newV && newV.status === 'ok';
+        let qrOk = true;
+        if (_opt.qr){
+          // entry(할당) 또는 tempIndex(미할당)의 new_meter_id
+          const entry = seqIndex[seq] && seqIndex[seq].entry;
+          const tmp = tempIndex[seq];
+          const mid = (entry && entry.new_meter_id) || (tmp && tmp.new_meter_id) || '';
+          qrOk = !!mid;
+        }
+        secN.classList.toggle('done-band', !!(newPhotoOk && qrOk));
       }
 
       // ── 시작 ──
