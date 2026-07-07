@@ -309,7 +309,7 @@
                 <select class="opt-cam-select" id="cam-sel-select" style="display:none;"></select>
             </div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260707.6</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260707.7</div>
     </div>
 
     <!-- 작업번호 네비 박스 2 (철거 검침 섹션 위 — 상단 박스와 동기화) -->
@@ -405,7 +405,7 @@
       <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260707.6</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260707.7</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -445,7 +445,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260707.6";
+      const APP_VER = "20260707.7";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
@@ -1046,18 +1046,18 @@
         const blob = await PhotoUploader.compress(file, { square:true });   // awms가 세로비율 사진을 90도 눕힘 → 가운데 1:1 크롭으로 회피
         const url = await restUpload(blob, path);
         if (hit){
-          // 시나리오 A: 부모-자식 우선 규칙 — 필드에 이미 값이 있으면 건너뜀.
-          // 종로맵(부모앱)이 넣은 데이터를 snap이 덮지 않는다.
+          // 시나리오 A: 무조건 덮어쓰기 — 재촬영 시 최신 사진으로 수정 가능.
+          // (Storage 경로는 _uniq 고유 토큰으로 생성되므로 이전 사진 blob은 Storage에 그대로 보존됨)
           const node = statusRef.child(hit.addr).child('replacement_list').child(hit.meterId);
           if (slot.indexOf('rv_') === 0){
             const fid = slot.slice(3);   // 검침 LCD 사진 → removal_photos[fid]
-            await setIfEmpty(node.child('removal_photos').child(fid), url, 'removal_photos/'+fid);
+            await node.child('removal_photos').child(fid).set(url);
             // 대표 검침칸은 old_meter_photo도(종로앱 정의 통일)
-            if (fid === snapAutoFields(s)[0]) await setIfEmpty(node.child('old_meter_photo'), url, 'old_meter_photo');
+            if (fid === snapAutoFields(s)[0]) await node.child('old_meter_photo').set(url);
           } else if (slot === 'old'){
-            await setIfEmpty(node.child('old_meter_photo'), url, 'old_meter_photo');
+            await node.child('old_meter_photo').set(url);
           } else {
-            await setIfEmpty(node.child('new_meter_photo'), url, 'new_meter_photo');
+            await node.child('new_meter_photo').set(url);
           }
         } else {
           // 시나리오 B: 임시보관함. 나중에 메인앱이 같은 번호에 계기 할당 시 결합

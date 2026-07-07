@@ -1,5 +1,5 @@
 {
-  "versionName": "20260707.6",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260707.6.apk",
-  "notes": "버튼 눌림 모션+짧은 진동 / QR 인식 시 진동·초록 플래시·태그 pop(인식 확인) / 셔터 촬영 시 진동·흰 플래시. (707.5: 카메라 선택·QR 인식 방식·완료 초록띠)"
+  "versionName": "20260707.7",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260707.7.apk",
+  "notes": "사진 재촬영 시 덮어쓰기 허용(수정 가능) — 이전엔 이미 있는 칸은 건너뛰어 재촬영 안 됐음. Storage 고유경로+이력은 유지(이전 사진 보존·복구가능). (707.6: 버튼·QR·셔터 피드백)"
 }
