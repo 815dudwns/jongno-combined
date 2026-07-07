@@ -1,5 +1,5 @@
 {
-  "versionName": "20260707.3",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260707.3.apk",
-  "notes": "신설 실시간 QR카메라 개선(QR 재인식·인식 초록박스·손전등, 줌 제거, 상단 X·하단 [재인식/손전등/촬영] 3버튼·1:1 크게) / 철거검침·신설 박스 완료 초록띠(활성 옵션 기준) / 철거검침 위 작업번호 박스 / YOLO 옵션 제거"
+  "versionName": "20260707.4",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260707.4.apk",
+  "notes": "설정에 카메라 선택(카메라 0/1/2 목록) + QR 인식 방식 옵션(통합=실시간카메라·기본 / 기존=OS카메라+별도QR버튼). 통합 모드일 때만 카메라 선택 노출 → 광각 고정 해결. (707.3: 실시간QR카메라·완료 초록띠·작업번호박스·YOLO옵션제거)"
 }

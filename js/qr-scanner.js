@@ -793,7 +793,8 @@ const QrScanner = (() => {
     }
   }
 
-  return { show, stop: stopUnified, init, showCamera };
+  return { show, stop: stopUnified, init, showCamera,
+         saveCameraId, loadCameraId, loadCameraLabel, enumerateCameras, prettyCamLabel };
 })();
 
 if (document.readyState === 'loading') {

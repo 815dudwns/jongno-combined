@@ -156,6 +156,11 @@
         background:var(--ink-2); transition:left .15s, background .15s;}
       .sw.on{background:var(--mint-d); border-color:var(--mint-d);}
       .sw.on .knob{left:35px; background:#04130d;}
+      .opt-row-col{flex-direction:column; align-items:stretch;}
+      .opt-cam-load{width:100%; background:var(--btn); border:1px solid var(--line); color:var(--ink);
+        font-size:17px; font-weight:800; padding:12px 0; border-radius:12px; cursor:pointer;}
+      .opt-cam-select{width:100%; background:var(--card); border:1px solid var(--line); color:var(--ink);
+        font-size:16px; font-weight:700; padding:10px 12px; border-radius:12px; cursor:pointer; margin-top:6px;}
 
       /* 철거지침 입력 (옵션 ON 시) */
       .rv-head{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;}
@@ -246,7 +251,25 @@
             </div>
             <div class="sw" id="sw-qr" data-opt="qr"><span class="knob"></span></div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260707.3</div>
+        <div class="opt-row">
+            <div>
+                <div class="label">QR 인식 방식</div>
+                <div class="desc">ON=기존방식(OS카메라+별도QR버튼) / OFF=통합(실시간카메라·기본값)</div>
+            </div>
+            <div class="sw" id="sw-legacy" data-opt="legacy"><span class="knob"></span></div>
+        </div>
+        <!-- 카메라 선택 (통합 모드일 때만 표시) -->
+        <div class="opt-row opt-row-col" id="cam-sel-row">
+            <div style="width:100%">
+                <div class="label">카메라 선택</div>
+                <div class="desc" id="cam-sel-cur">현재: <span id="cam-sel-cur-label">-</span></div>
+            </div>
+            <div style="width:100%; margin-top:8px;" id="cam-sel-body">
+                <button class="opt-cam-load" id="cam-sel-load">카메라 목록 불러오기</button>
+                <select class="opt-cam-select" id="cam-sel-select" style="display:none;"></select>
+            </div>
+        </div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260707.4</div>
     </div>
 
     <!-- 작업번호 네비 박스 2 (철거 검침 섹션 위 — 상단 박스와 동기화) -->
@@ -342,7 +365,7 @@
       <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260707.3</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260707.4</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -382,7 +405,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260707.3";
+      const APP_VER = "20260707.4";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
@@ -734,8 +757,13 @@
 
       // 커스텀 카메라 열기 (신설 사진 촬영 전용)
       function openNewCamera(){
+        // QR 인식 방식 옵션: legacy=true(기존) → OS 카메라 시트, legacy=false(통합, 기본값) → 커스텀 카메라
+        if (_opt.legacy){
+          openSheet('new');
+          return;
+        }
         if (!navigator.mediaDevices?.getUserMedia || typeof QrScanner === 'undefined' || !QrScanner.showCamera){
-          // 미지원 → 기존 시트 폴백
+          // 통합 모드지만 getUserMedia 미지원 → 기존 시트 폴백
           openSheet('new');
           return;
         }
@@ -980,8 +1008,8 @@
       }
 
       // ════════════ 옵션(설정) + 부가기능: 철거지침 / QR / YOLO ════════════
-      const OPT_KEYS = { reading:'snap_opt_reading', qr:'snap_opt_qr' };
-      const _opt = { reading:false, qr:false };
+      const OPT_KEYS = { reading:'snap_opt_reading', qr:'snap_opt_qr', legacy:'snap_opt_legacy' };
+      const _opt = { reading:false, qr:false, legacy:false };
       function loadOpts(){ for (const k in OPT_KEYS){ _opt[k] = localStorage.getItem(OPT_KEYS[k]) === '1'; } }
       function applyOpts(){
         $('reading-wrap').classList.add('show');   // 검침 사진슬롯+토글은 항상 표시
@@ -989,8 +1017,58 @@
         $('qr-row').classList.toggle('show', _opt.qr);
         $('sw-reading').classList.toggle('on', _opt.reading);
         $('sw-qr').classList.toggle('on', _opt.qr);
+        $('sw-legacy').classList.toggle('on', _opt.legacy);
+        // 카메라 선택은 통합 모드(legacy=false)일 때만 의미 있음 — 기존 모드는 OS 카메라라 선택 불필요
+        $('cam-sel-row').style.display = _opt.legacy ? 'none' : '';
       }
-      $('gear').onclick = ()=> $('opt').classList.add('open');
+      // ── 카메라 선택 (설정화면) ──────────────────────────────
+      function camSelRefreshLabel() {
+        const saved = QrScanner.loadCameraLabel();
+        $('cam-sel-cur-label').textContent = saved || '저장 없음 (자동)';
+      }
+      async function camSelLoad() {
+        const btn = $('cam-sel-load');
+        btn.textContent = '불러오는 중...';
+        btn.disabled = true;
+        try {
+          // 1회 권한 취득 후 즉시 해제 → enumerateDevices에서 라벨 채워짐
+          let stream = null;
+          try { stream = await navigator.mediaDevices.getUserMedia({video:true}); } catch(e) {}
+          if (stream) stream.getTracks().forEach(t => t.stop());
+          const cams = await QrScanner.enumerateCameras();
+          const sel = $('cam-sel-select');
+          sel.innerHTML = '';
+          const savedId = QrScanner.loadCameraId();
+          cams.forEach((cam, i) => {
+            const opt = document.createElement('option');
+            opt.value = cam.id;
+            opt.textContent = QrScanner.prettyCamLabel(cam, i);
+            if (cam.id === savedId) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          if (!cams.length) {
+            const opt = document.createElement('option');
+            opt.textContent = '카메라를 찾을 수 없음';
+            opt.disabled = true;
+            sel.appendChild(opt);
+          }
+          btn.style.display = 'none';
+          sel.style.display = '';
+        } catch(e) {
+          btn.textContent = '카메라 목록 불러오기';
+          btn.disabled = false;
+        }
+      }
+      $('cam-sel-load').onclick = camSelLoad;
+      $('cam-sel-select').onchange = function() {
+        const sel = this;
+        const id = sel.value;
+        const label = sel.options[sel.selectedIndex]?.textContent || '';
+        QrScanner.saveCameraId(id, label);
+        camSelRefreshLabel();
+      };
+
+      $('gear').onclick = ()=> { camSelRefreshLabel(); applyOpts(); $('opt').classList.add('open'); };
       $('opt-close').onclick = ()=> $('opt').classList.remove('open');
       document.querySelectorAll('.sw[data-opt]').forEach(sw=>{
         sw.onclick = ()=>{
