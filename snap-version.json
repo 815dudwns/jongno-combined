@@ -1,5 +1,5 @@
 {
-  "versionName": "20260703.1",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260703.1.apk",
-  "notes": "사진 800px/q40 압축 반영 — awms 통과+OCR 검증 하한, 용량 절감"
+  "versionName": "20260707.2",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260707.2.apk",
+  "notes": "신설 사진 촬영 카메라에서 실시간 QR 인식(계기번호·제조월 자동저장)+셔터 촬영 통합 / 철거검침 위에 작업번호 네비 박스 하나 더(스크롤 중 이전·다음 이동)"
 }

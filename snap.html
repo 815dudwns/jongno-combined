@@ -252,7 +252,18 @@
             </div>
             <div class="sw" id="sw-yolo" data-opt="yolo"><span class="knob"></span></div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260707.1</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260707.2</div>
+    </div>
+
+    <!-- 작업번호 네비 박스 2 (철거 검침 섹션 위 — 상단 박스와 동기화) -->
+    <div class="seq-wrap">
+        <div class="seq-label">작업번호</div>
+        <div class="seq-row">
+            <div class="seq-btn js-seq-prev" id="seq-prev-2">이전</div>
+            <div class="seq-num js-seq-num" id="seq-num-2">1</div>
+            <div class="seq-btn js-seq-next" id="seq-next-2">다음</div>
+        </div>
+        <div class="seq-meter js-seq-meter" id="seq-meter-2"><span class="none">계기 미할당 (보관 후 자동 연결)</span></div>
     </div>
 
     <!-- 철거 검침 (종로앱과 동일: 철거사진 칸 없음. 주/야/무효/최대 검침사진이 전부, 대표=old_meter_photo) -->
@@ -307,11 +318,11 @@
     <div class="seq-wrap">
         <div class="seq-label">작업번호</div>
         <div class="seq-row">
-            <div class="seq-btn" id="seq-prev">이전</div>
-            <div class="seq-num" id="seq-num">1</div>
-            <div class="seq-btn" id="seq-next">다음</div>
+            <div class="seq-btn js-seq-prev" id="seq-prev">이전</div>
+            <div class="seq-num js-seq-num" id="seq-num">1</div>
+            <div class="seq-btn js-seq-next" id="seq-next">다음</div>
         </div>
-        <div class="seq-meter" id="seq-meter"><span class="none">계기 미할당 (보관 후 자동 연결)</span></div>
+        <div class="seq-meter js-seq-meter" id="seq-meter"><span class="none">계기 미할당 (보관 후 자동 연결)</span></div>
     </div>
 
     <div class="sheet-bg" id="sheet">
@@ -345,7 +356,7 @@
       </div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260707.1</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260707.2</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -385,7 +396,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260707.1";
+      const APP_VER = "20260707.2";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
@@ -545,17 +556,19 @@
       // ── 작업번호 표시 + 그 번호의 슬롯을 "선언적으로" 재구성 ──
       // 슬롯은 항상 slotView(seq,slot)의 진실로 다시 그린다 → 잔상/비동기 충돌이 구조적으로 불가능.
       function renderSeq(){
-        $('seq-num').textContent = seq;
+        // 두 박스 동기화 — querySelectorAll로 .js-seq-num / .js-seq-meter 모두 갱신
+        document.querySelectorAll('.js-seq-num').forEach(el => { el.textContent = seq; });
         const hit = seqIndex[seq];
         const tmp = tempIndex[seq];
-        const m = $('seq-meter');
+        let meterHtml;
         if (hit){
-          m.innerHTML = '<span class="no">계기 ' + hit.meterId + ' (할당됨)</span>';
+          meterHtml = '<span class="no">계기 ' + hit.meterId + ' (할당됨)</span>';
         } else if (tmp){
-          m.innerHTML = '<span class="none">보관 중 (계기 미할당)</span>';
+          meterHtml = '<span class="none">보관 중 (계기 미할당)</span>';
         } else {
-          m.innerHTML = '<span class="none">계기 미할당 (보관 후 자동 연결)</span>';
+          meterHtml = '<span class="none">계기 미할당 (보관 후 자동 연결)</span>';
         }
+        document.querySelectorAll('.js-seq-meter').forEach(m => { m.innerHTML = meterHtml; });
         paintSlot('new', slotView(seq, 'new'));
         if (typeof SNAP_RV_ALL !== 'undefined') SNAP_RV_ALL.forEach(fid=> paintSlot('rv_'+fid, slotView(seq, 'rv_'+fid)));   // 검침 LCD 사진 4슬롯
         renderSeqExtras(seq);  // 검침값/QR/YOLO 부가 입력 복원(옵션 ON시)
@@ -608,8 +621,11 @@
         else { st.textContent = '저장됨'; st.className = 'shot-status saved'; box.classList.add('uok'); }
       }
 
-      $('seq-prev').onclick = () => { if (seq > 1) seq--; renderSeq(); };
-      $('seq-next').onclick = () => { seq++; renderSeq(); };
+      // 두 박스의 이전/다음 버튼을 공용 함수로 처리 — 어느 쪽을 눌러도 동일하게 동작
+      function seqPrev(){ if (seq > 1) seq--; renderSeq(); }
+      function seqNext(){ seq++; renderSeq(); }
+      document.querySelectorAll('.js-seq-prev').forEach(btn => { btn.onclick = seqPrev; });
+      document.querySelectorAll('.js-seq-next').forEach(btn => { btn.onclick = seqNext; });
       $('refresh').onclick = async () => { await loadToday(); renderSeq(); toast('새로고침 완료'); };
 
       // ── 팝업 ──
