@@ -488,12 +488,256 @@ const QrScanner = (() => {
     }
   }
 
+  // ─── 카메라 모드 (신설 사진 촬영용) ─────────────────────────
+  // showCamera({onQr, onShutter, onError})
+  //   onQr(raw)      — 실시간 QR 인식 시 1회 호출 (카메라 유지, 반복 호출 없음)
+  //   onShutter(blob) — 셔터 버튼 → 현재 프레임 jpeg blob (카메라 닫힘)
+  //   onError(msg)   — getUserMedia 실패 등 (카메라 닫힘)
+  let _mode = 'qr';           // 'qr' | 'camera'
+  let _onShutter = null;
+  let _onQr = null;
+  let _onCamError = null;
+  let _qrDone = false;        // 카메라 모드: QR 1회 저장 후 추가 인식 억제
+
+  // 카메라 모드용 오버레이 요소 생성/참조 (DOM에 없으면 동적 삽입)
+  function ensureCamOverlay() {
+    if (document.getElementById('cam-shutter-bar')) return;
+    const overlay = document.getElementById('qr-scan-overlay');
+    if (!overlay) return;
+    // 셔터 버튼 바 (오버레이 하단에 삽입)
+    const bar = document.createElement('div');
+    bar.id = 'cam-shutter-bar';
+    bar.style.cssText = 'display:none;flex-direction:column;align-items:center;' +
+      'padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#111;gap:8px;';
+    // QR 결과 표시 오버레이 (프리뷰 위에 절대 위치)
+    const qrTag = document.createElement('div');
+    qrTag.id = 'cam-qr-tag';
+    qrTag.style.cssText = 'display:none;background:rgba(0,0,0,.75);color:#34d399;' +
+      'font-size:16px;font-weight:800;padding:10px 16px;border-radius:12px;' +
+      'text-align:center;max-width:90%;word-break:break-all;';
+    bar.appendChild(qrTag);
+    // 셔터 버튼
+    const btn = document.createElement('button');
+    btn.id = 'cam-shutter-btn';
+    btn.textContent = '촬영';
+    btn.style.cssText = 'padding:16px 40px;background:linear-gradient(145deg,#5fe0c0,#2bb89a);' +
+      'color:#04261f;border:none;border-radius:999px;font-size:22px;font-weight:800;' +
+      'box-shadow:0 8px 20px rgba(43,184,154,.35);cursor:pointer;';
+    btn.onclick = shutterClick;
+    bar.appendChild(btn);
+    overlay.appendChild(bar);
+  }
+
+  function setCamOverlayVisible(visible) {
+    const bar = document.getElementById('cam-shutter-bar');
+    if (bar) bar.style.display = visible ? 'flex' : 'none';
+  }
+
+  function setCamQrTag(text) {
+    const tag = document.getElementById('cam-qr-tag');
+    if (!tag) return;
+    if (text) { tag.textContent = text; tag.style.display = ''; }
+    else { tag.textContent = ''; tag.style.display = 'none'; }
+  }
+
+  async function shutterClick() {
+    // 현재 video 프레임을 원본 해상도(jpeg 0.95)로 캡처 → onShutter
+    try {
+      if (!_video || !_video.videoWidth) { return; }
+      const c = document.createElement('canvas');
+      c.width = _video.videoWidth; c.height = _video.videoHeight;
+      c.getContext('2d').drawImage(_video, 0, 0);
+      const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.95));
+      await stop();
+      _onShutter && _onShutter(blob || null);
+    } catch(e) {
+      await stop();
+      _onCamError && _onCamError('셔터 캡처 실패: ' + (e?.message || e));
+    }
+  }
+
+  function showCamera({ onQr, onShutter, onError } = {}) {
+    _mode = 'camera';
+    _onQr = onQr || null;
+    _onShutter = onShutter || null;
+    _onCamError = onError || null;
+    _qrDone = false;
+    _onSuccess = null;  // QR 모드 콜백 비움
+    _detected = false;
+
+    ensureCamOverlay();
+    setCamQrTag('');
+
+    document.getElementById('qr-scan-overlay').style.display = 'flex';
+    document.getElementById('qr-error-msg').style.display = 'none';
+
+    // 기존 QR 모드 close 버튼 → 카메라 모드에서는 stopCameraMode 경유
+    const closeBtn = document.getElementById('qr-close-btn');
+    if (closeBtn) closeBtn.onclick = () => stopCameraMode();
+
+    _video = document.getElementById('qr-reader-video');
+    if (!_video) {
+      const host = document.getElementById('qr-reader');
+      host.innerHTML = '';
+      _video = document.createElement('video');
+      _video.id = 'qr-reader-video';
+      _video.setAttribute('playsinline', 'true');
+      _video.setAttribute('autoplay', 'true');
+      _video.muted = true;
+      _video.style.cssText = 'width:100%;height:100%;object-fit:cover;background:black;display:block;';
+      host.appendChild(_video);
+    }
+
+    setCamOverlayVisible(true);
+    startCamera();
+  }
+
+  async function startCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      await stopCameraMode();
+      _onCamError && _onCamError('카메라 미지원 (HTTPS 필요)');
+      return;
+    }
+    const hasBD = await ensureBarcodeDetector();
+    if (hasBD) {
+      _detector = await initDetector();
+    }
+
+    await enumerateCameras();
+
+    const savedId = loadCameraId();
+    const savedLabel = loadCameraLabel();
+    let target = null;
+    if (savedId) target = _cameras.find(c => c.id === savedId);
+    if (!target && savedLabel) target = _cameras.find(c => (c.label||'') === savedLabel);
+    if (!target) {
+      const rears = _cameras.filter(c => /back|rear|environment|후면/i.test(c.label));
+      const nonWide = rears.find(c => !/(ultra.?wide|wide.?angle|광각|초광각)/i.test(c.label));
+      target = nonWide || rears[0] || _cameras[0];
+    }
+    if (!target) {
+      await stopCameraMode();
+      _onCamError && _onCamError('카메라를 찾을 수 없습니다');
+      return;
+    }
+    _camIndex = _cameras.findIndex(c => c.id === target.id);
+    await startCameraWithDeviceId(target.id);
+  }
+
+  async function startCameraWithDeviceId(deviceId) {
+    await stopStream();
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    try {
+      if (isIOS || !deviceId) {
+        _stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1920 } }
+        });
+      } else {
+        _stream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: deviceId }, width: { ideal: 2560 }, height: { ideal: 1920 } }
+        });
+      }
+    } catch(e) {
+      try {
+        _stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+        });
+      } catch(e2) {
+        try {
+          _stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+        } catch(e3) {
+          await stopCameraMode();
+          _onCamError && _onCamError('카메라 접근 실패: ' + (e3?.message || e3));
+          return;
+        }
+      }
+    }
+
+    _video.srcObject = _stream;
+    try { await _video.play(); } catch(e) {}
+
+    try {
+      const focusTrack = _stream.getVideoTracks()[0];
+      const cap = focusTrack?.getCapabilities?.() || {};
+      if (cap.focusMode && cap.focusMode.includes('continuous')) {
+        await focusTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+      }
+    } catch(e) {}
+
+    const track = _stream.getVideoTracks()[0];
+    const settings = track?.getSettings?.() || {};
+    const actualId = settings.deviceId || deviceId;
+    const actualLabel = track?.label || '';
+    saveCameraId(actualId, actualLabel);
+    const idx = _cameras.findIndex(c => c.id === actualId);
+    if (idx >= 0) _camIndex = idx;
+    populateCamSelect();
+    setLabel('카메라 준비됨');
+
+    await applyZoom(loadZoom() ?? 1.0);
+    _torchOn = false;
+    updateTorchBtn();
+
+    // 카메라 모드: QR 디텍션 루프 (BarcodeDetector 없으면 QR 인식 없이 촬영만)
+    if (_detector) startCameraDetectLoop();
+  }
+
+  let _camDetectLoop = null;
+  function startCameraDetectLoop() {
+    if (_camDetectLoop) clearInterval(_camDetectLoop);
+    _camDetectLoop = setInterval(() => detectOnceCam(), 300);
+  }
+  function stopCameraDetectLoop() {
+    if (_camDetectLoop) { clearInterval(_camDetectLoop); _camDetectLoop = null; }
+  }
+
+  let _camDetecting = false;
+  async function detectOnceCam() {
+    if (_qrDone || _camDetecting || !_video || _video.readyState < 2) return;
+    _camDetecting = true;
+    try {
+      const roi = captureRoi();
+      if (!roi) return;
+      let codes = null;
+      try { codes = await _detector.detect(roi); } catch {}
+      if (codes && codes.length && !_qrDone) {
+        _qrDone = true;
+        try { if (navigator.vibrate) navigator.vibrate(80); } catch {}
+        const raw = codes[0].rawValue || '';
+        _onQr && _onQr(raw);
+      }
+    } finally {
+      _camDetecting = false;
+    }
+  }
+
+  // 카메라 모드 전용 stop (camDetectLoop 정리 포함)
+  const _origStopAll = stopAll;
+  async function stopCameraMode() {
+    stopCameraDetectLoop();
+    await stopAll();
+    setCamOverlayVisible(false);
+    setCamQrTag('');
+    document.getElementById('qr-scan-overlay').style.display = 'none';
+    _mode = 'qr';
+    // close 버튼 복원 (QR 모드 init 설정값)
+    const closeBtn = document.getElementById('qr-close-btn');
+    if (closeBtn) closeBtn.onclick = stop;
+  }
+
+  // stop 오버라이드: 카메라 모드면 stopCameraMode 경유
+  const _origStop = stop;
+  async function stopUnified() {
+    if (_mode === 'camera') return stopCameraMode();
+    return _origStop();
+  }
+
   // ─── init ─────────────────────────
   function init() {
     // QR 스캐너 DOM이 없는 페이지(stats.html 등 공통 로드)에서는 초기화 스킵
     const closeBtn = document.getElementById('qr-close-btn');
     if (!closeBtn) return;
-    closeBtn.onclick = stop;
+    closeBtn.onclick = stopUnified;
     const sw = document.getElementById('qr-switch-btn');
     if (sw) sw.onclick = switchCamera;
     document.getElementById('qr-zoom-in').onclick = () => adjustZoom(+0.5);
@@ -507,7 +751,8 @@ const QrScanner = (() => {
         if (!id) return;
         sel.disabled = true;
         try {
-          await switchToDeviceId(id);
+          if (_mode === 'camera') await startCameraWithDeviceId(id);
+          else await switchToDeviceId(id);
         } finally {
           sel.disabled = false;
         }
@@ -515,7 +760,7 @@ const QrScanner = (() => {
     }
   }
 
-  return { show, stop, init };
+  return { show, stop: stopUnified, init, showCamera };
 })();
 
 if (document.readyState === 'loading') {
