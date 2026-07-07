@@ -4781,7 +4781,9 @@ function renderStats() {
     const ph = d.by_phase || {};
     const single = ph['단상'] || { target: 0, done: 0 };
     const three  = ph['삼상'] || { target: 0, done: 0 };
-    const C = 2 * Math.PI * 52, dash = C * (d.rate || 0) / 100;
+    // 완료율 = 불가 포함(resolved_rate), 교체건수(완료 숫자)는 순수 교체(total_done) 유지
+    const doneRate = (d.resolved_rate != null ? d.resolved_rate : d.rate) || 0;
+    const C = 2 * Math.PI * 52, dash = C * doneRate / 100;
     const phaseBar = (label, o, color) => {
         const r = o.target ? Math.round(o.done / o.target * 100) : 0;
         return `<div class="phase-row"><div class="phase-head"><span class="phase-name">${label}</span>
@@ -4795,7 +4797,7 @@ function renderStats() {
                     <circle cx="60" cy="60" r="52" class="donut-track"></circle>
                     <circle cx="60" cy="60" r="52" class="donut-fill" stroke-dasharray="${dash} ${C}" transform="rotate(-90 60 60)"></circle>
                 </svg>
-                <div class="donut-center"><div class="donut-pct">${d.rate}%</div><div class="donut-sub">완료율</div></div>
+                <div class="donut-center"><div class="donut-pct">${doneRate}%</div><div class="donut-sub">완료율</div></div>
             </div>
             <div class="stats-nums">
                 <div class="big-stat">
@@ -4810,14 +4812,16 @@ function renderStats() {
             </div>
         </div>`;
 
-    const rows = [...(d.by_region || [])].sort((a, b) => a.rate - b.rate);
+    const _rr = r => (r.resolved_rate != null ? r.resolved_rate : r.rate) || 0;  // 완료율 = 불가 포함
+    const rows = [...(d.by_region || [])].sort((a, b) => _rr(a) - _rr(b));
     document.getElementById('statsRegionBody').innerHTML = rows.map(r => {
-        const c = _barColor(r.rate);
+        const rr = _rr(r);
+        const c = _barColor(rr);
         return `<div class="region-row">
             <div class="region-name">${esc(r.region)}</div>
             <div class="region-bar-wrap">
-                <div class="region-track"><div class="region-fill" style="width:${r.rate}%;background:linear-gradient(180deg,rgba(255,255,255,.34),transparent 58%),${c}"></div></div>
-                <div class="region-pct" style="color:${c}">${r.rate}%</div>
+                <div class="region-track"><div class="region-fill" style="width:${rr}%;background:linear-gradient(180deg,rgba(255,255,255,.34),transparent 58%),${c}"></div></div>
+                <div class="region-pct" style="color:${c}">${rr}%</div>
             </div>
             <div class="region-counts"><span class="rc-done">${r.done.toLocaleString()}</span> <span class="rc-sep">/</span> <span class="rc-target">${r.target.toLocaleString()}</span><span class="rc-remain">잔여 ${r.remain.toLocaleString()}</span></div>
             <div class="region-phase"><span class="pchip single">단 ${r['단상_d']}/${r['단상_t']}</span><span class="pchip three">삼 ${r['삼상_d']}/${r['삼상_t']}</span></div>

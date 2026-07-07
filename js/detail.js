@@ -394,6 +394,22 @@ function getSortedMeters(metersOverride) {
         rank(a) - rank(b) || seq(a) - seq(b) || meters.indexOf(a) - meters.indexOf(b));
 }
 
+// 계기 개별 불가 → Firebase 동기화 (added_meters 패턴)
+function syncFailedMeterToFirebase(meterNumber, reason, remove) {
+    try {
+        if (!statusRef) return;
+        const addrKey = (typeof encodeKey === 'function') ? encodeKey(currentAddress) : currentAddress;
+        const ref = statusRef.child(addrKey).child('failedMeters').child(String(meterNumber));
+        if (remove) {
+            ref.remove();
+        } else {
+            ref.set(reason || '');
+        }
+    } catch (err) {
+        console.warn('failedMeters Firebase 동기화 실패:', err && (err.message || err));
+    }
+}
+
 // 계기 개별 불가 토글
 function toggleMeterFail(meterNumber) {
     if (!workStatus[currentAddress]) {
@@ -406,11 +422,13 @@ function toggleMeterFail(meterNumber) {
         // 이미 불가 → 해제
         delete status.failedMeters[meterNumber];
         saveStatusMirror();
+        syncFailedMeterToFirebase(meterNumber, null, true);
         renderMetersList();
     } else {
         // 불가 처리 → 일단 빈 사유로 등록하고 입력창 표시 (renderMetersList에서 처리)
         status.failedMeters[meterNumber] = '';
         saveStatusMirror();
+        syncFailedMeterToFirebase(meterNumber, '', false);
         renderMetersList();
         // 렌더링 후 해당 입력창에 포커스
         setTimeout(() => {
@@ -427,6 +445,7 @@ function saveMeterFailReason(meterNumber, reason) {
     if (!status.failedMeters) status.failedMeters = {};
     status.failedMeters[meterNumber] = reason;
     saveStatusMirror();
+    syncFailedMeterToFirebase(meterNumber, reason, false);
 }
 
 // 계기 목록 HTML 생성 및 렌더링
