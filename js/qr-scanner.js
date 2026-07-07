@@ -529,6 +529,7 @@ const QrScanner = (() => {
     reBtn.style.cssText = 'flex:1;max-width:140px;padding:18px 12px;background:#374151;color:#fff;border:2px solid #6b7280;' +
       'border-radius:999px;font-size:18px;font-weight:800;cursor:pointer;min-height:64px;';
     reBtn.onclick = () => {
+      try { if (navigator.vibrate) navigator.vibrate(15); } catch(e) {}
       _qrDone = false;
       setCamQrTag('');
       clearQrBox();
@@ -540,7 +541,7 @@ const QrScanner = (() => {
     torchBtn.textContent = '손전등';
     torchBtn.style.cssText = 'flex:1;max-width:140px;padding:18px 12px;background:#374151;color:#fff;border:2px solid #6b7280;' +
       'border-radius:999px;font-size:18px;font-weight:800;cursor:pointer;min-height:64px;display:none;';
-    torchBtn.onclick = () => toggleTorch();
+    torchBtn.onclick = () => { try { if (navigator.vibrate) navigator.vibrate(15); } catch(e) {} toggleTorch(); };
     btnRow.appendChild(torchBtn);
     // 촬영 버튼
     const btn = document.createElement('button');
@@ -572,6 +573,21 @@ const QrScanner = (() => {
   async function shutterClick() {
     // 현재 video 프레임을 원본 해상도(jpeg 0.95)로 캡처 → onShutter
     // ★ drawImage(동기)로 프레임을 먼저 그래브한 뒤 카메라 즉시 닫음 → toBlob(비동기) 중 프리뷰 잔류 방지
+    // 셔터 촉각 + 흰 플래시 (카메라 셔터 느낌) — 프레임 그래브 전, 즉각 피드백
+    try { if (navigator.vibrate) navigator.vibrate(30); } catch(e) {}
+    (function() {
+      const fl = document.createElement('div');
+      fl.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9998;' +
+        'background:white;opacity:.7;animation:snap-flash-fade .15s ease-out forwards;' +
+        '--flash-dur:.15s;--flash-peak:.7;';
+      // snap-flash-fade keyframes는 snap.html에 정의됨(공유 DOM). 인라인 스타일 대신 클래스 적용.
+      fl.className = 'snap-flash';
+      fl.style.setProperty('--flash-dur', '.15s');
+      fl.style.setProperty('--flash-peak', '.7');
+      fl.style.background = 'white';
+      document.body.appendChild(fl);
+      setTimeout(() => fl.remove(), 250);
+    })();
     try {
       if (!_video || !_video.videoWidth) { return; }
       const c = document.createElement('canvas');
@@ -603,7 +619,7 @@ const QrScanner = (() => {
 
     // 기존 QR 모드 close 버튼 → 카메라 모드에서는 stopCameraMode 경유
     const closeBtn = document.getElementById('qr-close-btn');
-    if (closeBtn) closeBtn.onclick = () => stopCameraMode();
+    if (closeBtn) closeBtn.onclick = () => { try { if (navigator.vibrate) navigator.vibrate(15); } catch(e) {} stopCameraMode(); };
 
     _video = document.getElementById('qr-reader-video');
     if (!_video) {
@@ -731,7 +747,8 @@ const QrScanner = (() => {
       try { codes = await _detector.detect(roi); } catch {}
       if (codes && codes.length && !_qrDone) {
         _qrDone = true;
-        try { if (navigator.vibrate) navigator.vibrate(80); } catch {}
+        // QR 인식 진동: 두 번 톡톡 ([0,60,40,60])
+        try { if (navigator.vibrate) navigator.vibrate([0,60,40,60]); } catch {}
         const raw = codes[0].rawValue || '';
         // 인식 위치 초록 박스 표시
         try {

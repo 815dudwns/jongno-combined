@@ -194,6 +194,46 @@
       #cam-shutter-bar { border-top:2px solid #1f2d3d; }
       #cam-qr-tag { transition: opacity .15s; }
 
+      /* ── 전역 버튼 눌림 모션 (scale + 밝기) ── */
+      /* 기존 개별 :active 대신 통일 규칙: 버튼(<button>) + 버튼처럼 동작하는 div/span */
+      button:active,
+      .seq-btn:active,
+      .refresh:active,
+      .gear:active,
+      .opt-close:active,
+      .rv-toggle-btn:active,
+      .uj-retry:active,
+      .opt-cam-load:active {
+        transform: scale(.95) !important;
+        filter: brightness(.88) !important;
+        transition: transform .05s, filter .05s;
+      }
+
+      /* ── QR 인식 태그 팝 애니메이션 ── */
+      @keyframes qr-tag-pop {
+        0%   { transform: scale(1); }
+        40%  { transform: scale(1.07); }
+        100% { transform: scale(1); }
+      }
+      #cam-qr-tag.pop { animation: qr-tag-pop .25s ease-out; }
+      /* QR 인식 성공 시 초록 강조 */
+      #cam-qr-tag.qr-ok {
+        background: rgba(16,185,129,.85);
+        color: #ffffff;
+        box-shadow: 0 0 18px rgba(52,211,153,.7);
+      }
+
+      /* ── 셔터/QR 인식 화면 플래시 (body에 append) ── */
+      .snap-flash {
+        position: fixed; inset: 0; pointer-events: none;
+        z-index: 9998; opacity: 0;
+        animation: snap-flash-fade var(--flash-dur, .15s) ease-out forwards;
+      }
+      @keyframes snap-flash-fade {
+        0%   { opacity: var(--flash-peak, .6); }
+        100% { opacity: 0; }
+      }
+
       /* 숫자 키패드 모달 (삼성 WebView가 inputmode 무시 → 자체 키패드, 어르신 큰 UI) */
       .kp-bg{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
         align-items:flex-end; justify-content:center; z-index:80;}
@@ -269,7 +309,7 @@
                 <select class="opt-cam-select" id="cam-sel-select" style="display:none;"></select>
             </div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260707.5</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260707.6</div>
     </div>
 
     <!-- 작업번호 네비 박스 2 (철거 검침 섹션 위 — 상단 박스와 동기화) -->
@@ -365,7 +405,7 @@
       <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260707.5</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260707.6</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -405,7 +445,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260707.5";
+      const APP_VER = "20260707.6";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
@@ -449,6 +489,24 @@
         $('lg-id').value = ''; $('lg-pw').value = ''; $('lg-err').textContent = '';
         showLogin();
       };
+
+      // ── 전역 버튼 촉각 (짧은 15ms 진동) ──
+      // qr-scan-overlay 내부(카메라 오버레이)는 qr-scanner.js 쪽에서 처리 — 여기서 제외해 중복 방지.
+      document.addEventListener('pointerdown', (e) => {
+        const el = e.target;
+        if (!el) return;
+        // qr-scan-overlay 안에서는 qr-scanner.js가 담당
+        if (el.closest('#qr-scan-overlay')) return;
+        const isBtn = el.tagName === 'BUTTON' ||
+          el.classList.contains('seq-btn') ||
+          el.classList.contains('refresh') ||
+          el.classList.contains('gear') ||
+          el.classList.contains('rv-toggle-btn') ||
+          el.classList.contains('uj-retry') ||
+          el.classList.contains('opt-close') ||
+          el.classList.contains('opt-cam-load');
+        if (isBtn) { try { navigator.vibrate?.(15); } catch(e2) {} }
+      }, { passive: true });
 
       async function startApp(){
         session = authGetSession();
@@ -782,7 +840,21 @@
               if (tag) {
                 tag.textContent = mid ? ('계기번호 ' + mid + (mfg ? ' · 제조 ' + mfg : '') + ' · 저장완료') : 'QR 인식됨';
                 tag.style.display = '';
+                // QR 인식 태그 초록 강조 + pop 애니메이션 (reflow로 재트리거)
+                tag.classList.remove('pop', 'qr-ok');
+                void tag.offsetWidth;
+                tag.classList.add('pop', 'qr-ok');
               }
+              // 화면 초록 플래시 (0.3초)
+              (function() {
+                const fl = document.createElement('div');
+                fl.className = 'snap-flash';
+                fl.style.setProperty('--flash-dur', '.3s');
+                fl.style.setProperty('--flash-peak', '.35');
+                fl.style.background = 'rgba(52,211,153,1)';
+                document.body.appendChild(fl);
+                setTimeout(() => fl.remove(), 400);
+              })();
             } catch(e2) {}
           },
           onShutter: (blob) => {

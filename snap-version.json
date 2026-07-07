@@ -1,5 +1,5 @@
 {
-  "versionName": "20260707.5",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260707.5.apk",
-  "notes": "완료 초록 띠를 박스 사방 균일하게(상단만 두껍던 것 수정). 설정 카메라 선택(카메라 0/1/2) + QR 인식 방식(통합/기존) 옵션 — 통합 시 카메라 선택 노출로 광각 고정 해결."
+  "versionName": "20260707.6",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260707.6.apk",
+  "notes": "버튼 눌림 모션+짧은 진동 / QR 인식 시 진동·초록 플래시·태그 pop(인식 확인) / 셔터 촬영 시 진동·흰 플래시. (707.5: 카메라 선택·QR 인식 방식·완료 초록띠)"
 }
