@@ -442,9 +442,10 @@ function mergeAddrInto(addr, fb, pendingWriteAddrs) {
     local.added_meters        = fb.added_meters        || {};
     local.comm_completed_list = fb.comm_completed_list || {};
 
-    // failedMeters — 로컬 전용 필드 유지
-    // meter_forced_by_comm 은 Firebase 권위 값을 사용하지 않음(mergeFirebaseData 기존 동작 유지)
-    local.failedMeters = local.failedMeters || fb.failedMeters || {};
+    // failedMeters — Firebase 동기화 값 + 로컬 미전송 값 합집합(union)
+    //   빈 {}는 truthy라 `local || fb`로 하면 fb 동기화분이 안 보이는 버그 → union으로 수정.
+    //   로컬(방금 누른 미전송)이 fb와 충돌하면 로컬 우선(30초 후 에코로 일치).
+    local.failedMeters = { ...(fb.failedMeters || {}), ...(local.failedMeters || {}) };
 }
 
 // Firebase 데이터와 로컬 데이터를 각 팀 prefix 별로 updatedAt 비교하여 병합
