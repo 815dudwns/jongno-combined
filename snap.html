@@ -16,9 +16,9 @@
     <script src="js/regions.js?v=20260629c"></script>
     <script src="js/config.js?v=snap2"></script>
     <script src="js/auth.js?v=20260630b"></script>
-    <script src="js/photo-uploader.js?v=20260702-800"></script>
+    <script src="js/photo-uploader.js?v=20260717a"></script>
     <script src="js/awms-parseValue.js?v=snap-qr"></script>
-    <script src="js/qr-scanner.js?v=snap-qr"></script>
+    <script src="js/qr-scanner.js?v=20260717a"></script>
     <script src="js/lcd-crop.js?v=snap-yolo"></script>
     <!-- YOLO(onnxruntime+lcd-yolo)는 무거워서 옵션 ON 시 지연 로드(loadYolo) -->
     <style>
@@ -63,17 +63,26 @@
       .shot-status.saving{color:var(--amber);}
       .shot-status.saved{color:var(--mint);}
       .shot-status.err{color:var(--red);}
-      /* 업로드 현황 도크 — 하단 고정 요약 바 + 펼침 리스트 (어르신용 큰 글씨) */
-      .uj-dock{position:fixed; left:0; right:0; bottom:0; z-index:2500;}
+      /* 업로드 현황 도크 — 하단 고정 요약 바 + 펼침 리스트 (어르신용 큰 글씨)
+         ★z-index 재조정(2026-07-17): 2500 → 40. 키패드(80)·시트(50)·토스트(60)·설정(90)·로그인(100)
+         전부의 아래로 — 도크가 키패드 확인버튼을 덮어 오탭으로 패널이 펼쳐지던 방해 해소. */
+      .uj-dock{position:fixed; left:0; right:0; bottom:0; z-index:40;}
+      .uj-dock.uj-hidden{display:none;}   /* 업로드 없으면 도크 자체 숨김 — 하단 상시 점유 해소 */
       .uj-bar{display:flex; align-items:center; justify-content:space-between;
         padding:14px 16px calc(14px + env(safe-area-inset-bottom));
         background:#1e293b; color:#fff; font-size:17px; font-weight:800;
         border-top:2px solid #334155; box-shadow:0 -3px 12px rgba(0,0,0,.4);}
       .uj-bar.has-fail{background:#b91c1c; border-top-color:#ef4444;}
       .uj-bar.all-ok{background:#065f46; border-top-color:#10b981;}
+      /* 전부 성공 상태는 3초 뒤 얇은 초록 줄로 자동 축소(정보는 유지, 방해는 제거) */
+      .uj-dock.uj-slim .uj-bar{padding:4px 16px calc(4px + env(safe-area-inset-bottom)); font-size:13px;}
+      .uj-dock.uj-slim .uj-tog{display:none;}
       .uj-bar .uj-tog{font-size:14px; font-weight:700; opacity:.9;}
       .uj-panel{max-height:0; overflow:hidden; background:#0f1b2a; transition:max-height .22s;}
       .uj-panel.open{max-height:46vh; overflow-y:auto;}
+      /* 패널 열림 배경 딤 — 바깥 탭하면 닫힘(검침칸 가림 오조작 방지) */
+      .uj-dim{position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:39; display:none;}
+      .uj-dim.show{display:block;}
       .uj-list-inner{padding:10px 12px;}
       .uj-item{display:flex; align-items:center; gap:10px; padding:13px 12px; border-radius:12px;
         margin-bottom:8px; font-size:18px; font-weight:800;}
@@ -129,9 +138,10 @@
         background:var(--mint-d); color:#04130d; border:none; border-radius:14px; cursor:pointer;}
       .login-err{color:var(--red); font-size:16px; font-weight:700; min-height:22px; margin-bottom:10px;}
 
-      .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+      .toast{position:fixed; left:50%; bottom:96px; transform:translateX(-50%);
         background:#000c; color:#fff; font-size:17px; font-weight:700; padding:12px 20px;
         border-radius:12px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:60;}
+      /* bottom 24→96px(2026-07-17): 도크 바(약 51px+safe-area)에 토스트 하단이 잘려 보이던 문제 */
       .toast.show{opacity:1;}
 
       /* 설정(톱니) 버튼 — 새로고침 옆 */
@@ -309,7 +319,7 @@
                 <select class="opt-cam-select" id="cam-sel-select" style="display:none;"></select>
             </div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260707.7</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260717.1</div>
     </div>
 
     <!-- 작업번호 네비 박스 2 (철거 검침 섹션 위 — 상단 박스와 동기화) -->
@@ -405,7 +415,7 @@
       <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260707.7</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260717.1</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -445,7 +455,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260707.7";
+      const APP_VER = "20260717.1";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
@@ -512,11 +522,14 @@
         session = authGetSession();
         $('who').textContent = session ? (session.name || session.id) : '-';
         hideLogin();
+        toast('오늘 작업 목록 불러오는 중...');   // 초기 로딩 표시 (로딩 완료 전 기본값 화면 오해 방지)
         await loadToday();
         seq = nextEmptySeq();
         renderSeq();
+        toast('목록 불러오기 완료');
         ujSweep();    // 앱 시작 시 orphan(done/묵은) job 노드 정리
         ujRender();   // 업로드 현황 도크 초기 표시
+        drainSnapQueue().catch(()=>{});   // 로컬큐에 남은(못 올라간) 사진 자동 복구
         pruneSaveLog();  // 저장이력 자동정리(오늘·어제만 보관, 그 이전 삭제)
         checkUpdate();  // 새 버전 있으면 업데이트 안내 (네이티브 자동설치)
       }
@@ -681,7 +694,9 @@
           st.textContent = ''; st.className = 'shot-status'; bd.textContent = ''; return;
         }
         if (v.img){ img.src = v.img; box.classList.add('has'); } else { img.removeAttribute('src'); box.classList.remove('has'); }
-        box.classList.toggle('busy', v.status === 'up');   // '올리는 중'일 때만 스피너
+        // ★busy 오버레이 제거(2026-07-17): "저장 중..." 반투명이 썸네일을 업로드 끝까지 덮어
+        //   "찍힌 건지 모르겠다"는 원인. 사진은 항상 선명히 보이고, 상태는 색 띠+문구로만.
+        box.classList.remove('busy');
         bd.textContent = seq + '번';
         if (v.status === 'up'){ st.textContent = '올리는 중'; st.className = 'shot-status saving'; box.classList.add('uup'); }
         else if (v.status === 'fail'){ st.textContent = '저장 실패'; st.className = 'shot-status err'; box.classList.add('ufail'); }
@@ -693,7 +708,22 @@
       function seqNext(){ seq++; renderSeq(); }
       document.querySelectorAll('.js-seq-prev').forEach(btn => { btn.onclick = seqPrev; });
       document.querySelectorAll('.js-seq-next').forEach(btn => { btn.onclick = seqNext; });
-      $('refresh').onclick = async () => { await loadToday(); renderSeq(); toast('새로고침 완료'); };
+      // 새로고침: 누르면 즉시 버튼에 진행 표시 + 비활성화(중복탭 차단), 끝나면 "완료" 1.5초 표시.
+      // 어르신 기준 — 시선이 버튼에 있으니 toast보다 버튼 자체 변화가 확실 (2026-07-17)
+      $('refresh').onclick = async () => {
+        const btn = $('refresh');
+        if (btn.disabled) return;
+        const orig = btn.textContent;
+        btn.disabled = true; btn.textContent = '새로고침 중...'; btn.style.opacity = '.6';
+        try {
+          await loadToday(); renderSeq();
+          btn.textContent = '완료';
+          setTimeout(() => { btn.textContent = orig; btn.disabled = false; btn.style.opacity = ''; }, 1500);
+        } catch(e) {
+          btn.textContent = '실패 — 다시';
+          setTimeout(() => { btn.textContent = orig; btn.disabled = false; btn.style.opacity = ''; }, 2000);
+        }
+      };
 
       // ── 팝업 ──
       let sheetSlot = null;
@@ -718,7 +748,13 @@
           _ujJobs[jobId].ref = ref;
           ref.on('value', sn => {
             const val = sn.val(); const st = val && val.status;
-            if (st === 'done'){ ujSet(jobId, 'ok', val.url); ref.off(); ref.remove().catch(()=>{}); }
+            if (st === 'done'){
+              ujSet(jobId, 'ok', val.url); ref.off(); ref.remove().catch(()=>{});
+              // 네이티브 워커 완료 — 로컬큐에서도 제거 (jobId 앞부분 = day)
+              const j2 = _ujJobs[jobId];
+              const dayOfJob = String(jobId).split('_')[0];
+              if (j2) SnapPhotoQueue.delete(dayOfJob, j2.seq, j2.slot);
+            }
             else if (st === 'failed'){ ujSet(jobId, 'fail'); ref.off(); }
           });
         } catch(e){ console.warn('[uj 구독 실패]', e); }
@@ -745,13 +781,26 @@
         if (j.img && String(j.img).startsWith('blob:')) URL.revokeObjectURL(j.img);
         delete _ujJobs[jobId]; ujRender();
       }
+      let _ujSlimTimer = null;
       function ujRender(){
         const list = $('uj-list'), bar = $('uj-bar'), sum = $('uj-summary');
+        const dock = document.querySelector('.uj-dock');
         const arr = Object.entries(_ujJobs).filter(([,j]) => !j.hidden).sort((a,b) => (b[1].seq - a[1].seq));
         let up = 0, ok = 0, fail = 0;
         arr.forEach(([,j]) => { if (j.status==='up') up++; else if (j.status==='ok') ok++; else if (j.status==='fail') fail++; });
         bar.classList.toggle('has-fail', fail > 0);
-        bar.classList.toggle('all-ok', fail === 0 && up === 0 && ok > 0);
+        const allOk = fail === 0 && up === 0 && ok > 0;
+        bar.classList.toggle('all-ok', allOk);
+        // ★도크 표시 정책(2026-07-17): 업로드 없으면 통째 숨김 / 전부 성공이면 3초 뒤 얇은 줄 / 진행·실패 땐 정상 크기
+        if (dock){
+          dock.classList.toggle('uj-hidden', arr.length === 0);
+          clearTimeout(_ujSlimTimer);
+          if (allOk && !$('uj-panel').classList.contains('open')){
+            _ujSlimTimer = setTimeout(() => dock.classList.add('uj-slim'), 3000);
+          } else {
+            dock.classList.remove('uj-slim');
+          }
+        }
         const parts = [];
         if (up) parts.push('올리는 중 ' + up);
         if (ok) parts.push('성공 ' + ok);
@@ -775,22 +824,40 @@
           list.appendChild(row);
         });
       }
-      function ujRetry(jobId){
+      async function ujRetry(jobId){
         const j = _ujJobs[jobId]; if (!j) return;
         if (j.ref) j.ref.off();
         try { db.ref('uploadJobs/' + RG + '/' + jobId).remove().catch(()=>{}); } catch(e){}
         const retrySeq = j.seq, retrySlot = j.slot;
         ujRemove(jobId);
         seq = retrySeq; renderSeq();      // 그 작업번호로 이동
-        $('uj-panel').classList.remove('open');
+        ujPanelSet(false);
         if (retrySlot === 'qr'){
           // QR 재전송 = 갤러리 아님, QR 재스캔
           $('qr-btn').click();
           toast(retrySeq + '번 계기번호 재전송 — QR 다시 스캔');
           return;
         }
+        // ★로컬큐에 blob이 남아있으면(실패 = 삭제 안 됨) 그걸로 즉시 재업로드 — 갤러리 재선택 불필요.
+        //   (기존: 갤러리 피커를 열었지만 커스텀 카메라 사진은 갤러리에 없어 재전송 자체가 불가능했음)
+        try {
+          const entries = await SnapPhotoQueue.getAll();
+          const hitE = entries.find(e => e.day === dayKST() && e.seq === retrySeq && e.slot === retrySlot);
+          const blob = hitE && SnapPhotoQueue.toBlob(hitE);
+          if (blob){
+            const newJobId = `${dayKST()}_${retrySeq}_${retrySlot}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+            _slotLatest[`${dayKST()}::${retrySeq}::${retrySlot}`] = newJobId;
+            ujRegister(newJobId, retrySeq, retrySlot, URL.createObjectURL(blob));
+            renderSeq();
+            toast(retrySeq + '번 ' + ujLabel(retrySlot) + ' 다시 올리는 중');
+            autoSave(retrySlot, blob, retrySeq, newJobId)
+              .then(() => { if (seq === retrySeq) renderSeq(); })
+              .catch(err => { console.warn('[재전송 실패]', err); ujSet(newJobId, 'fail'); });
+            return;
+          }
+        } catch(e){ console.warn('[재전송 큐조회 실패]', e); }
         sheetSlot = retrySlot;
-        $('in-alb').click();              // 갤러리(Pictures/종로사진실패 포함)에서 재선택
+        $('in-alb').click();              // 큐에 없으면 갤러리에서 재선택 (구버전 촬영분 등)
         toast(retrySeq + '번 ' + ujLabel(retrySlot) + ' 재전송 — 갤러리에서 사진 선택');
       }
       // 앱 시작 시 orphan job 노드 정리(앱이 죽어 리스너 detach 못한 done/묵은 노드)
@@ -805,7 +872,24 @@
           }
         } catch(e){ console.warn('[uj sweep 실패]', e); }
       }
-      $('uj-bar').onclick = () => $('uj-panel').classList.toggle('open');
+      // 도크 바 탭 = 패널 토글 + 배경 딤(바깥 탭하면 닫힘). 얇은 줄 상태에서 탭하면 원래 크기로.
+      function ujPanelSet(open){
+        $('uj-panel').classList.toggle('open', open);
+        let dim = document.getElementById('uj-dim');
+        if (!dim){
+          dim = document.createElement('div');
+          dim.id = 'uj-dim'; dim.className = 'uj-dim';
+          dim.onclick = () => ujPanelSet(false);
+          document.body.appendChild(dim);
+        }
+        dim.classList.toggle('show', open);
+        if (open) document.querySelector('.uj-dock')?.classList.remove('uj-slim');
+      }
+      $('uj-bar').onclick = () => {
+        const dock = document.querySelector('.uj-dock');
+        if (dock && dock.classList.contains('uj-slim')){ dock.classList.remove('uj-slim'); return; }
+        ujPanelSet(!$('uj-panel').classList.contains('open'));
+      };
       // 신설 사진 촬영: getUserMedia 지원이면 커스텀 카메라(실시간 QR+셔터), 미지원이면 앨범/촬영 시트
       $('box-new').onclick = () => openNewCamera();
       $('sheet-cancel').onclick = closeSheet;
@@ -874,30 +958,112 @@
       function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show');
         clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), 1800); }
 
-      // ── 사진 선택 → job 등록(올리는중) + 자동 저장. 표시는 전적으로 renderSeq(선언적)가 담당 ──
+      // ══════════ 로컬 사진 대기큐 (IndexedDB) — 촬영본 유실 원천 차단 (2026-07-17) ══════════
+      // 원칙(영준님): 촬영 → ①화면 표시 ②로컬 저장 ③업로드. 업로드는 큐가 뒤에서.
+      // 메인앱 photo-queue.js와 같은 패턴이되 DB를 분리('snap-photo-queue') — 같은 오리진(PWA)에서
+      // 메인앱 드레인이 snap 항목을 계기사진으로 오인하는 교차오염 방지. 키 = day::seq::slot.
+      const SnapPhotoQueue = (() => {
+        const DB_NAME = 'snap-photo-queue', STORE = 'pending', DB_VER = 1;
+        let _dbP = null;
+        function openDB(){
+          if (_dbP) return _dbP;
+          _dbP = new Promise((res, rej) => {
+            if (!('indexedDB' in window)) { rej(new Error('IndexedDB 미지원')); return; }
+            const rq = indexedDB.open(DB_NAME, DB_VER);
+            rq.onupgradeneeded = () => { const d = rq.result; if (!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE); };
+            rq.onsuccess = () => res(rq.result);
+            rq.onerror = () => rej(rq.error || new Error('IDB open 실패'));
+          });
+          return _dbP;
+        }
+        const keyOf = (day, s, slot) => `${day}::${s}::${slot}`;
+        // blob은 ArrayBuffer로 저장(iOS IDB Blob 직렬화 한계 회피 — 메인앱과 동일 이유)
+        async function put(day, s, slot, blob, jobId){
+          try {
+            const buf = await blob.arrayBuffer();
+            const db = await openDB();
+            const entry = { buf, type: blob.type || 'image/jpeg', day, seq: s, slot, jobId, createdAt: Date.now() };
+            await new Promise((res, rej) => {
+              const tx = db.transaction(STORE, 'readwrite');
+              tx.objectStore(STORE).put(entry, keyOf(day, s, slot));
+              tx.oncomplete = res; tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+            });
+          } catch(e){ console.warn('[SnapQueue] put 실패(무시):', e); }
+        }
+        async function del(day, s, slot){
+          try {
+            const db = await openDB();
+            await new Promise((res, rej) => {
+              const tx = db.transaction(STORE, 'readwrite');
+              tx.objectStore(STORE).delete(keyOf(day, s, slot));
+              tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+            });
+          } catch(e){ console.warn('[SnapQueue] delete 실패(무시):', e); }
+        }
+        async function delKey(key){
+          try {
+            const db = await openDB();
+            await new Promise((res, rej) => {
+              const tx = db.transaction(STORE, 'readwrite');
+              tx.objectStore(STORE).delete(key);
+              tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+            });
+          } catch(e){ console.warn('[SnapQueue] delKey 실패(무시):', e); }
+        }
+        async function getAll(){
+          try {
+            const db = await openDB();
+            return await new Promise((res, rej) => {
+              const tx = db.transaction(STORE, 'readonly'), st = tx.objectStore(STORE);
+              let keys = null, vals = null;
+              const fin = () => { if (keys && vals) res(keys.map((k, i) => ({ key: k, ...vals[i] }))); };
+              const ka = st.getAllKeys(); ka.onsuccess = () => { keys = ka.result; fin(); }; ka.onerror = () => rej(ka.error);
+              const va = st.getAll();     va.onsuccess = () => { vals = va.result; fin(); }; va.onerror = () => rej(va.error);
+            });
+          } catch(e){ console.warn('[SnapQueue] getAll 실패(무시):', e); return []; }
+        }
+        const toBlob = (entry) => { try { return entry && entry.buf ? new Blob([entry.buf], { type: entry.type || 'image/jpeg' }) : null; } catch(e){ return null; } };
+        return { put, delete: del, delKey, getAll, toBlob };
+      })();
+
+      // 재촬영 최신승리 가드: (day::seq::slot)별 마지막 jobId만 RTDB에 URL을 쓸 자격.
+      // 느린 1차 업로드가 새 사진(2차)을 늦게 도착해 덮어쓰는 경합 차단.
+      const _slotLatest = {};   // key → jobId
+
+      // ── 사진 선택 → 화면표시 → 로컬큐 저장 → 업로드 (2026-07-17 재구성) ──
+      // 순서 원칙(영준님): ①앱 화면 즉시 ②로컬(IndexedDB) 영속화 ③업로드는 그 다음.
+      // 압축을 경로 맨 앞으로 당김(loadToday와 무관) — 큐에는 항상 합의화질(≈50KB)만 저장.
       async function onPick(slot, file){
         if (!file) return;
         const localSeq = seq;
+        const day = dayKST();
         // ★삼성 파일피커 content:// 파일은 createImageBitmap 여러 번 호출 시 디코드 실패(종로맵과 동일).
         //   메모리 Blob으로 1회 materialize → compress·detect·박스그리기 모두 이 mem 재사용(YOLO 못찾던 원인).
         let mem = file;
         try { mem = new Blob([await file.arrayBuffer()], { type: file.type || 'image/jpeg' }); }
         catch(e){ console.warn('[materialize 실패, 원본 사용]', e); }
         const localUrl = URL.createObjectURL(mem);
-        const jobId = `${dayKST()}_${localSeq}_${slot}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;  // 랜덤접미사: 같은 ms 연속 탭 jobId 충돌(=_ujJobs 덮어쓰기·done 조기remove) 방지
-        ujRegister(jobId, localSeq, slot, localUrl);   // '올리는 중' 등록 + 워커 구독
-        if (seq === localSeq) renderSeq();             // 즉시 미리보기(선언적 — 직접 DOM 조작 안 함)
+        const jobId = `${day}_${localSeq}_${slot}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;  // 랜덤접미사: 같은 ms 연속 탭 jobId 충돌(=_ujJobs 덮어쓰기·done 조기remove) 방지
+        _slotLatest[`${day}::${localSeq}::${slot}`] = jobId;   // 최신승리 가드 갱신
+        ujRegister(jobId, localSeq, slot, localUrl);   // ① '올리는 중' 등록 + 즉시 미리보기
+        if (seq === localSeq) renderSeq();
         try {
-          await autoSave(slot, mem, localSeq, jobId);
-          // 상태 전이는 전부 job 모델로: 네이티브=워커 구독, 폴백=autoSave가 ujSet('ok'). 여기선 DOM 안 건드림.
-          // LCD 자동검출(옵션) — 대표 검침칸(주간/심야야간) 사진에. box-old 제거로 여기로 이전.
-          if (slot === 'rv_' + snapAutoFields(localSeq)[0]) runYoloOnOld(mem, localSeq, snapAutoFields(localSeq)[0]);
+          // ② 압축 → 로컬큐 영속화 (업로드 전! 여기까지 되면 앱이 죽어도 사진은 살아있음)
+          //    커스텀 카메라 blob(_preCompressed)은 이미 합의화질 — ICC 제거만.
+          const compressed = (file && file._preCompressed)
+            ? await PhotoUploader.stripICC(mem)
+            : await PhotoUploader.compress(mem, { square: true });   // awms가 세로비율 사진을 90도 눕힘 → 1:1 크롭
+          await SnapPhotoQueue.put(day, localSeq, slot, compressed, jobId);
+          // ③ 업로드 (성공 시 autoSave 내부에서 큐 삭제 + ujSet ok)
+          await autoSave(slot, compressed, localSeq, jobId);
+          // LCD 자동검출(옵션) — 대표 검침칸(주간/심야야간) 사진에.
+          if (slot === 'rv_' + snapAutoFields(localSeq)[0]) runYoloOnOld(compressed, localSeq, snapAutoFields(localSeq)[0]);
           await loadToday();                 // RTDB 반영(번호 점유)
           if (seq === localSeq) renderSeq();
         } catch (e) {
           console.error('[autoSave]', e);
-          ujSet(jobId, 'fail');              // 즉시 오류 → 실패(도크+슬롯 자동 반영)
-          alert('저장 실패 원인:\n' + ((e && e.code) ? e.code + '\n' : '') + ((e && e.message) ? e.message : String(e)));
+          ujSet(jobId, 'fail');              // 실패 표시 — 사진은 로컬큐에 남아있어 재전송/자동복구 가능
+          toast('저장 실패 — 사진은 기기에 보관됨. 재전송 가능');
         }
       }
       $('in-cam').onchange = e => { const f=e.target.files[0]; e.target.value=''; if(sheetSlot) onPick(sheetSlot, f); };
@@ -942,6 +1108,7 @@
       // ── 자동 저장: 계기 할당됐으면 그 계기에 직접, 아니면 임시보관함 ──
       // 네이티브(AndroidUpload) 브릿지가 있으면 WorkManager 큐 등록(백그라운드, 자동재시도).
       // 브릿지 없으면(웹 브라우저/구버전) 기존 restUpload + Firebase SDK 방식으로 폴백.
+      // ★file은 onPick에서 이미 압축 완료된 blob (2026-07-17 — 압축을 경로 앞으로 이동, 여기선 재압축 없음)
       async function autoSave(slot, file, s, jobId){
         // ★staleness 픽스: 저장 직전 최신 할당을 다시 받아 hit 판정 — 종로 메인앱에서 방금 할당(교체)한
         //   계기도 인식해 temp로 새지 않고 그 계기에 직접 저장한다. (onPick 끝 loadToday는 한 박자 늦음)
@@ -974,7 +1141,7 @@
 
         // ── 네이티브 WorkManager 경로 ──
         if (typeof AndroidUpload !== 'undefined' && AndroidUpload.available()) {
-          const blob = await PhotoUploader.compress(file, { square:true });   // awms가 세로비율 사진을 90도 눕힘 → 가운데 1:1 크롭으로 회피
+          const blob = file;   // onPick에서 압축 완료 — 재압축 없음
           // Blob → base64 변환 (브릿지 전달용)
           const b64 = await new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -1043,8 +1210,16 @@
         }
 
         // ── 폴백: 기존 restUpload + Firebase SDK 경로 (웹 브라우저, 구버전 앱, enqueue 실패) ──
-        const blob = await PhotoUploader.compress(file, { square:true });   // awms가 세로비율 사진을 90도 눕힘 → 가운데 1:1 크롭으로 회피
+        const blob = file;   // onPick에서 압축 완료 — 재압축 없음
         const url = await restUpload(blob, path);
+        // ★최신승리 가드: 업로드 동안 같은 칸에 재촬영이 있었으면(내가 최신이 아니면) RTDB에 쓰지 않는다.
+        //   느린 1차(구사진)가 새 사진을 늦게 덮는 경합 차단. Storage blob은 남음(증거 보존).
+        const _guardKey = `${day}::${s}::${slot}`;
+        if (jobId && _slotLatest[_guardKey] && _slotLatest[_guardKey] !== jobId){
+          console.info('[최신승리] 구 업로드 RTDB 기록 생략:', jobId);
+          ujRemove(jobId);   // 도크에서 제거 (새 job이 그 칸을 대표)
+          return;
+        }
         if (hit){
           // 시나리오 A: 무조건 덮어쓰기 — 재촬영 시 최신 사진으로 수정 가능.
           // (Storage 경로는 _uniq 고유 토큰으로 생성되므로 이전 사진 blob은 Storage에 그대로 보존됨)
@@ -1076,8 +1251,56 @@
             });
           }
         }
+        SnapPhotoQueue.delete(day, s, slot);   // 업로드+RTDB 기록 완료 — 로컬큐에서 제거
         if (jobId) ujSet(jobId, 'ok', url);   // 폴백 경로(브라우저/구앱) 성공 — 원격 URL로 도크/슬롯 갱신
       }
+
+      // ── 로컬큐 드레인: 업로드 못 끝내고 죽은 사진 자동 복구 (앱 시작·화면 복귀 시) ──
+      let _draining = false;
+      async function drainSnapQueue(){
+        if (_draining) return;
+        _draining = true;
+        try {
+          const entries = await SnapPhotoQueue.getAll();
+          if (!entries.length) return;
+          const today = dayKST();
+          let recovered = 0;
+          for (const e of entries){
+            // 이 세션에서 지금 올리는 중인 job은 건너뜀 (60초 넘게 'up'이면 죽은 걸로 보고 재시도)
+            const j = e.jobId && _ujJobs[e.jobId];
+            if (j && j.status === 'up' && (Date.now() - (e.createdAt || 0)) < 60000) continue;
+            const blob = SnapPhotoQueue.toBlob(e);
+            if (!blob){ SnapPhotoQueue.delKey(e.key); continue; }
+            if (e.day === today){
+              // 오늘 것 — 그 번호로 정식 재업로드 (큐 blob은 이미 압축본)
+              const jobId = `${e.day}_${e.seq}_${e.slot}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+              _slotLatest[`${e.day}::${e.seq}::${e.slot}`] = _slotLatest[`${e.day}::${e.seq}::${e.slot}`] || jobId;
+              if (_slotLatest[`${e.day}::${e.seq}::${e.slot}`] !== jobId){ continue; }   // 이미 새 촬영이 대표
+              ujRegister(jobId, e.seq, e.slot, URL.createObjectURL(blob));
+              recovered++;
+              autoSave(e.slot, blob, e.seq, jobId)
+                .then(() => { if (seq === e.seq) renderSeq(); })
+                .catch(err => { console.warn('[드레인 재업로드 실패]', err); ujSet(jobId, 'fail'); });
+            } else {
+              // 지난날 것 — 그날 temp에 증거 보존 업로드 (오늘 seqIndex로 라우팅하면 엉뚱한 계기에 붙음)
+              try {
+                const p = `replacements/_temp/${e.day}/${e.seq}/${e.slot}_recover_${Date.now()}.jpg`;
+                const url = await restUpload(blob, p);
+                const field = (e.slot === 'old') ? 'removal_photo' : (e.slot.indexOf('rv_') === 0 ? null : 'new_meter_photo');
+                if (field){
+                  await tempRef.child(e.day).child(String(e.seq)).update({ [field]: url, daily_seq: e.seq, recovered_at: firebase.database.ServerValue.TIMESTAMP });
+                } else {
+                  await tempRef.child(e.day).child(String(e.seq)).child('removal_photos').child(e.slot.slice(3)).set(url);
+                }
+                SnapPhotoQueue.delKey(e.key);
+                console.info('[드레인] 지난날 사진 temp 보존:', e.key);
+              } catch(err){ console.warn('[드레인 과거복구 실패(보류)]', err); }
+            }
+          }
+          if (recovered) toast('못 올라간 사진 ' + recovered + '장 다시 올리는 중');
+        } finally { _draining = false; }
+      }
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) drainSnapQueue().catch(()=>{}); });
 
       // ════════════ 옵션(설정) + 부가기능: 철거지침 / QR / YOLO ════════════
       const OPT_KEYS = { reading:'snap_opt_reading', qr:'snap_opt_qr', legacy:'snap_opt_legacy' };
@@ -1221,10 +1444,20 @@
         applySnapRv(seq);
       };
 
+      // ── 검침값 자릿수 규칙 (본앱 replacement-modal.js와 동일식, 2026-07-17 이식) ──
+      // 단상(계기번호 3~4자리 17/19/25/26/27/53) = 5자리, 삼상·코드미상 = 6자리.
+      // 최대전력(dm_mt_day)만 9999.99 형식(정수4+소수2). 미할당 seq(계기번호 없음) = 6 폴백.
+      function snapPhaseDigits(seqNo){
+        const hit = seqIndex[seqNo];
+        const mno = String((hit && hit.meterId) || '').replace(/-/g, '').padStart(11, '0');
+        return ['17','19','25','26','27','53'].includes(mno.slice(2, 4)) ? 5 : 6;
+      }
+
       // 검침값 입력 = 자체 숫자 키패드 (삼성 WebView inputmode 회피 + 어르신 큰 UI), 칸별·소수점 지원
-      let _kpVal = '', _kpInputId = null, _kpDec = false;
-      function openKeypad(inputId, dec, title){
+      let _kpVal = '', _kpInputId = null, _kpDec = false, _kpMax = 9, _kpDmMt = false;
+      function openKeypad(inputId, dec, title, maxDigits, dmMt){
         _kpInputId = inputId; _kpDec = !!dec;
+        _kpMax = maxDigits || 9; _kpDmMt = !!dmMt;
         _kpVal = String($(inputId).value || '').replace(dec?/[^0-9.]/g:/[^0-9]/g, '');
         $('kp-title').textContent = title || '철거 검침값';
         $('kp-dot').classList.toggle('off', !dec);
@@ -1235,6 +1468,15 @@
         $('kp').classList.remove('open');
         if (save && _kpInputId){ $(_kpInputId).value = _kpVal; $(_kpInputId).dispatchEvent(new Event('change')); }
       }
+      // 자릿수 캡 판정: 최대전력=9999.99(정수4·소수2), 그 외=단상5/삼상6 (소수점 제외 숫자 수)
+      function kpCanAppend(digit){
+        if (_kpDmMt){
+          const dot = _kpVal.indexOf('.');
+          if (dot < 0) return _kpVal.length < 4;              // 정수부 최대 4자리
+          return (_kpVal.length - dot - 1) < 2;               // 소수부 최대 2자리
+        }
+        return _kpVal.replace('.','').length < _kpMax;
+      }
       $('kp').addEventListener('click', (e)=>{
         if (e.target === $('kp')){ closeKeypad(false); return; }   // 배경 탭 = 취소
         const k = e.target && e.target.dataset ? e.target.dataset.k : null;
@@ -1242,7 +1484,7 @@
         if (k === 'del') _kpVal = _kpVal.slice(0, -1);
         else if (k === 'ok'){ closeKeypad(true); return; }
         else if (k === '.'){ if(_kpDec && !_kpVal.includes('.')) _kpVal = (_kpVal||'0') + '.'; }
-        else if (_kpVal.replace('.','').length < 9) _kpVal += k;
+        else if (kpCanAppend(k)) _kpVal += k;
         $('kp-display').textContent = _kpVal || '0';
       });
       // 각 칸 → readonly + 클릭 시 키패드, 입력완료 시 칸별 저장
@@ -1252,9 +1494,21 @@
         if(box) box.onclick = ()=> openSheet('rv_'+fid);   // 검침 LCD 사진 슬롯 탭 → 시트
         if(!el) return;
         el.setAttribute('readonly','readonly');
-        el.onclick = ()=> openKeypad(m.id, m.dec, '철거 '+m.lab);
+        el.onclick = ()=>{
+          if (fid === 'dm_mt_day') openKeypad(m.id, m.dec, '철거 '+m.lab+' (최대 9999.99)', 7, true);
+          else openKeypad(m.id, m.dec, '철거 '+m.lab, snapPhaseDigits(seq), false);
+        };
         el.addEventListener('change', async ()=>{
           const v = el.value.trim(); if(v==='') return;
+          // 최대전력 >=10000 경고 (본앱 onSave와 동일 규칙 — 무효전력과 뒤바뀜 의심)
+          if (fid === 'dm_mt_day'){
+            const dmv = Number(v);
+            if (!isNaN(dmv) && dmv >= 10000){
+              if (!confirm('최대전력 값(' + v + ')이 형식(최대 9999.99)을 벗어납니다.\n\n무효전력 칸과 바뀌어 입력되지 않았는지 확인해 주세요.\n그래도 이대로 저장하시겠습니까?')){
+                el.value = ''; return;
+              }
+            }
+          }
           const localSeq = seq;
           try { await saveRvField(localSeq, fid, m.dec?Number(v):parseInt(v,10)); toast('검침값 저장됨 ('+localSeq+'번)'); if(seq===localSeq) updateDoneBands(); }
           catch(e){ console.error('[검침값]', e); toast('검침값 저장 실패'); }

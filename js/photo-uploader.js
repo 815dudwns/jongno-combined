@@ -94,5 +94,6 @@ const PhotoUploader = (() => {
     return await upload(thumb, thumbPathOf(origPath));
   }
 
-  return { compress, upload, compressAndUpload, thumbPathOf, uploadThumb };
+  // stripICC 공개(2026-07-17): snap 커스텀 카메라가 이미 압축된 blob에 ICC 제거만 적용(재압축 생략)
+  return { compress, upload, compressAndUpload, thumbPathOf, uploadThumb, stripICC };
 })();

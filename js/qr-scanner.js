@@ -62,14 +62,17 @@ const QrScanner = (() => {
     return typeof window.BarcodeDetector === 'function';
   }
 
+  let _detectorCache = null;   // BarcodeDetector 인스턴스 캐시 — 매 카메라 오픈마다 재생성 방지
   async function initDetector() {
+    if (_detectorCache) return _detectorCache;
     if (!hasBarcodeDetector()) return null;
     try {
       const formats = await BarcodeDetector.getSupportedFormats();
       const wanted = ['qr_code','code_128','code_39','code_93','codabar',
                       'ean_13','ean_8','upc_a','upc_e','itf','pdf417','aztec','data_matrix'];
       const used = wanted.filter(f => formats.includes(f));
-      return new BarcodeDetector({ formats: used.length ? used : formats });
+      _detectorCache = new BarcodeDetector({ formats: used.length ? used : formats });
+      return _detectorCache;
     } catch (e) {
       debugLog('BarcodeDetector init 실패: ' + (e?.message||e));
       return null;
@@ -109,12 +112,17 @@ const QrScanner = (() => {
   }
 
   // ─── 카메라 enumerate ─────────────────────────
+  // 라벨까지 채워진 목록은 캐시 재사용 (매 오픈마다 재열거 방지 — 기동 경량화)
+  let _camsCached = false;
   async function enumerateCameras() {
+    if (_camsCached && _cameras.length) { populateCamSelect(); return _cameras; }
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       _cameras = devices
         .filter(d => d.kind === 'videoinput')
         .map(d => ({ id: d.deviceId, label: d.label || '', groupId: d.groupId }));
+      // 라벨은 카메라 권한 승인 후에만 채워짐 — 라벨 있는 목록만 캐시
+      _camsCached = _cameras.length > 0 && _cameras.some(c => c.label);
       debugLog(`enumerate → ${_cameras.length}개`);
       _cameras.forEach((c, i) => debugLog(`  ${i}: id=...${String(c.id).slice(-8)} label="${(c.label||'').slice(0,40)}"`));
       populateCamSelect();
@@ -461,7 +469,8 @@ const QrScanner = (() => {
   // ─── 카메라 모드 (신설 사진 촬영용) ─────────────────────────
   // showCamera({onQr, onShutter, onError})
   //   onQr(raw)      — 실시간 QR 인식 시 1회 호출 (카메라 유지, 반복 호출 없음)
-  //   onShutter(blob) — 셔터 버튼 → 현재 프레임 jpeg blob (카메라 닫힘)
+  //   onShutter(blob) — 셔터 버튼 → 합의화질(800px 정사각 q40) blob. ★카메라 유지(연속촬영, 재호출 가능)
+  //                     blob._preCompressed=true → 수신측 재압축 생략. 닫기=상단X or 완료 버튼.
   //   onError(msg)   — getUserMedia 실패 등 (카메라 닫힘)
   let _mode = 'qr';           // 'qr' | 'camera'
   let _onShutter = null;
@@ -519,6 +528,14 @@ const QrScanner = (() => {
       'font-size:17px;font-weight:800;padding:12px 18px;border-radius:14px;' +
       'text-align:center;max-width:90%;word-break:break-all;';
     bar.appendChild(qrTag);
+    // 촬영확인 배너 (미니 썸네일 + 문구) — 연속촬영 중 "찍혔다" 확신용
+    const shotTag = document.createElement('div');
+    shotTag.id = 'cam-shot-tag';
+    shotTag.style.cssText = 'display:none;align-items:center;gap:10px;background:rgba(0,0,0,.75);' +
+      'color:#fff;font-size:16px;font-weight:800;padding:8px 14px;border-radius:14px;max-width:92%;';
+    shotTag.innerHTML = '<img style="width:52px;height:52px;border-radius:8px;object-fit:cover;border:2px solid #34d399;">' +
+      '<span>사진 저장됨 — 다시 찍으면 교체</span>';
+    bar.appendChild(shotTag);
     // 버튼 행 (QR재인식 + 손전등 + 촬영)
     const btnRow = document.createElement('div');
     btnRow.style.cssText = 'display:flex;gap:12px;align-items:center;width:100%;justify-content:center;';
@@ -552,6 +569,14 @@ const QrScanner = (() => {
       'box-shadow:0 8px 20px rgba(43,184,154,.35);cursor:pointer;min-height:64px;';
     btn.onclick = shutterClick;
     btnRow.appendChild(btn);
+    // 완료 버튼 — 연속촬영 종료 (상단 X와 동일, 어르신용 큰 버튼)
+    const doneBtn = document.createElement('button');
+    doneBtn.id = 'cam-done-btn';
+    doneBtn.textContent = '완료';
+    doneBtn.style.cssText = 'flex:1;max-width:120px;padding:18px 12px;background:#1f2937;color:#fff;border:2px solid #6b7280;' +
+      'border-radius:999px;font-size:20px;font-weight:800;cursor:pointer;min-height:64px;';
+    doneBtn.onclick = () => { try { if (navigator.vibrate) navigator.vibrate(15); } catch(e) {} stopCameraMode(); };
+    btnRow.appendChild(doneBtn);
     bar.appendChild(btnRow);
     overlay.appendChild(bar);
     // QR 박스 캔버스 (#qr-reader 안에)
@@ -571,35 +596,51 @@ const QrScanner = (() => {
   }
 
   async function shutterClick() {
-    // 현재 video 프레임을 원본 해상도(jpeg 0.95)로 캡처 → onShutter
-    // ★ drawImage(동기)로 프레임을 먼저 그래브한 뒤 카메라 즉시 닫음 → toBlob(비동기) 중 프리뷰 잔류 방지
-    // 셔터 촉각 + 흰 플래시 (카메라 셔터 느낌) — 프레임 그래브 전, 즉각 피드백
-    try { if (navigator.vibrate) navigator.vibrate(30); } catch(e) {}
+    // 셔터 재설계(2026-07-17): 기본카메라처럼 가볍게.
+    //  ①단일패스 압축 — 프레임을 합의화질(800px 정사각 q0.40)로 바로 인코딩.
+    //    (기존: 2560px q0.95 대형 blob 생성 후 다시 800px 재압축 = 이중처리 제거)
+    //  ②카메라 유지 — 셔터 후 스트림 안 닫음(연속촬영/재촬영, QR 프리뷰 인식도 계속).
+    //    닫기는 상단 X 버튼. QR은 프리뷰 루프 전용(셔터 사진에서 추출 안 함 — 영준님 확정).
+    // 셔터 촉각 + 흰 플래시 — 프레임 그래브 전, 즉각 피드백
+    try { if (navigator.vibrate) navigator.vibrate([0,45,30,45]); } catch(e) {}
     (function() {
       const fl = document.createElement('div');
-      fl.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9998;' +
-        'background:white;opacity:.7;animation:snap-flash-fade .15s ease-out forwards;' +
-        '--flash-dur:.15s;--flash-peak:.7;';
-      // snap-flash-fade keyframes는 snap.html에 정의됨(공유 DOM). 인라인 스타일 대신 클래스 적용.
       fl.className = 'snap-flash';
-      fl.style.setProperty('--flash-dur', '.15s');
+      fl.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9998;background:white;';
+      fl.style.setProperty('--flash-dur', '.25s');
       fl.style.setProperty('--flash-peak', '.7');
-      fl.style.background = 'white';
       document.body.appendChild(fl);
-      setTimeout(() => fl.remove(), 250);
+      setTimeout(() => fl.remove(), 350);
     })();
     try {
       if (!_video || !_video.videoWidth) { return; }
+      const vw = _video.videoWidth, vh = _video.videoHeight;
+      // 정사각 센터크롭 + 800px 다운스케일을 drawImage 한 번에 (photo-uploader.js compress와 동일 규격)
+      const side = Math.min(vw, vh);
+      const sx = Math.round((vw - side) / 2), sy = Math.round((vh - side) / 2);
+      const out = Math.min(side, 800);
       const c = document.createElement('canvas');
-      c.width = _video.videoWidth; c.height = _video.videoHeight;
-      c.getContext('2d').drawImage(_video, 0, 0);  // 프레임 그래브 (동기)
-      await stopCameraMode();                       // 카메라 즉시 닫기 (toBlob 전)
-      const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.95));
+      c.width = out; c.height = out;
+      c.getContext('2d').drawImage(_video, sx, sy, side, side, 0, 0, out, out);  // 프레임 그래브 (동기)
+      const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.40));
+      if (blob) blob._preCompressed = true;   // 수신측(snap onPick)이 재압축 생략하는 표식
+      setCamShotTag(blob);                    // 오버레이에 촬영확인(미니 썸네일) — 카메라는 계속 열려있음
       _onShutter && _onShutter(blob || null);
     } catch(e) {
-      await stopCameraMode();
       _onCamError && _onCamError('셔터 캡처 실패: ' + (e?.message || e));
     }
+  }
+
+  // 촬영확인 배너: 마지막 촬영 썸네일 + "저장됨/다시 찍으면 교체" 문구 (오버레이 상단)
+  let _shotTagUrl = null;
+  function setCamShotTag(blob) {
+    const tag = document.getElementById('cam-shot-tag');
+    if (!tag) return;
+    if (!blob) { tag.style.display = 'none'; return; }
+    if (_shotTagUrl) { try { URL.revokeObjectURL(_shotTagUrl); } catch {} }
+    _shotTagUrl = URL.createObjectURL(blob);
+    tag.querySelector('img').src = _shotTagUrl;
+    tag.style.display = 'flex';
   }
 
   function showCamera({ onQr, onShutter, onError } = {}) {
@@ -673,29 +714,25 @@ const QrScanner = (() => {
   async function startCameraWithDeviceId(deviceId) {
     await stopStream();
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    // 해상도 적정화(2026-07-17): 업로드 합의화질=800px q40이므로 2560 요구는 낭비(기동 무겁고 폴백 캐스케이드 유발).
+    // 1600급이면 800px 산출 2배 여유 + 프리뷰 QR 인식 충분. ideal이라 미지원 기기도 폴백 예외 없이 근사치로 잡힘.
     try {
       if (isIOS || !deviceId) {
         _stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1920 } }
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1600 }, height: { ideal: 1200 } }
         });
       } else {
         _stream = await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: deviceId }, width: { ideal: 2560 }, height: { ideal: 1920 } }
+          video: { deviceId: { exact: deviceId }, width: { ideal: 1600 }, height: { ideal: 1200 } }
         });
       }
     } catch(e) {
       try {
-        _stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-        });
-      } catch(e2) {
-        try {
-          _stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
-        } catch(e3) {
-          await stopCameraMode();
-          _onCamError && _onCamError('카메라 접근 실패: ' + (e3?.message || e3));
-          return;
-        }
+        _stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+      } catch(e3) {
+        await stopCameraMode();
+        _onCamError && _onCamError('카메라 접근 실패: ' + (e3?.message || e3));
+        return;
       }
     }
 
@@ -769,6 +806,7 @@ const QrScanner = (() => {
     await stopAll();
     setCamOverlayVisible(false);
     setCamQrTag('');
+    setCamShotTag(null);
     clearQrBox();
     document.getElementById('qr-scan-overlay').style.display = 'none';
     _mode = 'qr';
