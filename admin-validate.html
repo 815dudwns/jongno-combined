@@ -1900,8 +1900,22 @@ let _session = authGetSession();   // 무적 어드민이면 모든 데이터셋
 // ══════════════════════════════════════════════════════
 // 설정
 // ══════════════════════════════════════════════════════
-// 백엔드 베이스 URL — v2 클라우드 이전 시 여기만 수정
-const API_BASE = 'https://rico-included-tool-drops.trycloudflare.com';
+// 백엔드 베이스 URL — 화면 자동발견(Firebase valBackend/url). 아래는 폴백(발견 실패 시).
+let API_BASE = 'https://rico-included-tool-drops.trycloudflare.com';
+// 맥 start.sh가 터널 URL을 Firebase valBackend/url에 발행 → 여기서 무인증 REST로 읽어 자동 반영.
+// 터널이 바뀌어도 화면 코드 수정·push 불필요.
+async function discoverBackend() {
+    try {
+        const r = await fetch('https://ami-work-1c49a-default-rtdb.asia-southeast1.firebasedatabase.app/valBackend/url.json', { cache: 'no-store' });
+        if (r.ok) {
+            const u = await r.json();
+            if (u && typeof u === 'string' && u.startsWith('http')) {
+                API_BASE = u.replace(/\/$/, '');
+                console.log('[discoverBackend] API_BASE =', API_BASE);
+            }
+        }
+    } catch (e) { console.warn('[discoverBackend] 실패, 폴백 사용:', e.message); }
+}
 
 // ══════════════════════════════════════════════════════
 // 전역 상태
@@ -1957,6 +1971,7 @@ let _appInited = false;
 async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
+    await discoverBackend();   // 맥 백엔드 터널 URL 자동발견(Firebase) — 실패 시 폴백 유지
     const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1758 (전송 로그 형식 개선: 상단 요약 계정·공사·진행·봉인범위, 건별 KST HH:MM:SS 구조화 라인)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
