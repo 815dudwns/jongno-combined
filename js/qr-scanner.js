@@ -516,6 +516,14 @@ const QrScanner = (() => {
     if (document.getElementById('cam-shutter-bar')) return;
     const overlay = document.getElementById('qr-scan-overlay');
     if (!overlay) return;
+    // 버튼 눌림 피드백(시각) — 진동과 함께 "눌렸다" 확신 (2026-07-17)
+    if (!document.getElementById('cam-btn-style')) {
+      const st = document.createElement('style');
+      st.id = 'cam-btn-style';
+      st.textContent = '#cam-shutter-bar button:active{transform:scale(.92);filter:brightness(1.25);transition:transform .06s;}' +
+        '#cam-shutter-bar button{transition:transform .12s;}';
+      document.head.appendChild(st);
+    }
     // 셔터 버튼 바 (오버레이 하단에 삽입)
     const bar = document.createElement('div');
     bar.id = 'cam-shutter-bar';
