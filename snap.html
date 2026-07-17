@@ -19,8 +19,6 @@
     <script src="js/photo-uploader.js?v=20260717a"></script>
     <script src="js/awms-parseValue.js?v=snap-qr"></script>
     <script src="js/qr-scanner.js?v=20260717b"></script>
-    <script src="js/lcd-crop.js?v=snap-yolo"></script>
-    <!-- YOLO(onnxruntime+lcd-yolo)는 무거워서 옵션 ON 시 지연 로드(loadYolo) -->
     <style>
       :root{
         --bg:#0f1720; --card:#172230; --ink:#f2f6fb; --ink-2:#aab8c8;
@@ -190,7 +188,6 @@
       .reading input{width:100%; min-height:64px; font-size:30px; font-weight:900; letter-spacing:.04em;
         text-align:center; background:#0d141d; border:2px solid var(--line); border-radius:14px;
         color:var(--ink); padding:0 14px;}
-      .reading .yolo-tag{font-size:14px; font-weight:700; color:var(--mint); margin-top:6px; min-height:18px;}
 
       /* QR 버튼 (옵션 ON 시) */
       .qr-row{display:none; margin-top:14px;}
@@ -325,7 +322,7 @@
             </div>
             <button id="logout" style="min-height:48px; padding:0 18px; font-size:16px; font-weight:800; border:2px solid #d9534f; color:#d9534f; background:transparent; border-radius:12px;">로그아웃</button>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260717.2</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260717.3</div>
     </div>
 
     <!-- 작업번호 네비 박스 2 (철거 검침 섹션 위 — 상단 박스와 동기화) -->
@@ -367,7 +364,6 @@
                 <div class="shot-box rv-shot" id="box-rv_dm_mt_day" data-slot="rv_dm_mt_day"><span class="hint">탭해서 사진</span><img id="img-rv_dm_mt_day" alt="최대"><span class="badge" id="bd-rv_dm_mt_day"></span><span class="rv-st" id="st-rv_dm_mt_day"></span><div class="spin">저장 중...</div></div>
                 <input type="text" class="rv-input" id="rv-dm-mt" readonly placeholder="검침값 (선택)">
             </div>
-            <div class="yolo-tag" id="yolo-tag"></div>
         </div>
     </div>
 
@@ -421,7 +417,7 @@
       <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260717.2</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260717.3</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -461,7 +457,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260717.2";
+      const APP_VER = "20260717.3";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
@@ -1068,8 +1064,8 @@
           await SnapPhotoQueue.put(day, localSeq, slot, compressed, jobId);
           // ③ 업로드 (성공 시 autoSave 내부에서 큐 삭제 + ujSet ok)
           await autoSave(slot, compressed, localSeq, jobId);
-          // LCD 자동검출(옵션) — 대표 검침칸(주간/심야야간) 사진에.
-          if (slot === 'rv_' + snapAutoFields(localSeq)[0]) runYoloOnOld(compressed, localSeq, snapAutoFields(localSeq)[0]);
+          // LCD 자동검출(YOLO) 제거(2026-07-17 영준님) — 현장 미검출은 daily_cycle이 맥 PM YOLO로
+          // 자동 재검출하므로 폰에서 돌릴 이유 없음. 촬영 흐름 경량화 + "LCD 위치 저장됨" 문구 제거.
           await loadToday();                 // RTDB 반영(번호 점유)
           if (seq === localSeq) renderSeq();
         } catch (e) {
@@ -1385,18 +1381,6 @@
         };
       });
 
-      // YOLO 지연 로드 (ort + lcd-yolo) — 토글 ON 첫 1회만
-      let _yoloLoading = null;
-      function loadYolo(){
-        if (typeof LcdYolo !== 'undefined') return Promise.resolve();
-        if (_yoloLoading) return _yoloLoading;
-        _yoloLoading = new Promise((res)=>{
-          const add = (src, cb)=>{ const s=document.createElement('script'); s.src=src; s.onload=cb; s.onerror=cb; document.head.appendChild(s); };
-          add('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js', ()=> add('js/lcd-yolo.js?v=snap-yolo', ()=> res()));
-        });
-        return _yoloLoading;
-      }
-
       // temp 부가 데이터 저장 (항상 temp 노드 — 메인앱이 흡수, 빈칸만)
       async function saveTempExtra(s, fields){
         const day = dayKST();
@@ -1596,29 +1580,6 @@
       };
       $('qr-close-btn').onclick = ()=>{ try{ QrScanner.stop(); }catch(e){} $('qr-scan-overlay').style.display='none'; };
 
-      // YOLO: 철거 사진 선택 후 LCD 영역 검출 → temp.removal_lcd_region
-      async function runYoloOnOld(file, s, fid){
-        const imgId = 'img-rv_' + (fid || 'whme_day');
-        $('yolo-tag').textContent = 'LCD 검출 중...';
-        try {
-          await loadYolo();
-          const bbox = await LcdYolo.detect(file);
-          if (bbox && bbox.x0 != null){
-            await saveTempExtra(s, { removal_lcd_region: { x0:bbox.x0, y0:bbox.y0, x1:bbox.x1, y1:bbox.y1 } });
-            // 검출 박스를 철거 사진 미리보기에 그려서 "어디 잡혔는지" 보이게(원본은 그대로 업로드됨)
-            try {
-              const bmp = await createImageBitmap(file);
-              const cv = document.createElement('canvas'); cv.width = bmp.width; cv.height = bmp.height;
-              const cx = cv.getContext('2d'); cx.drawImage(bmp, 0, 0);
-              cx.lineWidth = Math.max(6, Math.round(bmp.width * 0.012)); cx.strokeStyle = '#34d399';
-              cx.strokeRect(bbox.x0*bmp.width, bbox.y0*bmp.height, (bbox.x1-bbox.x0)*bmp.width, (bbox.y1-bbox.y0)*bmp.height);
-              { const ie = $(imgId); if (ie) ie.src = cv.toDataURL('image/jpeg', 0.85); }
-            } catch(e){ console.warn('[YOLO 박스그리기]', e); }
-            $('yolo-tag').textContent = 'LCD 위치 검출됨 (초록 박스)';
-          } else { $('yolo-tag').textContent = 'LCD 못 찾음 (수동 확인)'; }
-        } catch(e){ console.warn('[YOLO]', e); $('yolo-tag').textContent = 'LCD 검출 실패: ' + (e && e.message ? e.message : e); }
-      }
-
       // seq 변경 시 부가 입력 복원/초기화
       function renderSeqExtras(s){
         const tmp = tempIndex[s];
@@ -1626,8 +1587,6 @@
         // ★사진슬롯 칸 수는 '검침값 입력' 옵션과 무관하게 항상 자동판별을 따른다(옵션 OFF여도 1칸/4칸 정확히).
         //   기존엔 if(_opt.reading) 안에서만 불려 옵션 OFF 시 hide 미적용 → 사진슬롯 4칸이 다 노출되는 버그.
         applySnapRv(s);
-        // YOLO 항상 동작 — yolo-tag는 reading 옵션과 무관하게 항상 복원
-        $('yolo-tag').textContent = (tmp && tmp.removal_lcd_region) ? 'LCD 위치 저장됨' : '';
         if (_opt.reading){
           for(const fid of SNAP_RV_ALL){
             let rv = '';
