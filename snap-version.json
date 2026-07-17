@@ -1,5 +1,5 @@
 {
-  "versionName": "20260707.7",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260707.7.apk",
-  "notes": "사진 재촬영 시 덮어쓰기 허용(수정 가능) — 이전엔 이미 있는 칸은 건너뛰어 재촬영 안 됐음. Storage 고유경로+이력은 유지(이전 사진 보존·복구가능). (707.6: 버튼·QR·셔터 피드백)"
+  "versionName": "20260717.1",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260717.1.apk",
+  "notes": "카메라 경량화(1600급+단일패스 800px q40, 연속촬영)+IndexedDB 로컬큐(유실복구)+재촬영 최신승리 가드+도크 재설계(z40, 키패드 가림 해소)+검침 자릿수 캡. (707.7: 재촬영 덮어쓰기/실시간QR/카메라선택)"
 }
