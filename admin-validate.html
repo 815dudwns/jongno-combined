@@ -1098,150 +1098,245 @@
             background: rgba(255,255,255,0.8);
         }
 
-        /* ── 전송탭 전용 스타일 (#panel-transmit 스코프) ── */
-        #panel-transmit .tx-section-title {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--ink);
-            margin-bottom: 12px;
+        /* ── 전송탭 전용 스타일 v2 (#panel-transmit 스코프) ── */
+
+        /* 상태바 */
+        #panel-transmit .tx-statusbar {
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
         }
-        #panel-transmit .tx-section-sub {
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--ink-2);
-            margin-bottom: 8px;
+        #panel-transmit .tx-session-pill {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 8px 16px; border-radius: var(--radius-pill);
+            background: var(--bg-deep); box-shadow: var(--clay-inset-sm);
+            font-size: 13px; font-weight: 700;
         }
-        #panel-transmit .tx-scope-note {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--ink-2);
-            margin-bottom: 8px;
+        #panel-transmit .tx-session-pill .acct {
+            color: var(--ink-2); font-weight: 600; font-size: 12px;
         }
-        #panel-transmit .tx-scope-row {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
+        #panel-transmit .tx-scope-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: var(--radius-pill);
+            background: var(--bg-deep); box-shadow: var(--clay-inset-sm);
+            font-size: 12px; font-weight: 600; color: var(--ink-2);
+            flex: 1; min-width: 0;
         }
-        #panel-transmit .tx-scope-lbl {
-            font-size: 12px;
-            color: var(--ink-3);
+        #panel-transmit .tx-scope-pill .ds-name { color: var(--mint-ink); font-weight: 700; }
+        #panel-transmit .tx-scope-pill .sep { color: var(--ink-3); }
+        #panel-transmit .tx-seal-counter {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 8px 16px; border-radius: var(--radius-pill);
+            background: var(--bg-deep); box-shadow: var(--clay-inset-sm);
+            font-size: 12px; font-weight: 700; color: var(--ink-2); white-space: nowrap;
         }
-        #panel-transmit .tx-config-row {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            align-items: flex-end;
-        }
-        #panel-transmit .tx-config-row .cbtn {
-            margin-bottom: 0;
-        }
-        #panel-transmit .tx-account-list {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        #panel-transmit .tx-account-section {
-            margin-top: 14px;
-        }
-        #panel-transmit .tx-account-add-row {
-            margin-top: 8px;
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        #panel-transmit .tx-account-row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        #panel-transmit .tx-account-id {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--ink);
-            min-width: 140px;
-        }
-        #panel-transmit .tx-account-seal {
-            font-size: 12px;
-            color: var(--ink-2);
-        }
-        #panel-transmit .tx-account-empty {
-            font-size: 12px;
-            color: var(--ink-3);
-        }
-        #panel-transmit .tx-config-msg {
-            margin-top: 8px;
-            font-size: 12px;
-        }
-        #panel-transmit .tx-action-bar {
-            margin-bottom: 12px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        #panel-transmit .tx-plan-box {
-            margin-bottom: 12px;
-            padding: 12px 14px;
-            background: var(--bg-deep);
-            border-radius: var(--radius-sm);
-            box-shadow: var(--clay-inset-sm);
-            font-size: 12px;
-        }
-        #panel-transmit .tx-plan-err {
-            color: var(--a-rose);
-        }
-        #panel-transmit .tx-progress-wrap {
-            margin-top: 10px;
-        }
-        #panel-transmit .tx-progress-lbl {
-            font-size: 12px;
-            color: var(--ink-2);
-            margin-bottom: 4px;
-        }
-        #panel-transmit .tx-addr-cell {
-            text-align: left;
-            font-size: 12px;
-        }
-        #panel-transmit .tx-tabular {
+        #panel-transmit .tx-seal-counter .val {
+            font-size: 15px; font-weight: 800; color: var(--amber);
             font-variant-numeric: tabular-nums;
         }
-        #panel-transmit .tx-account-del {
-            color: var(--a-rose);
+        #panel-transmit .tx-statusbar-btns { display: flex; gap: 6px; margin-left: auto; }
+        #panel-transmit .tx-session-hint {
+            font-size: 12px; color: var(--ink-2); margin-top: 12px;
+            padding: 8px 14px; background: var(--blue-soft);
+            border-radius: var(--radius-sm); line-height: 1.5;
         }
-        /* ── awms 로그인 섹션 ── */
-        #panel-transmit .tx-login-row {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-bottom: 10px;
+        #panel-transmit .tx-session-hint.ok { background: var(--green-soft); color: var(--a-green); }
+        #panel-transmit .tx-session-hint.ng { background: var(--rose-soft); color: var(--a-rose); }
+        #panel-transmit .tx-seal-mismatch-banner {
+            margin-top: 10px; padding: 10px 14px;
+            background: var(--amber-soft); border-radius: var(--radius-sm);
+            font-size: 12px; color: var(--a-amber); font-weight: 600;
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
         }
-        #panel-transmit .tx-login-hint {
-            font-size: 12px;
-            color: var(--ink-2);
-            margin-top: 8px;
-            padding: 8px 10px;
-            background: var(--bg-deep);
-            border-radius: var(--radius-sm);
-            box-shadow: var(--clay-inset-sm);
+        #panel-transmit .tx-section-title {
+            font-size: 11px; font-weight: 800; letter-spacing: 0.07em;
+            text-transform: uppercase; color: var(--ink-3); margin-bottom: 14px;
         }
-        #panel-transmit .tx-login-hint.hidden {
-            display: none;
+        /* 아코디언 설정 */
+        #panel-transmit .tx-section-toggle {
+            display: flex; align-items: center; justify-content: space-between;
+            cursor: pointer; user-select: none;
         }
-        #panel-transmit .tx-session-status {
-            font-size: 12px;
-            margin-top: 8px;
-            min-height: 18px;
+        #panel-transmit .tx-section-toggle .tx-section-title { margin-bottom: 0; }
+        #panel-transmit .tx-toggle-arrow {
+            font-size: 12px; color: var(--ink-3); transition: transform 0.15s;
         }
-        #panel-transmit .tx-session-ok {
-            color: var(--mint-strong);
-            font-weight: 700;
+        #panel-transmit .tx-toggle-arrow.open { transform: rotate(180deg); }
+        #panel-transmit .tx-collapsible {
+            overflow: hidden; max-height: 0; transition: max-height 0.25s ease;
         }
-        #panel-transmit .tx-session-ng {
-            color: var(--a-rose);
-            font-weight: 600;
+        #panel-transmit .tx-collapsible.open { max-height: 800px; }
+        #panel-transmit .tx-divider { height: 1px; background: var(--bg-deep); margin: 14px 0; }
+        /* 설정 그리드 */
+        #panel-transmit .tx-config-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
         }
+        @media (max-width: 680px) { #panel-transmit .tx-config-grid { grid-template-columns: 1fr; } }
+        #panel-transmit .tx-field-group { display: flex; flex-direction: column; gap: 6px; }
+        #panel-transmit .tx-field-label {
+            font-size: 11px; font-weight: 700; color: var(--ink-3); letter-spacing: 0.05em;
+        }
+        #panel-transmit .tx-account-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+        #panel-transmit .tx-account-row {
+            display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+            border-radius: var(--radius-sm); background: var(--bg-deep);
+            box-shadow: var(--clay-inset-sm); font-size: 13px; font-weight: 700;
+        }
+        #panel-transmit .tx-account-id { color: var(--ink); flex: 1; }
+        #panel-transmit .tx-account-seal { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+        #panel-transmit .tx-account-empty { font-size: 12px; color: var(--ink-3); }
+        #panel-transmit .tx-account-del { color: var(--a-rose); }
+        #panel-transmit .tx-add-row {
+            display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap;
+        }
+        #panel-transmit .tx-config-msg { margin-top: 8px; font-size: 12px; }
+        /* 서브탭 행 */
+        #panel-transmit .tx-subtab-row {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+        }
+        #panel-transmit .tx-summary-chips { display: flex; gap: 8px; margin-left: auto; }
+        /* 액션 바 */
+        #panel-transmit .tx-action-bar {
+            display: flex; align-items: center; gap: 10px; padding: 14px 0 4px; flex-wrap: wrap;
+        }
+        #panel-transmit .tx-verify-toggle {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 9px 16px; border-radius: var(--radius-pill);
+            background: var(--bg-deep); box-shadow: var(--clay-inset-sm);
+            font-size: 12px; font-weight: 700; color: var(--ink-2);
+            cursor: pointer; user-select: none;
+        }
+        #panel-transmit .tx-verify-toggle input[type="checkbox"] { margin: 0; accent-color: var(--mint); }
+        /* 수동 마킹 바 */
+        #panel-transmit .tx-manual-bar {
+            display: flex; align-items: center; gap: 8px; padding: 12px 0 0;
+            flex-wrap: wrap; border-top: 1px solid var(--bg-deep); margin-top: 8px;
+        }
+        #panel-transmit .tx-manual-label { font-size: 11px; font-weight: 700; color: var(--ink-3); letter-spacing: 0.04em; }
+        /* 봉인 미리보기 박스 */
+        #panel-transmit .tx-plan-box {
+            margin-bottom: 12px; padding: 12px 14px;
+            background: var(--bg-deep); border-radius: var(--radius-sm);
+            box-shadow: var(--clay-inset-sm); font-size: 12px;
+        }
+        #panel-transmit .tx-plan-err { color: var(--a-rose); }
+        /* 진행 카드 */
+        #panel-transmit .tx-progress-card {
+            background: var(--surface); border-radius: var(--radius);
+            box-shadow: var(--clay); padding: 20px 24px; margin-top: 14px;
+        }
+        #panel-transmit .tx-progress-header {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+        }
+        #panel-transmit .tx-progress-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+        #panel-transmit .tx-progress-subtitle {
+            font-size: 12px; color: var(--ink-2); margin-left: auto;
+            font-variant-numeric: tabular-nums;
+        }
+        #panel-transmit .tx-progress-track {
+            height: 8px; border-radius: var(--radius-pill);
+            background: var(--bg-deep); box-shadow: var(--clay-inset-sm);
+            overflow: hidden; margin-bottom: 18px;
+        }
+        #panel-transmit .tx-progress-fill {
+            height: 100%; border-radius: var(--radius-pill);
+            background: linear-gradient(90deg, var(--mint-l), var(--mint));
+            box-shadow: 0 0 8px var(--mint-glow); transition: width 0.4s ease;
+        }
+        /* 건별 4단계 스텝 */
+        #panel-transmit .tx-step-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+        #panel-transmit .tx-step-row {
+            display: grid; grid-template-columns: 100px 1fr;
+            align-items: center; gap: 10px; font-size: 12px;
+        }
+        #panel-transmit .tx-step-mid {
+            font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #panel-transmit .tx-steps { display: flex; gap: 4px; }
+        #panel-transmit .tx-step {
+            flex: 1; text-align: center; padding: 5px 4px;
+            border-radius: var(--radius-sm); font-size: 10px; font-weight: 700;
+            background: var(--bg-deep); box-shadow: var(--clay-inset-sm);
+            color: var(--ink-3); transition: background 0.15s, color 0.15s;
+        }
+        #panel-transmit .tx-step.done {
+            background: var(--green-soft); color: var(--a-green); box-shadow: var(--clay-sm);
+        }
+        #panel-transmit .tx-step.active {
+            background: linear-gradient(145deg, var(--mint-l), var(--mint));
+            color: var(--mint-deep); box-shadow: var(--clay-mint);
+        }
+        #panel-transmit .tx-step.fail {
+            background: var(--rose-soft); color: var(--a-rose); box-shadow: var(--clay-sm);
+        }
+        /* 로그 패널 */
+        #panel-transmit .tx-log-panel {
+            background: var(--bg-deep); border-radius: var(--radius-sm);
+            box-shadow: var(--clay-inset); padding: 12px 14px;
+            max-height: 200px; overflow-y: auto;
+            font-size: 12px; font-variant-numeric: tabular-nums; line-height: 1.7;
+        }
+        #panel-transmit .log-line { display: flex; gap: 10px; align-items: baseline; }
+        #panel-transmit .log-ts { color: var(--ink-3); flex-shrink: 0; font-size: 11px; }
+        #panel-transmit .log-ok { color: var(--a-green); font-weight: 700; }
+        #panel-transmit .log-fail { color: var(--a-rose); font-weight: 700; }
+        #panel-transmit .log-sys { color: var(--ink-3); }
+        /* 사후검증 결과 */
+        #panel-transmit .tx-verify-result {
+            margin-top: 14px; padding: 14px 16px;
+            border-radius: var(--radius-sm); background: var(--surface-2); box-shadow: var(--clay-sm);
+        }
+        #panel-transmit .tx-verify-result.pass { border-left: 4px solid var(--green); }
+        #panel-transmit .tx-verify-result.fail { border-left: 4px solid var(--rose); }
+        #panel-transmit .tx-verify-result-title {
+            font-size: 13px; font-weight: 700; color: var(--ink);
+            margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+        }
+        #panel-transmit .tx-mismatch-list {
+            font-size: 12px; color: var(--a-rose); padding-left: 4px; line-height: 1.8;
+        }
+        /* 테이블 */
+        #panel-transmit .tx-addr-cell { text-align: left; font-size: 12px; }
+        #panel-transmit .tx-tabular { font-variant-numeric: tabular-nums; }
+        /* 작은 cinput */
+        #panel-transmit .cinput-sm {
+            font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--ink);
+            padding: 9px 14px; border: none; border-radius: var(--radius-pill);
+            background: var(--bg-deep); box-shadow: var(--clay-inset-sm);
+            outline: none; cursor: pointer; min-width: 160px;
+        }
+        #panel-transmit .cinput-sm:focus { box-shadow: var(--clay-inset-sm), var(--focus-glow); }
+        /* 토스트 */
+        #txToastStack {
+            position: fixed; top: 20px; right: 20px;
+            display: flex; flex-direction: column; gap: 8px; z-index: 9999;
+        }
+        .tx-toast {
+            display: flex; align-items: center; gap: 10px;
+            padding: 13px 18px; border-radius: var(--radius-pill);
+            font-size: 13px; font-weight: 700; box-shadow: var(--clay);
+            animation: tx-toast-in 0.2s ease; max-width: 360px;
+        }
+        .tx-toast.ok  { background: var(--green-soft); color: var(--a-green); }
+        .tx-toast.ng  { background: var(--rose-soft);  color: var(--a-rose); }
+        .tx-toast.info { background: var(--blue-soft); color: var(--a-blue); }
+        @keyframes tx-toast-in {
+            from { opacity: 0; transform: translateX(20px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        /* 확인 모달 */
+        #txConfirmModal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            display: none; align-items: center; justify-content: center; z-index: 9000;
+        }
+        #txConfirmModal.open { display: flex; }
+        #txConfirmModal .tx-modal-box {
+            background: var(--surface); border-radius: var(--radius);
+            box-shadow: var(--clay); padding: 28px 28px 22px;
+            max-width: 400px; width: 90%;
+        }
+        #txConfirmModal .tx-modal-title { font-size: 16px; font-weight: 800; color: var(--ink); margin-bottom: 10px; }
+        #txConfirmModal .tx-modal-body { font-size: 13px; color: var(--ink-2); line-height: 1.6; margin-bottom: 20px; white-space: pre-line; }
+        #txConfirmModal .tx-modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
     </style>
 </head>
 <body>
@@ -1546,106 +1641,137 @@
     ════════════════════════════════════════════════ -->
     <div class="main-panel" id="panel-transmit">
 
-        <!-- 날짜 선택 (검증탭과 같은 날짜 기준) -->
-        <div class="card">
-            <div class="tx-scope-note">
-                전송 대상 = 현재 검증탭 날짜·데이터셋 기준 검증완료(isVerified) 계기
-            </div>
-            <div class="tx-scope-row">
-                <span class="tx-scope-lbl" id="transmitScopeLabel">날짜/데이터셋을 먼저 검증탭에서 선택하세요.</span>
-                <button class="cbtn cbtn-sm" onclick="transmitLoadList()">목록 새로고침</button>
+        <!-- 토스트 컨테이너 -->
+        <div id="txToastStack"></div>
+
+        <!-- 확인 모달 -->
+        <div id="txConfirmModal">
+            <div class="tx-modal-box">
+                <div class="tx-modal-title" id="txConfirmTitle">확인</div>
+                <div class="tx-modal-body" id="txConfirmBody"></div>
+                <div class="tx-modal-btns">
+                    <button class="cbtn cbtn-sm" onclick="_txConfirmCancel()">취소</button>
+                    <button class="cbtn cbtn-sm cbtn-primary" id="txConfirmOkBtn" onclick="_txConfirmOk()">확인</button>
+                </div>
             </div>
         </div>
 
-        <!-- 전송 설정 -->
+        <!-- 1. 상단 상태바 카드: 세션 + 스코프 + 봉인 카운터 -->
         <div class="card">
-            <div class="tx-section-title">전송 설정</div>
-            <div class="tx-config-row">
-                <div class="form-group">
-                    <label>공사명</label>
-                    <select id="txConsNo" class="cinput" style="width:280px">
-                        <option value="">로딩 중...</option>
-                    </select>
-                    <input type="text" id="txConsNoFallback" class="cinput hidden" placeholder="예) 397820263153" style="width:200px" title="공사번호 직접 입력 (공사목록 로드 실패 시)">
+            <div class="tx-section-title">세션 · 스코프 · 봉인</div>
+            <div class="tx-statusbar">
+                <!-- 세션 상태 pill -->
+                <div class="tx-session-pill" id="txSessionPill">
+                    <span class="cdot gray" id="txSessionDot"></span>
+                    <span id="txSessionLabel">세션 없음</span>
+                    <span class="acct" id="txSessionAcct"></span>
                 </div>
-                <button class="cbtn cbtn-sm" onclick="transmitLoadConfig()">설정 불러오기</button>
-                <button class="cbtn cbtn-sm cbtn-primary" onclick="transmitSaveConfig()">설정 저장</button>
+                <!-- 날짜/데이터셋 스코프 -->
+                <div class="tx-scope-pill">
+                    <span>데이터셋</span>
+                    <span class="ds-name" id="txScopeDs">-</span>
+                    <span class="sep">/</span>
+                    <span>날짜</span>
+                    <span style="font-weight:700;color:var(--ink)" id="txScopeDate">-</span>
+                    <span style="color:var(--ink-3);font-size:11px">의 검증완료건</span>
+                </div>
+                <!-- 봉인 카운터 -->
+                <div class="tx-seal-counter">
+                    <span>다음 봉인</span>
+                    <span class="val" id="txSealNext">-</span>
+                </div>
+                <!-- 세션 버튼 2개 -->
+                <div class="tx-statusbar-btns">
+                    <button class="cbtn cbtn-sm cbtn-primary" onclick="transmitPullSession()">세션 가져오기</button>
+                    <button class="cbtn cbtn-sm" onclick="transmitCheckSession()">세션 확인</button>
+                    <button class="cbtn cbtn-sm" onclick="transmitLoadList()">목록 새로고침</button>
+                </div>
             </div>
-            <div class="tx-account-section">
-                <div class="tx-section-sub">아이디 목록 (아이디별 시작 봉인번호)</div>
-                <div id="txAccountList" class="tx-account-list"></div>
-                <div class="tx-account-add-row">
-                    <input type="text" id="txNewId" class="cinput" placeholder="awms 아이디" style="width:150px">
-                    <input type="text" id="txNewSeal" class="cinput" placeholder="시작 봉인번호" style="width:140px">
+            <!-- 세션 힌트 / 봉인 불일치 배너 -->
+            <div id="txSessionHint" style="display:none" class="tx-session-hint"></div>
+            <div id="txSealMismatchBanner" style="display:none" class="tx-seal-mismatch-banner">
+                <span id="txSealMismatchMsg"></span>
+                <button class="cbtn cbtn-sm" onclick="transmitSealSync()">봉인 동기화</button>
+            </div>
+        </div>
+
+        <!-- 2. 전송 설정 (아코디언) -->
+        <div class="card">
+            <div class="tx-section-toggle" onclick="_txToggleConfig()">
+                <div class="tx-section-title" style="margin-bottom:0">전송 설정</div>
+                <span class="tx-toggle-arrow" id="txConfigArrow">&#9660;</span>
+            </div>
+            <div class="tx-collapsible" id="txConfigBody">
+                <div class="tx-divider"></div>
+                <div class="tx-config-grid">
+                    <div class="tx-field-group">
+                        <div class="tx-field-label">등록 공사명</div>
+                        <select id="txConsNo" class="cinput" style="font-size:13px">
+                            <option value="">로딩 중...</option>
+                        </select>
+                        <input type="text" id="txConsNoFallback" class="cinput hidden" placeholder="예) 397820263153" style="width:200px" title="공사번호 직접 입력 (공사목록 로드 실패 시)">
+                    </div>
+                    <div class="tx-field-group">
+                        <div class="tx-field-label">봉인 공사명</div>
+                        <select id="txSealConsNo" class="cinput" style="font-size:13px">
+                            <option value="">로딩 중...</option>
+                        </select>
+                        <input type="text" id="txSealConsNoFallback" class="cinput hidden" placeholder="예) 397820263153" style="width:200px" title="봉인 공사번호 직접 입력 (공사목록 로드 실패 시)">
+                    </div>
+                </div>
+                <div class="tx-divider"></div>
+                <div class="tx-field-label" style="margin-bottom:8px">아이디 목록 (아이디별 시작 봉인번호)</div>
+                <div class="tx-account-list" id="txAccountList">
+                    <span class="tx-account-empty">등록된 아이디 없음</span>
+                </div>
+                <div class="tx-add-row">
+                    <input type="text" id="txNewId" class="cinput" placeholder="awms 아이디" style="width:150px;font-size:13px;padding:9px 14px">
+                    <input type="text" id="txNewSeal" class="cinput" placeholder="시작 봉인번호" style="width:170px;font-size:13px;padding:9px 14px">
                     <button class="cbtn cbtn-sm" onclick="transmitAddAccount()">추가</button>
                 </div>
+                <div class="tx-divider"></div>
+                <div style="display:flex;gap:8px">
+                    <button class="cbtn cbtn-sm" onclick="transmitLoadConfig()">설정 불러오기</button>
+                    <button class="cbtn cbtn-sm cbtn-primary" onclick="transmitSaveConfig()">설정 저장</button>
+                </div>
+                <div id="txConfigMsg" class="tx-config-msg"></div>
             </div>
-            <div id="txConfigMsg" class="tx-config-msg"></div>
         </div>
 
-        <!-- awms 로그인 -->
+        <!-- 3. 미전송 / 전송완료 서브탭 -->
         <div class="card">
-            <div class="tx-section-title">awms 로그인</div>
-            <div class="tx-section-sub">
-                폰(계기큐)에서 로그인을 시작합니다. OTP는 폰에서 직접 입력하세요.
-            </div>
-            <div class="tx-login-row">
-                <select id="txLoginAcctSel" class="cinput" style="font-size:13px;min-width:180px">
-                    <option value="">아이디 없음 — 먼저 전송 설정에서 추가</option>
-                </select>
-                <button class="cbtn cbtn-sm cbtn-primary" onclick="transmitAwmsLogin()">로그인</button>
-                <button class="cbtn cbtn-sm" onclick="transmitCheckSession()">세션 확인</button>
-            </div>
-            <div id="txLoginHint" class="tx-login-hint hidden"></div>
-            <div id="txSessionStatus" class="tx-session-status"></div>
-        </div>
-
-        <!-- 미전송 / 전송완료 서브탭 -->
-        <div class="card">
-            <div class="filter-seg">
+            <div class="tx-subtab-row">
                 <div class="cseg">
                     <button id="txTabUnsent" class="active" onclick="txSetSubTab('unsent')">미전송</button>
                     <button id="txTabSent"               onclick="txSetSubTab('sent')">전송완료</button>
                 </div>
+                <div class="tx-summary-chips" id="txSummaryBadges"></div>
             </div>
 
-            <div class="summary-badges" id="txSummaryBadges"></div>
-
-            <!-- 봉인 미리보기 / 전송 실행 버튼 (미전송 탭에서만 의미있음) -->
+            <!-- 전송 액션 바 (미전송 탭) -->
             <div id="txActionBar" class="tx-action-bar">
-                <!-- 다중 계정일 때 계정 선택 드롭다운 -->
-                <div id="txAccountSelWrap" class="hidden">
-                    <select id="txAccountSel" class="cinput" style="font-size:13px;min-width:160px">
-                        <option value="">계정 선택...</option>
-                    </select>
-                </div>
+                <select id="txAccountSel" class="cinput-sm hidden" style="min-width:160px">
+                    <option value="">계정 선택...</option>
+                </select>
                 <button class="cbtn cbtn-sm" onclick="transmitPlan()">봉인 미리보기</button>
                 <button class="cbtn cbtn-sm cbtn-primary" onclick="transmitRun()">전송 시작</button>
+                <label class="tx-verify-toggle">
+                    <input type="checkbox" id="txVerifyToggle" checked> 전송 후 awms 검증
+                </label>
             </div>
 
-            <!-- 수동 일괄 전송완료 처리 (awms·폰 없이 Firebase 플래그만 — 이미 awms에 등록된 건 반영, 되돌리기 가능) -->
-            <div id="txManualBar" class="tx-action-bar" style="gap:6px;flex-wrap:wrap;align-items:center">
-                <span style="font-size:12px;color:var(--ink-2);font-weight:700">수동 전송완료:</span>
-                <button class="cbtn cbtn-sm" onclick="txToggleAll(true)">전체선택</button>
-                <button class="cbtn cbtn-sm" onclick="txToggleAll(false)">선택해제</button>
-                <button id="txMarkBtn"   class="cbtn cbtn-sm cbtn-primary" onclick="txMarkSelected(true)">선택 전송완료 처리</button>
-                <button id="txUnmarkBtn" class="cbtn cbtn-sm hidden"       onclick="txMarkSelected(false)">선택 미전송으로 되돌리기</button>
-                <span style="font-size:11px;color:var(--ink-3)">실패는 체크 해제 후 처리 · awms 실전송 아님(이미 등록된 건 표시만)</span>
+            <!-- 수동 마킹 바 -->
+            <div id="txManualBar" class="tx-manual-bar">
+                <span class="tx-manual-label">수동 전송완료</span>
+                <button class="cbtn cbtn-xs" onclick="txToggleAll(true)">전체선택</button>
+                <button class="cbtn cbtn-xs" onclick="txToggleAll(false)">선택해제</button>
+                <button id="txMarkBtn"   class="cbtn cbtn-xs cbtn-primary" onclick="txMarkSelected(true)">선택 전송완료 처리</button>
+                <button id="txUnmarkBtn" class="cbtn cbtn-xs hidden"       onclick="txMarkSelected(false)">선택 미전송으로 되돌리기</button>
+                <span style="font-size:11px;color:var(--ink-3)">실패는 체크 해제 후 처리</span>
             </div>
 
             <!-- 봉인 미리보기 결과 -->
             <div id="txPlanBox" class="hidden tx-plan-box"></div>
-
-            <!-- 전송 진행 -->
-            <div id="txJobCard" class="hidden">
-                <div class="job-box" id="txJobBox"></div>
-                <div id="txSummaryLine" class="hidden" style="font-size:12px;color:var(--ink-2);padding:4px 8px;font-variant-numeric:tabular-nums;"></div>
-                <div id="txProgressWrap" class="hidden tx-progress-wrap">
-                    <div class="tx-progress-lbl" id="txProgressLabel"></div>
-                    <div class="progress-track"><div class="progress-fill" id="txProgressFill" style="width:0%"></div></div>
-                </div>
-                <div class="job-log hidden" id="txJobLog"></div>
-            </div>
 
             <!-- 목록 테이블 -->
             <div class="table-wrap" id="txTableWrap">
@@ -1656,6 +1782,25 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        <!-- 4. 전송 진행 패널 (전송 시작 후 표시) -->
+        <div class="tx-progress-card hidden" id="txJobCard">
+            <div class="tx-progress-header">
+                <span class="spinner" id="txJobSpinner"></span>
+                <span class="tx-progress-title" id="txJobTitle">전송 중...</span>
+                <span style="font-size:12px;color:var(--ink-3)" id="txJobMeta"></span>
+                <span class="tx-progress-subtitle" id="txProgressLabel"></span>
+            </div>
+            <div class="tx-progress-track">
+                <div class="tx-progress-fill" id="txProgressFill" style="width:0%"></div>
+            </div>
+            <!-- 건별 4단계 스텝 -->
+            <div class="tx-step-grid" id="txStepGrid"></div>
+            <!-- 실시간 로그 -->
+            <div class="tx-log-panel hidden" id="txJobLog"></div>
+            <!-- 사후검증 결과 영역 -->
+            <div id="txVerifyResults"></div>
         </div>
 
     </div><!-- #panel-transmit -->
@@ -1972,7 +2117,7 @@ async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 터널 URL 자동발견(Firebase) — 실패 시 폴백 유지
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1758 (전송 로그 형식 개선: 상단 요약 계정·공사·진행·봉인범위, 건별 KST HH:MM:SS 구조화 라인)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1800 (전송탭 v2: 세션가져오기/세션확인 2버튼, 봉인공사번호 분리, 봉인불일치 배너, 4단계 스텝, 토스트/모달)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5367,7 +5512,7 @@ async function doRollback(auditKey, dataset, btnEl) {
 }
 
 // ══════════════════════════════════════════════════════
-// 전송탭 (awms 등록 컨트롤러)
+// 전송탭 (awms 등록 컨트롤러) v2
 // ══════════════════════════════════════════════════════
 
 // 전송탭 내부 상태
@@ -5375,27 +5520,55 @@ let _txAccounts       = [];          // [{id, start_seal}, ...]
 let _txSubTab         = 'unsent';    // 'unsent' | 'sent'
 let _txGroups         = [];          // 검증완료 그룹 전체 (isVerified 필터됨)
 let _txPollTimer      = null;        // 검증탭 _pollTimer와 분리
-let _txSessionOk      = false;       // awms 로그인 세션 확인 여부
+let _txSessionOk      = false;       // awms 세션 확인 여부
 let _txConsName       = '';          // 전송 시 선택한 공사명 (상단 요약용)
+let _txSessionAccount = '';          // 세션 확인된 계정 아이디
+let _txVerifyToggle   = true;        // 전송 후 awms 검증 여부 (localStorage 저장)
+let _txConfirmCb      = null;        // 확인 모달 콜백
 
 // ── 전송탭 진입 ──────────────────────────────────────
 async function transmitOnEnter() {
     _txUpdateScopeLabel();
+    // verifyToggle localStorage 복원
+    const vt = localStorage.getItem('tx_verify_toggle');
+    if (vt !== null) {
+        _txVerifyToggle = vt !== 'false';
+        const chk = document.getElementById('txVerifyToggle');
+        if (chk) chk.checked = _txVerifyToggle;
+    }
+    const chk = document.getElementById('txVerifyToggle');
+    if (chk) chk.addEventListener('change', function() {
+        _txVerifyToggle = chk.checked;
+        localStorage.setItem('tx_verify_toggle', _txVerifyToggle);
+    });
+    // 아코디언 초기화 — 기본 닫기
+    const cfg = document.getElementById('txConfigBody');
+    if (cfg) cfg.classList.remove('open');
+    const arr = document.getElementById('txConfigArrow');
+    if (arr) arr.classList.remove('open');
     // busilist 먼저 채운 뒤 config 복원 (순서 중요: option 없으면 .value 복원 실패)
     await transmitLoadBusiList();
     await transmitLoadConfig();
     transmitLoadList();
 }
 
-// ── 공사 목록 드롭다운 로드 ───────────────────────────
+// ── 아코디언 전송 설정 토글 ──────────────────────────
+function _txToggleConfig() {
+    const body  = document.getElementById('txConfigBody');
+    const arrow = document.getElementById('txConfigArrow');
+    if (body)  body.classList.toggle('open');
+    if (arrow) arrow.classList.toggle('open');
+}
+
+// ── 공사 목록 드롭다운 로드 (등록/봉인 공통) ─────────
 async function transmitLoadBusiList() {
-    const ds  = document.getElementById('datasetSel').value;
-    const sel = document.getElementById('txConsNo');
-    const fb  = document.getElementById('txConsNoFallback');
-    if (!sel || !fb) return;
-    // dataset 없으면 폴백 모드로 전환
+    const ds = document.getElementById('datasetSel').value;
+    const targets = [
+        { sel: 'txConsNo',         fb: 'txConsNoFallback' },
+        { sel: 'txSealConsNo',     fb: 'txSealConsNoFallback' },
+    ];
     if (!ds) {
-        _txUseBusiListFallback(sel, fb);
+        for (const t of targets) _txUseBusiListFallback(t.sel, t.fb);
         return;
     }
     try {
@@ -5403,35 +5576,39 @@ async function transmitLoadBusiList() {
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const data = await resp.json();
         const list = Array.isArray(data.list) ? data.list : [];
-        if (!list.length) throw new Error('공사 목록이 비어 있습니다');
-        // select 모드 활성화
-        sel.classList.remove('hidden');
-        fb.classList.add('hidden');
-        // 현재 저장값 보존 (option 채우기 전 미리 읽기)
-        const prevVal = sel.value && sel.value !== '' ? sel.value : fb.value.trim();
-        sel.innerHTML = '<option value="">공사 선택...</option>' +
-            list.map(function(item) {
-                return '<option value="' + esc(String(item.cons_no)) + '">' + esc(item.name) + '</option>';
-            }).join('');
-        // 이전 저장값 복원
-        if (prevVal) sel.value = String(prevVal);
+        if (!list.length) throw new Error('공사 목록 비어있음');
+        const optHtml = '<option value="">공사 선택...</option>' +
+            list.map(item => '<option value="' + esc(String(item.cons_no)) + '">' + esc(item.name) + '</option>').join('');
+        for (const t of targets) {
+            const sel = document.getElementById(t.sel);
+            const fb  = document.getElementById(t.fb);
+            if (!sel || !fb) continue;
+            const prevVal = (sel.value && sel.value !== '') ? sel.value : fb.value.trim();
+            sel.classList.remove('hidden');
+            fb.classList.add('hidden');
+            sel.innerHTML = optHtml;
+            if (prevVal) sel.value = String(prevVal);
+        }
     } catch (e) {
-        // 로드 실패 시 텍스트 입력 폴백
-        _txUseBusiListFallback(sel, fb);
+        for (const t of targets) _txUseBusiListFallback(t.sel, t.fb);
     }
 }
 
-function _txUseBusiListFallback(sel, fb) {
+function _txUseBusiListFallback(selId, fbId) {
+    const sel = document.getElementById(selId);
+    const fb  = document.getElementById(fbId);
     if (!sel || !fb) return;
     sel.classList.add('hidden');
     fb.classList.remove('hidden');
 }
 
 function _txUpdateScopeLabel() {
-    const ds   = document.getElementById('datasetSel').value || '(없음)';
-    const date = document.getElementById('dateInput').value  || '(없음)';
-    const el   = document.getElementById('transmitScopeLabel');
-    if (el) el.textContent = '데이터셋: ' + ds + '  /  날짜: ' + date;
+    const ds   = document.getElementById('datasetSel').value || '-';
+    const date = document.getElementById('dateInput').value  || '-';
+    const dsEl = document.getElementById('txScopeDs');
+    const dtEl = document.getElementById('txScopeDate');
+    if (dsEl) dsEl.textContent = ds;
+    if (dtEl) dtEl.textContent = date;
 }
 
 // ── 전송 설정 불러오기 ────────────────────────────────
@@ -5442,21 +5619,10 @@ async function transmitLoadConfig() {
         const resp = await fetch(API_BASE + '/transmit/config?dataset=' + encodeURIComponent(ds));
         if (!resp.ok) return;
         const cfg = await resp.json();
-        if (cfg.cons_no) {
-            const sel = document.getElementById('txConsNo');
-            const fb  = document.getElementById('txConsNoFallback');
-            const val = String(cfg.cons_no);
-            if (sel && !sel.classList.contains('hidden')) {
-                // select 모드: option 있으면 선택, 없으면 폴백에도 세팅
-                sel.value = val;
-                if (sel.value !== val && fb) {
-                    // 해당 option 미존재 — 폴백 입력에 보존
-                    fb.value = val;
-                }
-            } else if (fb) {
-                fb.value = val;
-            }
-        }
+        // 등록 공사번호 복원
+        if (cfg.cons_no) _txRestoreConsNo('txConsNo', 'txConsNoFallback', String(cfg.cons_no));
+        // 봉인 공사번호 복원
+        if (cfg.seal_cons_no) _txRestoreConsNo('txSealConsNo', 'txSealConsNoFallback', String(cfg.seal_cons_no));
         if (Array.isArray(cfg.accounts)) {
             _txAccounts = cfg.accounts.slice();
             _txRenderAccountList();
@@ -5464,22 +5630,29 @@ async function transmitLoadConfig() {
     } catch (_) { /* 서버 없으면 무시 */ }
 }
 
+function _txRestoreConsNo(selId, fbId, val) {
+    const sel = document.getElementById(selId);
+    const fb  = document.getElementById(fbId);
+    if (sel && !sel.classList.contains('hidden')) {
+        sel.value = val;
+        if (sel.value !== val && fb) fb.value = val;
+    } else if (fb) {
+        fb.value = val;
+    }
+}
+
 // ── 전송 설정 저장 ────────────────────────────────────
 async function transmitSaveConfig() {
-    const ds      = document.getElementById('datasetSel').value;
-    const selEl   = document.getElementById('txConsNo');
-    const fbEl    = document.getElementById('txConsNoFallback');
-    // select 모드이면 option value(cons_no), 폴백이면 text 직접입력
-    const cons_no = (selEl && !selEl.classList.contains('hidden'))
-        ? (selEl.value || '').trim()
-        : (fbEl ? fbEl.value.trim() : '');
-    const msgEl   = document.getElementById('txConfigMsg');
+    const ds         = document.getElementById('datasetSel').value;
+    const msgEl      = document.getElementById('txConfigMsg');
     if (!ds) { _txSetMsg(msgEl, '데이터셋을 먼저 선택하세요.', 'err'); return; }
+    const cons_no      = _txGetConsNo('txConsNo',     'txConsNoFallback');
+    const seal_cons_no = _txGetConsNo('txSealConsNo', 'txSealConsNoFallback');
     try {
         const resp = await fetch(API_BASE + '/transmit/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dataset: ds, cons_no, accounts: _txAccounts }),
+            body: JSON.stringify({ dataset: ds, cons_no, seal_cons_no, accounts: _txAccounts }),
         });
         const b = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
@@ -5489,52 +5662,46 @@ async function transmitSaveConfig() {
     }
 }
 
+function _txGetConsNo(selId, fbId) {
+    const sel = document.getElementById(selId);
+    const fb  = document.getElementById(fbId);
+    return (sel && !sel.classList.contains('hidden')) ? (sel.value || '').trim() : (fb ? fb.value.trim() : '');
+}
+
 // ── 계정 목록 렌더 ───────────────────────────────────
 function _txRenderAccountList() {
     const el = document.getElementById('txAccountList');
     if (!el) return;
     if (!_txAccounts.length) {
         el.innerHTML = '<span class="tx-account-empty">등록된 아이디 없음</span>';
-        return;
+    } else {
+        el.innerHTML = _txAccounts.map((a, i) =>
+            '<div class="tx-account-row">' +
+            '<span class="tx-account-id">' + esc(a.id) + '</span>' +
+            '<span class="tx-account-seal">시작 봉인: ' + esc(a.start_seal || '-') + '</span>' +
+            '<button class="cbtn cbtn-xs tx-account-del" onclick="transmitRemoveAccount(' + i + ')">삭제</button>' +
+            '</div>'
+        ).join('');
     }
-    el.innerHTML = _txAccounts.map((a, i) =>
-        '<div class="tx-account-row">' +
-        '<span class="tx-account-id">' + esc(a.id) + '</span>' +
-        '<span class="tx-account-seal">시작 봉인: ' + esc(a.start_seal || '-') + '</span>' +
-        '<button class="cbtn cbtn-xs tx-account-del" onclick="transmitRemoveAccount(' + i + ')">삭제</button>' +
-        '</div>'
-    ).join('');
-    // 전송 계정 드롭다운 갱신 (txActionBar)
+    // 전송 계정 드롭다운 갱신
     const sel = document.getElementById('txAccountSel');
     if (sel) {
         sel.innerHTML = _txAccounts.length === 1
             ? '<option value="' + esc(_txAccounts[0].id) + '">' + esc(_txAccounts[0].id) + '</option>'
             : '<option value="">계정 선택...</option>' +
               _txAccounts.map(a => '<option value="' + esc(a.id) + '">' + esc(a.id) + '</option>').join('');
+        sel.classList.toggle('hidden', _txAccounts.length <= 1);
     }
-    const wrap = document.getElementById('txAccountSelWrap');
-    if (wrap) wrap.classList.toggle('hidden', _txAccounts.length <= 1);
-    // 로그인 계정 드롭다운 갱신 (txLoginAcctSel)
-    const loginSel = document.getElementById('txLoginAcctSel');
-    if (loginSel) {
-        if (_txAccounts.length === 0) {
-            loginSel.innerHTML = '<option value="">아이디 없음 — 먼저 전송 설정에서 추가</option>';
-        } else {
-            loginSel.innerHTML = (_txAccounts.length > 1 ? '<option value="">계정 선택...</option>' : '') +
-                _txAccounts.map(a => '<option value="' + esc(a.id) + '">' + esc(a.id) + '</option>').join('');
-        }
-    }
-    // 계정이 바뀌면 이전 세션 확인 무효화
+    // 세션 확인 무효화
     _txSessionOk = false;
-    const stEl = document.getElementById('txSessionStatus');
-    if (stEl) stEl.textContent = '';
+    _txUpdateSessionPill(null);
 }
 
 function transmitAddAccount() {
-    const id    = document.getElementById('txNewId').value.trim();
-    const seal  = document.getElementById('txNewSeal').value.trim();
-    if (!id) { alert('아이디를 입력하세요.'); return; }
-    if (_txAccounts.some(a => a.id === id)) { alert('이미 등록된 아이디입니다.'); return; }
+    const id   = document.getElementById('txNewId').value.trim();
+    const seal = document.getElementById('txNewSeal').value.trim();
+    if (!id) { _txToast('아이디를 입력하세요.', 'ng'); return; }
+    if (_txAccounts.some(a => a.id === id)) { _txToast('이미 등록된 아이디입니다.', 'ng'); return; }
     _txAccounts.push({ id, start_seal: seal });
     document.getElementById('txNewId').value = '';
     document.getElementById('txNewSeal').value = '';
@@ -5552,7 +5719,6 @@ function txSetSubTab(name) {
     document.getElementById('txTabUnsent').classList.toggle('active', name === 'unsent');
     document.getElementById('txTabSent').classList.toggle('active', name === 'sent');
     document.getElementById('txActionBar').classList.toggle('hidden', name === 'sent');
-    // 수동마킹 바: 미전송=전송완료 처리 버튼 / 전송완료=되돌리기 버튼
     const mb = document.getElementById('txMarkBtn'), ub = document.getElementById('txUnmarkBtn');
     if (mb) mb.classList.toggle('hidden', name === 'sent');
     if (ub) ub.classList.toggle('hidden', name !== 'sent');
@@ -5567,10 +5733,10 @@ async function transmitLoadList() {
 
     const tbody = document.getElementById('txTableBody');
     if (!ds || !date) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">검증탭에서 날짜와 데이터셋을 먼저 선택하세요.</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty">검증탭에서 날짜와 데이터셋을 먼저 선택하세요.</td></tr>';
         return;
     }
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">불러오는 중...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty">불러오는 중...</td></tr>';
 
     try {
         const qs   = 'dataset=' + encodeURIComponent(ds) + '&date=' + toApiDate(date);
@@ -5584,12 +5750,10 @@ async function transmitLoadList() {
         const mi    = data.meter_ids     || [];
         const ri    = data.removal_ids   || [];
         const all   = groupByEvent(mv, mi, ri);
-
-        // 검증완료만 추출 (isVerified 기존 헬퍼 재사용)
         _txGroups = all.filter(g => isVerified(g));
         _txRenderList();
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">목록 로드 실패: ' + esc(e.message) + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty">목록 로드 실패: ' + esc(e.message) + '</td></tr>';
     }
 }
 
@@ -5599,21 +5763,20 @@ function _txRenderList() {
     const sent   = _txGroups.filter(g =>  g.awms_synced);
     const shown  = _txSubTab === 'unsent' ? unsent : sent;
 
-    // 요약 배지
+    // 요약 칩
     const badgeEl = document.getElementById('txSummaryBadges');
     if (badgeEl) {
         badgeEl.innerHTML =
-            '<span class="sbadge sb-total">검증완료: ' + _txGroups.length + '</span>' +
-            '<span class="sbadge sb-warn">미전송: ' + unsent.length + '</span>' +
-            '<span class="sbadge sb-pass">전송완료: ' + sent.length + '</span>';
+            '<span class="cchip amber">미전송 ' + unsent.length + '</span>' +
+            '<span class="cchip">전송완료 ' + sent.length + '</span>' +
+            '<span class="cchip gray">검증완료 ' + _txGroups.length + '</span>';
     }
 
-    // 헤더 (맨 앞 = 수동마킹용 체크박스 컬럼 + 전체선택)
     const thead = document.getElementById('txTableHead');
     const chkTh = '<th style="width:34px"><input type="checkbox" id="txChkAll" onclick="txToggleAll(this.checked)"></th>';
     if (thead) {
         if (_txSubTab === 'unsent') {
-            thead.innerHTML = '<tr>' + chkTh + '<th>순번</th><th>철거계기번호</th><th>주소</th><th>완료상태</th><th>봉인(미리보기)</th><th>계정(선택)</th></tr>';
+            thead.innerHTML = '<tr>' + chkTh + '<th>순번</th><th>철거계기번호</th><th>주소</th><th>완료상태</th><th>봉인(미리보기)</th><th>계정</th></tr>';
         } else {
             thead.innerHTML = '<tr>' + chkTh + '<th>순번</th><th>철거계기번호</th><th>주소</th><th>봉인번호</th><th>계정</th><th>공사번호</th></tr>';
         }
@@ -5621,18 +5784,17 @@ function _txRenderList() {
 
     const tbody = document.getElementById('txTableBody');
     if (!shown.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">' +
+        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty">' +
             (_txSubTab === 'unsent' ? '미전송 계기 없음.' : '전송완료 계기 없음.') + '</td></tr>';
         return;
     }
 
-    tbody.innerHTML = shown.map(g => {
+    if (tbody) tbody.innerHTML = shown.map(g => {
         if (_txSubTab === 'sent') {
             const seal = g.awms_seal;
             const sealStr = seal
-                ? esc(seal.seal_no || '-') + (seal.seal_no2 ? ' / ' + esc(seal.seal_no2) : '')
+                ? esc(String(seal.seal_no || '-')) + (seal.seal_no2 ? ' / ' + esc(String(seal.seal_no2)) : '')
                 : '-';
-            // 전송완료탭 체크박스 = 되돌리기 대상 선택(기본 해제). 수동마킹 건은 '수동' 배지.
             const manualBadge = g.awms_synced_manual
                 ? ' <span class="sbadge sb-warn" style="font-size:10px">수동</span>' : '';
             return '<tr>' +
@@ -5645,31 +5807,31 @@ function _txRenderList() {
                 '<td>' + esc((seal && seal.cons_no) || '-') + '</td>' +
                 '</tr>';
         } else {
-            // 미전송 — 봉인/계정은 plan 이후에 채워짐
             const planSeal = g._txPlanSeal || '';
             const planAcct = g._txPlanAcct || '';
             let acctCell = '-';
-            if (_txAccounts.length === 1) {
+            if (_txSessionAccount) {
+                acctCell = esc(_txSessionAccount);
+            } else if (_txAccounts.length === 1) {
                 acctCell = esc(_txAccounts[0].id);
             } else if (_txAccounts.length > 1) {
                 const sel = document.getElementById('txAccountSel');
                 acctCell = (sel && sel.value) ? esc(sel.value) : '(선택 필요)';
             }
-            // 미전송탭 체크박스 = 전송완료 처리 대상(기본 체크 — 실패만 해제하면 됨)
             return '<tr>' +
                 '<td><input type="checkbox" class="tx-chk" value="' + esc(g.mid) + '" checked></td>' +
                 '<td class="seq-col">' + g.seq + '</td>' +
                 '<td class="mid-col">' + esc(g.mid) + '</td>' +
                 '<td class="tx-addr-cell">' + esc(g.addr || '-') + '</td>' +
                 '<td><span class="ms ' + _txMeterStateCls(g.meter_state) + '">' + esc(g.meter_state || '-') + '</span></td>' +
-                '<td class="tx-tabular">' + esc(planSeal) + '</td>' +
+                '<td class="tx-tabular">' + esc(String(planSeal)) + '</td>' +
                 '<td>' + (planAcct ? esc(planAcct) : acctCell) + '</td>' +
                 '</tr>';
         }
     }).join('');
 }
 
-// ── 수동 일괄 전송완료 마킹 (awms·폰 없이 Firebase 플래그만, 되돌리기 가능) ──
+// ── 수동 일괄 전송완료 마킹 ──────────────────────────
 function txSelectedMids() {
     return Array.from(document.querySelectorAll('#txTableBody .tx-chk:checked')).map(c => c.value);
 }
@@ -5679,32 +5841,33 @@ function txToggleAll(checked) {
 }
 async function txMarkSelected(synced) {
     const ds = document.getElementById('datasetSel').value;
-    if (!ds) { alert('데이터셋을 선택하세요.'); return; }
+    if (!ds) { _txToast('데이터셋을 선택하세요.', 'ng'); return; }
     const mids = txSelectedMids();
-    if (!mids.length) { alert(synced ? '전송완료로 표시할 계기를 선택하세요.' : '되돌릴 계기를 선택하세요.'); return; }
-    // 표시용 공사명/계정 (선택 — 수동이라 봉인번호는 없음)
-    const account = (typeof _txPickAccount === 'function' ? (_txPickAccount() || '') : '');
-    const consSel = document.getElementById('txConsNo');
-    const consNo = (consSel && !consSel.classList.contains('hidden') && consSel.value)
-        ? consSel.value
-        : ((document.getElementById('txConsNoFallback') || {}).value || '');
-    const verb = synced ? '전송완료로 표시' : '미전송으로 되돌리기';
-    if (!confirm(mids.length + '건을 ' + verb + '합니다.\n(awms 실제 전송 아님 — 이미 등록된 건 데이터관리자에 반영)\n계속할까요?')) return;
-    try {
-        const resp = await fetch(API_BASE + '/transmit/mark', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dataset: ds, mids, synced,
-                cons_no: synced ? consNo : '', account: synced ? account : '' }),
-        });
-        const b = await resp.json().catch(() => ({}));
-        if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
-        const c = b.counts || {};
-        let msg = verb + ' 완료: ' + (c.marked || 0) + '건';
-        if (c.skipped)   msg += '\n실전송 기록 보호(제외): ' + c.skipped + '건';
-        if (c.not_found) msg += '\n주소 못 찾음: ' + c.not_found + '건';
-        alert(msg);
-        await transmitLoadList();   // 목록 재로드 → 미전송/전송완료 갱신
-    } catch (e) { alert('처리 실패: ' + e.message); }
+    if (!mids.length) { _txToast(synced ? '전송완료로 표시할 계기를 선택하세요.' : '되돌릴 계기를 선택하세요.', 'ng'); return; }
+    const account = _txPickAccount();
+    const consNo  = _txGetConsNo('txConsNo', 'txConsNoFallback');
+    const verb    = synced ? '전송완료로 표시' : '미전송으로 되돌리기';
+    await _txConfirm(
+        '수동 전송완료 처리',
+        mids.length + '건을 ' + verb + '합니다.\n(awms 실전송 아님 — 이미 등록된 건 데이터관리 반영)\n계속할까요?',
+        async function() {
+            try {
+                const resp = await fetch(API_BASE + '/transmit/mark', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dataset: ds, mids, synced,
+                        cons_no: synced ? consNo : '', account: synced ? account : '' }),
+                });
+                const b = await resp.json().catch(() => ({}));
+                if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
+                const c = b.counts || {};
+                let msg = verb + ' 완료: ' + (c.marked || 0) + '건';
+                if (c.skipped)   msg += ' / 보호: ' + c.skipped;
+                if (c.not_found) msg += ' / 미발견: ' + c.not_found;
+                _txToast(msg, 'ok');
+                await transmitLoadList();
+            } catch (e) { _txToast('처리 실패: ' + e.message, 'ng'); }
+        }
+    );
 }
 
 function _txMeterStateCls(s) {
@@ -5719,15 +5882,14 @@ function _txMeterStateCls(s) {
 // ── 봉인 미리보기 ─────────────────────────────────────
 async function transmitPlan() {
     const ds  = document.getElementById('datasetSel').value;
-    if (!ds) { alert('데이터셋을 선택하세요.'); return; }
+    if (!ds) { _txToast('데이터셋을 선택하세요.', 'ng'); return; }
     const unsent = _txGroups.filter(g => !g.awms_synced);
-    if (!unsent.length) { alert('미전송 계기가 없습니다.'); return; }
+    if (!unsent.length) { _txToast('미전송 계기가 없습니다.', 'ng'); return; }
     const account = _txPickAccount();
-    if (!account) { alert('계정을 선택하세요.'); return; }
+    if (!account) { _txToast('계정을 선택하세요.', 'ng'); return; }
 
     const planBox = document.getElementById('txPlanBox');
-    planBox.classList.remove('hidden');
-    planBox.textContent = '미리보기 요청 중...';
+    if (planBox) { planBox.classList.remove('hidden'); planBox.textContent = '미리보기 요청 중...'; }
 
     const assignments = unsent.map(g => _txBuildAssignment(g, account));
 
@@ -5742,186 +5904,226 @@ async function transmitPlan() {
 
         const plan  = b.plan     || {};
         const accts = b.accounts || {};
+        const seal  = b.seal     || {};
+
+        // 봉인 카운터 업데이트 (zero-padded 문자열 그대로)
+        const nextAfter = seal.next_after || '';
+        const sealEl = document.getElementById('txSealNext');
+        if (sealEl && nextAfter) sealEl.textContent = String(nextAfter);
 
         // 미리보기 결과를 그룹에 임시 기록
         for (const g of unsent) {
             const p = plan[g.mid];
             if (p) {
-                g._txPlanSeal = p.seal_no + (p.seal_no2 ? ' / ' + p.seal_no2 : '');
+                g._txPlanSeal = String(p.seal_no || '') + (p.seal_no2 ? ' / ' + String(p.seal_no2) : '');
                 g._txPlanAcct = p.account;
             }
         }
         _txRenderList();
 
-        // 계정별 요약 표시
+        // 계정별 요약
         const lines = ['[봉인 미리보기 결과]'];
         for (const [acct, info] of Object.entries(accts)) {
-            lines.push('계정 ' + acct + ' — 시작: ' + (info.start || '-') + ', 건수: ' + (info.count || 0) + ', 마지막 다음: ' + (info.next_after || '-'));
+            lines.push('계정 ' + acct + ' — 시작: ' + String(info.start || '-') + ', 건수: ' + (info.count || 0) + ', 다음: ' + String(info.next_after || '-'));
         }
-        planBox.innerHTML = lines.map(l => '<div>' + esc(l) + '</div>').join('');
+        if (planBox) planBox.innerHTML = lines.map(l => '<div>' + esc(l) + '</div>').join('');
     } catch (e) {
-        planBox.innerHTML = '<span class="tx-plan-err">미리보기 실패: ' + esc(e.message) + '</span>';
+        if (planBox) planBox.innerHTML = '<span class="tx-plan-err">미리보기 실패: ' + esc(e.message) + '</span>';
     }
 }
 
 // ── 전송 실행 ─────────────────────────────────────────
 async function transmitRun() {
     const ds  = document.getElementById('datasetSel').value;
-    if (!ds) { alert('데이터셋을 선택하세요.'); return; }
+    if (!ds) { _txToast('데이터셋을 선택하세요.', 'ng'); return; }
     const unsent = _txGroups.filter(g => !g.awms_synced);
-    if (!unsent.length) { alert('미전송 계기가 없습니다.'); return; }
+    if (!unsent.length) { _txToast('미전송 계기가 없습니다.', 'ng'); return; }
     const account = _txPickAccount();
-    if (!account) { alert('계정을 선택하세요.'); return; }
+    if (!account) { _txToast('계정을 선택하세요.', 'ng'); return; }
 
-    // 세션 미확인 경고 (awms 로그인 섹션에서 세션 확인 권장)
+    const verify = document.getElementById('txVerifyToggle') ? document.getElementById('txVerifyToggle').checked : true;
+
+    // 세션 미확인 경고
     if (!_txSessionOk) {
-        if (!confirm('awms 세션이 확인되지 않았습니다. 세션 확인 없이 전송을 계속할까요?')) return;
+        const proceed = await _txConfirmAsync('awms 세션 미확인', 'awms 세션이 확인되지 않았습니다.\n세션 확인 없이 전송을 계속할까요?');
+        if (!proceed) return;
     }
 
-    if (!confirm('검증완료 미전송 ' + unsent.length + '건을 awms에 등록합니다. 계속할까요?')) return;
+    const consName = _txGetConsNo('txConsNo', 'txConsNoFallback');
+    await _txConfirm(
+        '전송 시작',
+        '검증완료 미전송 ' + unsent.length + '건을 awms에 등록합니다.\n계속할까요?',
+        async function() {
+            const consSel = document.getElementById('txConsNo');
+            _txConsName = (consSel && !consSel.classList.contains('hidden') && consSel.selectedIndex >= 0)
+                ? (consSel.options[consSel.selectedIndex].text || '')
+                : consName;
 
-    // 공사명 캡처 (상단 요약 표시용)
-    const consSel = document.getElementById('txConsNo');
-    _txConsName = (consSel && !consSel.classList.contains('hidden') && consSel.selectedIndex >= 0)
-        ? (consSel.options[consSel.selectedIndex].text || '')
-        : (document.getElementById('txConsNoFallback') || {}).value || '';
+            const assignments = unsent.map(g => ({ ..._txBuildAssignment(g, account), addr: g.addr || '' }));
 
-    const assignments = unsent.map(g => ({ ..._txBuildAssignment(g, account), addr: g.addr || '' }));
+            const jobCard  = document.getElementById('txJobCard');
+            const jobTitle = document.getElementById('txJobTitle');
+            const jobMeta  = document.getElementById('txJobMeta');
+            const jobLog   = document.getElementById('txJobLog');
+            const progFill = document.getElementById('txProgressFill');
+            const progLbl  = document.getElementById('txProgressLabel');
+            const stepGrid = document.getElementById('txStepGrid');
+            const spinner  = document.getElementById('txJobSpinner');
+            const vrEl     = document.getElementById('txVerifyResults');
 
-    const jobCard   = document.getElementById('txJobCard');
-    const jobBox    = document.getElementById('txJobBox');
-    const jobLog    = document.getElementById('txJobLog');
-    const summLine  = document.getElementById('txSummaryLine');
-    const progWrap  = document.getElementById('txProgressWrap');
-    const progFill  = document.getElementById('txProgressFill');
-    const progLbl   = document.getElementById('txProgressLabel');
+            if (jobCard)  jobCard.classList.remove('hidden');
+            if (jobTitle) jobTitle.textContent = '전송 중...';
+            if (jobMeta)  jobMeta.textContent = '계정 ' + account + ((_txConsName) ? ' · ' + _txConsName : '');
+            if (jobLog)   { jobLog.classList.add('hidden'); jobLog.innerHTML = ''; }
+            if (progFill) progFill.style.width = '0%';
+            if (progLbl)  progLbl.textContent = '0 / ' + unsent.length;
+            if (stepGrid) stepGrid.innerHTML = unsent.map(g =>
+                '<div class="tx-step-row" id="txStepRow_' + esc(g.mid) + '">' +
+                '<span class="tx-step-mid">' + esc(g.mid) + '</span>' +
+                '<div class="tx-steps">' +
+                '<div class="tx-step" id="txStep_' + esc(g.mid) + '_0">철거</div>' +
+                '<div class="tx-step" id="txStep_' + esc(g.mid) + '_1">신설</div>' +
+                '<div class="tx-step" id="txStep_' + esc(g.mid) + '_2">완료28</div>' +
+                '<div class="tx-step" id="txStep_' + esc(g.mid) + '_3">필드대조</div>' +
+                '</div></div>'
+            ).join('');
+            if (vrEl) vrEl.innerHTML = '';
+            if (spinner) spinner.style.display = '';
 
-    jobCard.classList.remove('hidden');
-    jobBox.className = 'job-box job-running';
-    jobBox.innerHTML = '<span class="spinner"></span> <span>전송 중...</span>';
-    if (summLine) summLine.classList.add('hidden');
-    jobLog.classList.add('hidden');
-    jobLog.textContent = '';
-    progWrap.classList.remove('hidden');
-    progFill.style.width = '0%';
-    progLbl.textContent = '0 / ' + unsent.length;
+            try {
+                const resp = await fetch(API_BASE + '/transmit/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dataset: ds, assignments, verify }),
+                });
+                const b = await resp.json().catch(() => ({}));
+                if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
 
-    try {
-        const resp = await fetch(API_BASE + '/transmit/run', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dataset: ds, assignments }),
-        });
-        const b = await resp.json().catch(() => ({}));
-        if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
+                const jobId = b.job_id;
+                if (!jobId) throw new Error('job_id 없음');
 
-        const jobId = b.job_id;
-        if (!jobId) throw new Error('job_id 없음');
-
-        // 폴링 시작 (검증탭 _pollTimer와 분리)
-        if (_txPollTimer) clearInterval(_txPollTimer);
-        _txPollTimer = setInterval(() => _txPollJob(jobId, jobBox, jobLog, summLine, progWrap, progFill, progLbl), 1500);
-    } catch (e) {
-        jobBox.className = 'job-box job-error';
-        jobBox.textContent = '전송 실패: ' + e.message;
-        progWrap.classList.add('hidden');
-    }
+                if (_txPollTimer) clearInterval(_txPollTimer);
+                _txPollTimer = setInterval(() => _txPollJob(jobId), 1500);
+            } catch (e) {
+                if (jobTitle) jobTitle.textContent = '전송 실패: ' + e.message;
+                if (spinner)  spinner.style.display = 'none';
+            }
+        }
+    );
 }
 
-async function _txPollJob(jobId, jobBox, jobLog, summLine, progWrap, progFill, progLbl) {
+async function _txPollJob(jobId) {
     try {
         const resp = await fetch(API_BASE + '/transmit/job/' + encodeURIComponent(jobId));
         if (!resp.ok) return;
         const d = await resp.json();
 
-        const pct   = d.progress || 0;
-        const done  = d.done     || 0;
-        const total = d.total    || 0;
-        const ok    = d.ok_count || 0;
+        const pct   = d.progress   || 0;
+        const done  = d.done       || 0;
+        const total = d.total      || 0;
+        const ok    = d.ok_count   || 0;
         const fail  = d.fail_count || 0;
 
-        progFill.style.width = pct + '%';
-        progLbl.textContent  = done + ' / ' + total + '  (성공: ' + ok + ', 실패: ' + fail + ')';
+        const progFill = document.getElementById('txProgressFill');
+        const progLbl  = document.getElementById('txProgressLabel');
+        if (progFill) progFill.style.width = pct + '%';
+        if (progLbl)  progLbl.textContent = done + ' / ' + total + '  (성공: ' + ok + ', 실패: ' + fail + ')';
 
-        // 상단 요약 라인 — 계정 · 공사명 · 진행 N/M(%) · 봉인 <시작>~<현재>
-        if (summLine) {
-            const accts  = d.accounts || {};
-            // 계정: 첫 번째 계정 id
-            const acctId = Object.keys(accts)[0] || '';
-            const consName = _txConsName || (d.cons_no || '');
-            const sealStart = d.seal_start || '';
-            const sealCur   = d.seal_current || sealStart;
-            const sealRange = sealStart
-                ? (sealStart === sealCur ? sealStart : sealStart + '~' + sealCur)
-                : '';
-            const pctStr = total ? ' (' + pct + '%)' : '';
-            const parts = [];
-            if (acctId) parts.push('계정 ' + esc(acctId));
-            if (consName) parts.push('공사 ' + esc(consName));
-            parts.push('진행 ' + done + '/' + total + pctStr);
-            if (sealRange) parts.push('봉인 ' + esc(sealRange));
-            summLine.textContent = parts.join(' · ');
-            summLine.classList.remove('hidden');
+        // 봉인 카운터 갱신 (zero-padded 문자열 그대로)
+        const sealCur = d.seal_current || '';
+        if (sealCur) {
+            const sealEl = document.getElementById('txSealNext');
+            if (sealEl) sealEl.textContent = String(sealCur);
         }
 
-        // 로그 렌더 — 최신 위로, 건별 구조화 라인
-        if (Array.isArray(d.logs) && d.logs.length) {
+        // 로그 렌더 — 구조화 라인
+        const jobLog = document.getElementById('txJobLog');
+        if (jobLog && Array.isArray(d.logs) && d.logs.length) {
             jobLog.classList.remove('hidden');
             const lines = d.logs.slice().reverse().map(function(l) {
                 const phase = l.phase || '';
-                // 시스템 메시지(mid 없음) — 회색 plain 라인
                 if (phase === '시스템' || !l.mid) {
                     const tsStr = l.ts ? new Date(l.ts).toLocaleTimeString('ko-KR', {hour12: false, timeZone: 'Asia/Seoul'}) : '';
-                    return '<div style="color:var(--ink-3);font-size:11px">' +
-                        (tsStr ? esc(tsStr) + '  ' : '') + esc(l.msg || '') +
-                        '</div>';
+                    return '<div class="log-line"><span class="log-ts">' + esc(tsStr) + '</span><span class="log-sys">' + esc(l.msg || '') + '</span></div>';
                 }
                 const tsStr  = l.ts ? new Date(l.ts).toLocaleTimeString('ko-KR', {hour12: false, timeZone: 'Asia/Seoul'}) : '';
                 const seqStr = l.seq != null && l.seq !== '' ? '순번' + esc(String(l.seq)) : '';
                 const oldM   = esc(l.old_mid || l.mid || '');
                 const newM   = esc(l.new_mid || '');
-                const sealN  = esc(l.seal || '');
+                const sealN  = l.seal ? esc(String(l.seal)) : '';
                 const flowStr = (oldM ? oldM + '->' : '->') + newM;
-
-                let color, label;
-                if (phase === '완료') {
-                    color = 'var(--mint-strong)';
-                    label = '완료';
-                } else if (phase === '검증') {
-                    color = 'var(--ink-3)';
-                    label = '미전송(LIVE 꺼짐)';
-                } else {
-                    color = 'var(--a-rose)';
-                    label = '실패: ' + esc(l.reason || l.msg || '');
+                // 상세 로그: 회색 작은글씨
+                if (phase === '상세') {
+                    return '<div class="log-line"><span class="log-ts">' + esc(tsStr) + '</span><span class="log-sys" style="font-size:11px">' +
+                        seqStr + (seqStr ? ' ' : '') + esc(l.msg || '') + '</span></div>';
                 }
-                return '<div style="color:' + color + ';font-variant-numeric:tabular-nums">' +
-                    esc(tsStr) + '  ' + seqStr + (seqStr ? '  ' : '') +
-                    flowStr + (sealN ? '  봉인' + sealN : '') + '  ' + label +
-                    '</div>';
+                // 대조 로그: 통과=초록 뱃지 / 불일치=빨강 뱃지
+                if (phase === '대조') {
+                    const isPass = !l.mismatches || l.mismatches.length === 0;
+                    const vrEl   = document.getElementById('txVerifyResults');
+                    if (vrEl) {
+                        const div = document.createElement('div');
+                        div.className = 'tx-verify-result ' + (isPass ? 'pass' : 'fail');
+                        if (isPass) {
+                            div.innerHTML = '<div class="tx-verify-result-title"><span class="cdot green"></span>전송완료 확정 — ' + esc(l.mid) + '</div>';
+                        } else {
+                            const mm = (l.mismatches || []).map(m => '<div>' + esc(m) + '</div>').join('');
+                            div.innerHTML = '<div class="tx-verify-result-title"><span class="cdot rose"></span>필드대조 불일치 — ' + esc(l.mid) +
+                                '<button class="cbtn cbtn-xs" style="margin-left:auto" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'\':\' none\'">세부 보기</button></div>' +
+                                '<div class="tx-mismatch-list" style="display:none">' + mm + '</div>';
+                        }
+                        vrEl.appendChild(div);
+                    }
+                    const cls = isPass ? 'ok' : 'ng';
+                    return '<div class="log-line"><span class="log-ts">' + esc(tsStr) + '</span><span class="log-' + cls + '">' +
+                        seqStr + (seqStr ? ' ' : '') + flowStr + (sealN ? ' 봉인' + sealN : '') +
+                        (isPass ? ' 전송완료 확정' : ' 불일치') + '</span></div>';
+                }
+                let cls, label;
+                if (phase === '완료') { cls = 'ok'; label = '완료'; }
+                else if (phase === '검증') { cls = 'sys'; label = '미전송(LIVE 꺼짐)'; }
+                else { cls = 'fail'; label = '실패: ' + esc(l.reason || l.msg || ''); }
+                // 4단계 스텝 업데이트
+                _txUpdateStep(l.mid, phase, cls === 'fail');
+                return '<div class="log-line"><span class="log-ts">' + esc(tsStr) + '</span><span class="log-' + cls + '">' +
+                    seqStr + (seqStr ? ' ' : '') + flowStr + (sealN ? ' 봉인' + sealN : '') + ' ' + label + '</span></div>';
             });
             jobLog.innerHTML = lines.join('');
         }
 
+        const jobTitle = document.getElementById('txJobTitle');
+        const spinner  = document.getElementById('txJobSpinner');
         if (d.status === 'done') {
             clearInterval(_txPollTimer); _txPollTimer = null;
-            jobBox.className = 'job-box job-done';
-            jobBox.textContent = '전송 완료 — 성공: ' + ok + ', 실패: ' + fail;
-            // 목록 새로고침
+            if (jobTitle) jobTitle.textContent = '전송 완료 — 성공: ' + ok + ', 실패: ' + fail;
+            if (spinner)  spinner.style.display = 'none';
             await transmitLoadList();
         } else if (d.status === 'error') {
             clearInterval(_txPollTimer); _txPollTimer = null;
-            jobBox.className = 'job-box job-error';
-            jobBox.textContent = '전송 오류 — 성공: ' + ok + ', 실패: ' + fail;
+            if (jobTitle) jobTitle.textContent = '전송 오류 — 성공: ' + ok + ', 실패: ' + fail;
+            if (spinner)  spinner.style.display = 'none';
             await transmitLoadList();
-        } else {
-            jobBox.className = 'job-box job-running';
-            jobBox.innerHTML = '<span class="spinner"></span> <span>전송 중 (' + pct + '%)...</span>';
         }
     } catch (_) { /* 폴링 오류 무시 */ }
 }
 
+// ── 4단계 스텝 업데이트 ──────────────────────────────
+function _txUpdateStep(mid, phase, isFail) {
+    const stepMap = { '철거': 0, '신설': 1, '완료28': 2, '대조': 3 };
+    const idx = stepMap[phase];
+    if (idx === undefined || !mid) return;
+    // 이전 단계 done, 현재 done/fail
+    for (let i = 0; i < 4; i++) {
+        const el = document.getElementById('txStep_' + mid + '_' + i);
+        if (!el) continue;
+        if (i < idx)      el.className = 'tx-step done';
+        else if (i === idx) el.className = 'tx-step ' + (isFail ? 'fail' : 'done');
+    }
+}
+
 // ── 내부 헬퍼 ────────────────────────────────────────
 function _txPickAccount() {
+    if (_txSessionAccount) return _txSessionAccount;
     if (_txAccounts.length === 0) return null;
     if (_txAccounts.length === 1) return _txAccounts[0].id;
     const sel = document.getElementById('txAccountSel');
@@ -5930,87 +6132,193 @@ function _txPickAccount() {
 
 function _txBuildAssignment(g, account) {
     const asgn = { mid: g.mid, account };
-    // 삼상 판별: cntr_clas_cd 900+ 또는 계기번호 타입코드 45/46/47/55
     const tc = g.mid ? parseInt(String(g.mid).slice(2, 4), 10) : NaN;
     const isThree = (g.cntr_clas_cd && Number(g.cntr_clas_cd) >= 900)
         || (!isNaN(tc) && [45, 46, 47, 55].includes(tc));
     if (isThree) asgn.three = true;
-    // 신설 계기번호 (mi 레코드에서)
     if (g.mi && g.mi.new_meter_id) asgn.meter_no = g.mi.new_meter_id;
     if (g.cntr_clas_cd) asgn.cntr_clas_cd = g.cntr_clas_cd;
     return asgn;
 }
 
-// ── awms 로그인 트리거 ────────────────────────────────
-async function transmitAwmsLogin() {
+// ── 세션 가져오기 (USB adb) ───────────────────────────
+async function transmitPullSession() {
     const ds = document.getElementById('datasetSel').value;
-    if (!ds) { alert('데이터셋을 먼저 선택하세요.'); return; }
-    const loginSel = document.getElementById('txLoginAcctSel');
-    const account  = loginSel ? loginSel.value : '';
-    if (!account) { alert('로그인할 계정을 선택하세요.'); return; }
-
-    const hintEl  = document.getElementById('txLoginHint');
-    const statusEl = document.getElementById('txSessionStatus');
-    if (hintEl)  { hintEl.textContent = '로그인 요청 중...'; hintEl.classList.remove('hidden'); }
-    if (statusEl) statusEl.textContent = '';
+    if (!ds) { _txToast('데이터셋을 먼저 선택하세요.', 'ng'); return; }
+    const hintEl = document.getElementById('txSessionHint');
+    _txSessionHint('세션 가져오는 중...', '');
     _txSessionOk = false;
-
     try {
-        const resp = await fetch(API_BASE + '/transmit/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dataset: ds, account }),
-        });
+        const resp = await fetch(API_BASE + '/transmit/pull-session?dataset=' + encodeURIComponent(ds));
         const b = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
-        if (hintEl) {
-            hintEl.innerHTML =
-                (b.msg ? '<div>' + esc(b.msg) + '</div>' : '') +
-                '<div>폰(계기큐)에서 카톡 OTP를 입력하세요.</div>';
-            hintEl.classList.remove('hidden');
-        }
+        _txToast('세션 가져오기 완료.', 'ok');
+        _txSessionHint('세션 가져오기 성공. 스냅샷 확인 중...', 'ok');
+        // 스냅샷 자동 실행
+        await _txLoginSnapshot(ds);
     } catch (e) {
-        if (hintEl) {
-            hintEl.textContent = '로그인 요청 실패: ' + esc(e.message);
-            hintEl.classList.remove('hidden');
-        }
+        _txSessionHint('세션 가져오기 실패: ' + esc(e.message), 'ng');
+        _txUpdateSessionPill(null);
     }
 }
 
-// ── awms 세션 확인 ────────────────────────────────────
+// ── 세션 확인 ────────────────────────────────────────
 async function transmitCheckSession() {
     const ds = document.getElementById('datasetSel').value;
-    if (!ds) { alert('데이터셋을 먼저 선택하세요.'); return; }
-
-    const statusEl = document.getElementById('txSessionStatus');
-    if (statusEl) { statusEl.textContent = '확인 중...'; statusEl.className = 'tx-session-status'; }
+    if (!ds) { _txToast('데이터셋을 먼저 선택하세요.', 'ng'); return; }
     _txSessionOk = false;
-
+    _txSessionHint('확인 중...', '');
     try {
-        const resp = await fetch(API_BASE + '/transmit/session?dataset=' + encodeURIComponent(ds));
+        const resp = await fetch(API_BASE + '/transmit/session-direct?dataset=' + encodeURIComponent(ds));
         if (!resp.ok) {
             const b = await resp.json().catch(() => ({}));
             throw new Error(b.detail || 'HTTP ' + resp.status);
         }
         const d = await resp.json();
-        if (d.logged_in) {
+        if (d.has_session && d.alive) {
             _txSessionOk = true;
-            if (statusEl) {
-                statusEl.innerHTML = '<span class="tx-session-ok">로그인됨: ' +
-                    esc(d.account || '') + (d.cons_no ? ', 공사 ' + esc(d.cons_no) : '') + '</span>';
-                statusEl.className = 'tx-session-status';
-            }
+            _txSessionAccount = d.account || '';
+            _txUpdateSessionPill({ alive: true, account: d.account });
+            _txSessionHint('세션 확인됨: ' + esc(d.account || ''), 'ok');
+            _txToast('세션 확인 — 로그인 상태: ' + esc(d.account || ''), 'ok');
+        } else if (d.has_session && !d.alive) {
+            _txUpdateSessionPill({ alive: false, account: d.account });
+            _txSessionHint('세션 만료 — 계기큐에서 재로그인 후 [세션 가져오기]를 하세요.', 'ng');
         } else {
-            if (statusEl) {
-                statusEl.innerHTML = '<span class="tx-session-ng">로그인 안 됨</span>';
-                statusEl.className = 'tx-session-status';
-            }
+            _txUpdateSessionPill(null);
+            _txSessionHint('세션 없음 — 계기큐에서 로그인 후 [세션 가져오기]를 하세요.', 'ng');
         }
     } catch (e) {
-        if (statusEl) {
-            statusEl.innerHTML = '<span class="tx-session-ng">세션 확인 실패: ' + esc(e.message) + '</span>';
-            statusEl.className = 'tx-session-status';
+        _txUpdateSessionPill(null);
+        _txSessionHint('세션 확인 실패: ' + esc(e.message), 'ng');
+    }
+}
+
+// ── 로그인 스냅샷 (pull-session 후 자동 호출) ─────────
+async function _txLoginSnapshot(ds) {
+    try {
+        const resp = await fetch(API_BASE + '/transmit/login-snapshot?dataset=' + encodeURIComponent(ds), { method: 'POST' });
+        const b = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
+        // 세션 상태 갱신
+        if (b.account) {
+            _txSessionOk = true;
+            _txSessionAccount = b.account;
+            _txUpdateSessionPill({ alive: true, account: b.account });
         }
+        // 봉인 불일치 배너
+        const bannerEl = document.getElementById('txSealMismatchBanner');
+        const msgEl    = document.getElementById('txSealMismatchMsg');
+        if (b.seal_mismatch && bannerEl && msgEl) {
+            msgEl.textContent = '이 계정 awms 봉인(' + String(b.seal_awms || '') + ')이 시스템 기억(' + String(b.seal_system || '') + ')과 다릅니다.';
+            bannerEl.style.display = '';
+        } else if (bannerEl) {
+            bannerEl.style.display = 'none';
+        }
+        _txSessionHint('스냅샷 완료. 세션: ' + esc(b.account || ''), 'ok');
+    } catch (e) {
+        _txSessionHint('스냅샷 실패: ' + esc(e.message), 'ng');
+    }
+}
+
+// ── 봉인 동기화 ──────────────────────────────────────
+async function transmitSealSync() {
+    const ds = document.getElementById('datasetSel').value;
+    if (!ds) { _txToast('데이터셋을 선택하세요.', 'ng'); return; }
+    try {
+        const resp = await fetch(API_BASE + '/transmit/seal-sync?dataset=' + encodeURIComponent(ds), { method: 'POST' });
+        const b = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
+        _txToast('봉인 동기화 완료.', 'ok');
+        const bannerEl = document.getElementById('txSealMismatchBanner');
+        if (bannerEl) bannerEl.style.display = 'none';
+    } catch (e) {
+        _txToast('봉인 동기화 실패: ' + e.message, 'ng');
+    }
+}
+
+// ── awms 로그인 — 미배선 (기존 함수 계약 보존) ────────
+async function transmitAwmsLogin() {
+    // 로그인은 폰 계기큐에서 수행. 이 함수는 배선 제거됨.
+}
+
+// ── 세션 pill 업데이트 ────────────────────────────────
+function _txUpdateSessionPill(state) {
+    const dot   = document.getElementById('txSessionDot');
+    const label = document.getElementById('txSessionLabel');
+    const acct  = document.getElementById('txSessionAcct');
+    if (!dot || !label) return;
+    if (!state) {
+        dot.className   = 'cdot gray';
+        label.textContent = '세션 없음';
+        if (acct) acct.textContent = '';
+    } else if (state.alive) {
+        dot.className   = 'cdot green';
+        label.textContent = '로그인됨';
+        if (acct) acct.textContent = state.account || '';
+    } else {
+        dot.className   = 'cdot rose';
+        label.textContent = '세션 만료';
+        if (acct) acct.textContent = state.account || '';
+    }
+}
+
+function _txSessionHint(msg, type) {
+    const el = document.getElementById('txSessionHint');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'tx-session-hint' + (type ? ' ' + type : '');
+    el.style.display = msg ? '' : 'none';
+}
+
+// ── 토스트 ────────────────────────────────────────────
+function _txToast(msg, type) {
+    const stack = document.getElementById('txToastStack');
+    if (!stack) return;
+    const t = document.createElement('div');
+    t.className = 'tx-toast ' + (type || 'info');
+    const dot = document.createElement('span');
+    dot.className = 'cdot ' + (type === 'ok' ? 'green' : type === 'ng' ? 'rose' : 'blue');
+    t.appendChild(dot);
+    const span = document.createElement('span');
+    span.textContent = msg;
+    t.appendChild(span);
+    stack.appendChild(t);
+    setTimeout(() => {
+        t.style.opacity = '0';
+        t.style.transform = 'translateX(20px)';
+        t.style.transition = 'opacity 0.2s, transform 0.2s';
+        setTimeout(() => t.remove(), 220);
+    }, 3500);
+}
+
+// ── 확인 모달 ─────────────────────────────────────────
+function _txConfirm(title, body, onOk) {
+    document.getElementById('txConfirmTitle').textContent = title;
+    document.getElementById('txConfirmBody').textContent  = body;
+    _txConfirmCb = onOk;
+    document.getElementById('txConfirmModal').classList.add('open');
+}
+function _txConfirmAsync(title, body) {
+    return new Promise(resolve => {
+        _txConfirm(title, body, () => resolve(true));
+        // 취소 시 resolve(false) — _txConfirmCancel에서 처리
+        _txConfirmCb = function() { resolve(true); };
+        const origCancel = window._txConfirmCancelOrig;
+        window._txConfirmCancelResolve = () => resolve(false);
+    });
+}
+function _txConfirmOk() {
+    document.getElementById('txConfirmModal').classList.remove('open');
+    if (_txConfirmCb) { const cb = _txConfirmCb; _txConfirmCb = null; cb(); }
+}
+function _txConfirmCancel() {
+    document.getElementById('txConfirmModal').classList.remove('open');
+    _txConfirmCb = null;
+    if (typeof window._txConfirmCancelResolve === 'function') {
+        const fn = window._txConfirmCancelResolve;
+        window._txConfirmCancelResolve = null;
+        fn();
     }
 }
 
