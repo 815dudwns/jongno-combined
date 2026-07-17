@@ -469,8 +469,8 @@ const QrScanner = (() => {
   // ─── 카메라 모드 (신설 사진 촬영용) ─────────────────────────
   // showCamera({onQr, onShutter, onError})
   //   onQr(raw)      — 실시간 QR 인식 시 1회 호출 (카메라 유지, 반복 호출 없음)
-  //   onShutter(blob) — 셔터 버튼 → 합의화질(800px 정사각 q40) blob. ★카메라 유지(연속촬영, 재호출 가능)
-  //                     blob._preCompressed=true → 수신측 재압축 생략. 닫기=상단X or 완료 버튼.
+  //   onShutter(blob) — 셔터 버튼 → 합의화질(800px 정사각 q40) blob. ★촬영 성공 시 카메라 자동 닫힘
+  //                     (2026-07-17 영준님 지시 — 연속촬영 폐기). blob._preCompressed=true → 수신측 재압축 생략.
   //   onError(msg)   — getUserMedia 실패 등 (카메라 닫힘)
   let _mode = 'qr';           // 'qr' | 'camera'
   let _onShutter = null;
@@ -603,14 +603,35 @@ const QrScanner = (() => {
     else { tag.textContent = ''; tag.style.display = 'none'; }
   }
 
+  // 셔터음 — Web Audio 노이즈 버스트 2회(찰칵). 음원파일 없이 합성, 컨텍스트는 첫 셔터 때 생성(사용자 제스처 안이라 autoplay 정책 통과).
+  let _sndCtx = null;
+  function playShutterSound() {
+    try {
+      _sndCtx = _sndCtx || new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = _sndCtx;
+      if (ctx.state === 'suspended') ctx.resume();
+      const t = ctx.currentTime;
+      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.05), ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+      [[0, 0.5], [0.07, 0.35]].forEach(([off, vol]) => {
+        const src = ctx.createBufferSource(); src.buffer = buf;
+        const g = ctx.createGain(); g.gain.setValueAtTime(vol, t + off);
+        src.connect(g); g.connect(ctx.destination);
+        src.start(t + off);
+      });
+    } catch(e) {}
+  }
+
   async function shutterClick() {
     // 셔터 재설계(2026-07-17): 기본카메라처럼 가볍게.
     //  ①단일패스 압축 — 프레임을 합의화질(800px 정사각 q0.40)로 바로 인코딩.
     //    (기존: 2560px q0.95 대형 blob 생성 후 다시 800px 재압축 = 이중처리 제거)
-    //  ②카메라 유지 — 셔터 후 스트림 안 닫음(연속촬영/재촬영, QR 프리뷰 인식도 계속).
-    //    닫기는 상단 X 버튼. QR은 프리뷰 루프 전용(셔터 사진에서 추출 안 함 — 영준님 확정).
-    // 셔터 촉각 + 흰 플래시 — 프레임 그래브 전, 즉각 피드백
+    //  ②촬영 성공 시 카메라 자동 닫힘(영준님 지시 2026-07-17 — 셔터 = 촬영 후 모달에서 바로 나감).
+    //    캡처 실패면 열어둔 채 재시도. QR은 프리뷰 루프 전용(셔터 사진에서 추출 안 함 — 영준님 확정).
+    // 셔터 촉각 + 셔터음 + 흰 플래시 — 프레임 그래브 전, 즉각 피드백
     try { if (navigator.vibrate) navigator.vibrate([0,45,30,45]); } catch(e) {}
+    playShutterSound();
     (function() {
       const fl = document.createElement('div');
       fl.className = 'snap-flash';
@@ -632,8 +653,8 @@ const QrScanner = (() => {
       c.getContext('2d').drawImage(_video, sx, sy, side, side, 0, 0, out, out);  // 프레임 그래브 (동기)
       const blob = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.40));
       if (blob) blob._preCompressed = true;   // 수신측(snap onPick)이 재압축 생략하는 표식
-      setCamShotTag(blob);                    // 오버레이에 촬영확인(미니 썸네일) — 카메라는 계속 열려있음
       _onShutter && _onShutter(blob || null);
+      if (blob) stopCameraMode();             // 촬영 성공 → 카메라 닫고 메인 화면 복귀 (실패면 유지·재시도)
     } catch(e) {
       _onCamError && _onCamError('셔터 캡처 실패: ' + (e?.message || e));
     }

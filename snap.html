@@ -18,7 +18,7 @@
     <script src="js/auth.js?v=20260630b"></script>
     <script src="js/photo-uploader.js?v=20260717a"></script>
     <script src="js/awms-parseValue.js?v=snap-qr"></script>
-    <script src="js/qr-scanner.js?v=20260717a"></script>
+    <script src="js/qr-scanner.js?v=20260717b"></script>
     <script src="js/lcd-crop.js?v=snap-yolo"></script>
     <!-- YOLO(onnxruntime+lcd-yolo)는 무거워서 옵션 ON 시 지연 로드(loadYolo) -->
     <style>
@@ -277,7 +277,6 @@
         <span>
           <span class="refresh" id="refresh">새로고침</span>
           <span class="gear" id="gear">설정</span>
-          <span class="gear" id="logout">로그아웃</span>
         </span>
     </div>
 
@@ -319,7 +318,14 @@
                 <select class="opt-cam-select" id="cam-sel-select" style="display:none;"></select>
             </div>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260717.1</div>
+        <div class="opt-row">
+            <div>
+                <div class="label">로그아웃</div>
+                <div class="desc">다른 아이디로 로그인할 때 사용합니다</div>
+            </div>
+            <button id="logout" style="min-height:48px; padding:0 18px; font-size:16px; font-weight:800; border:2px solid #d9534f; color:#d9534f; background:transparent; border-radius:12px;">로그아웃</button>
+        </div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260717.2</div>
     </div>
 
     <!-- 작업번호 네비 박스 2 (철거 검침 섹션 위 — 상단 박스와 동기화) -->
@@ -415,7 +421,7 @@
       <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260717.1</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260717.2</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -455,7 +461,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260717.1";
+      const APP_VER = "20260717.2";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
@@ -494,8 +500,12 @@
       $('lg-btn').onclick = doLogin;
       $('lg-pw').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
       // 로그아웃 — 세션 비우고 로그인 화면으로 (아이디 전환용). 재로그인 시 doLogin이 reload → 그 아이디 지역(종로/구로) 데이터로 진입.
+      // ★authLogout() 사용 금지: login.html로 이동시키는데 보조앱(APK 번들)엔 그 파일이 없어 백지가 됨.
+      //   세션 키만 지우고 인라인 로그인 오버레이를 띄운다. (설정 화면 안에 있으므로 설정도 닫음)
       $('logout').onclick = () => {
-        authLogout(); session = null;
+        try { localStorage.removeItem(AUTH_KEY); } catch(e) {}
+        session = null;
+        $('opt').classList.remove('open');
         $('lg-id').value = ''; $('lg-pw').value = ''; $('lg-err').textContent = '';
         showLogin();
       };
@@ -669,7 +679,9 @@
         if (slot === 'old') return (hit && (hit.entry.old_meter_photo || photoFromRemoval(hit.entry))) || (tmp && tmp.removal_photo) || null;
         return (hit && hit.entry.new_meter_photo) || (tmp && tmp.new_meter_photo) || null;
       }
-      function jobTs(id){ const m = String(id).match(/_(\d+)$/); return m ? Number(m[1]) : 0; }
+      // ★jobId 끝은 랜덤접미사(20260717.1+)라 정규식 파싱 불가 → job 객체에 저장한 ts를 쓴다.
+      //   (끝자리 파싱이 전부 0을 리턴해 구 job이 "최신"으로 뽑혀 재촬영해도 옛 사진이 계속 보이던 버그의 원인)
+      function jobTs(id){ const j = _ujJobs[id]; return (j && j.ts) || 0; }
       // 그 작업번호/슬롯의 단일 진실: 진행중 job 우선(최신 1개), 없으면 RTDB 확정사진, 둘 다 없으면 빈칸
       function slotView(seqNo, slot){
         let best = null, bestTs = -1;
@@ -740,7 +752,7 @@
       function ujLabel(slot){ return slot === 'old' ? '철거사진' : slot === 'qr' ? '계기번호' : '신설사진'; }
       // 사진 선택 시 등록(올리는중) + 워커 종착상태(done/failed) 구독. img=로컬 objectURL(즉시 미리보기용).
       function ujRegister(jobId, seqNo, slot, img){
-        _ujJobs[jobId] = { seq: seqNo, slot, status: 'up', img: img || null, ref: null };
+        _ujJobs[jobId] = { seq: seqNo, slot, status: 'up', img: img || null, ref: null, ts: Date.now() };
         ujRender();
         if (slot === 'qr') return;   // QR=동기 write(워커 없음) — uploadJobs 구독 불필요, 호출측이 즉시 ujSet
         try {
