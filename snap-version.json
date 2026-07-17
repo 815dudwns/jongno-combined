@@ -1,5 +1,5 @@
 {
-  "versionName": "20260717.2",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260717.2.apk",
-  "notes": "셔터음+셔터 후 카메라 자동닫힘+로그아웃 설정이동·버그픽스+재촬영 옛사진 잔존 수정. (717.1: 카메라 경량화+IndexedDB 로컬큐+도크 재설계+검침 자릿수 캡)"
+  "versionName": "20260717.3",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260717.3.apk",
+  "notes": "폰 YOLO(LCD 자동검출) 제거 — 'LCD 위치 저장됨' 문구 삭제, 판독은 맥 후처리가 자동 재검출. (717.2: 셔터음+카메라 자동닫힘+로그아웃 픽스+재촬영 잔존 수정)"
 }
