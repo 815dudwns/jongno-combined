@@ -322,7 +322,7 @@
             </div>
             <button id="logout" style="min-height:48px; padding:0 18px; font-size:16px; font-weight:800; border:2px solid #d9534f; color:#d9534f; background:transparent; border-radius:12px;">로그아웃</button>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260717.3</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260719.1</div>
     </div>
 
     <!-- 작업번호 네비 박스 2 (철거 검침 섹션 위 — 상단 박스와 동기화) -->
@@ -417,7 +417,7 @@
       <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260717.3</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260719.1</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -457,7 +457,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260717.3";
+      const APP_VER = "20260719.1";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
@@ -1052,7 +1052,11 @@
         catch(e){ console.warn('[materialize 실패, 원본 사용]', e); }
         const localUrl = URL.createObjectURL(mem);
         const jobId = `${day}_${localSeq}_${slot}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;  // 랜덤접미사: 같은 ms 연속 탭 jobId 충돌(=_ujJobs 덮어쓰기·done 조기remove) 방지
+        // ★재촬영 시 같은 칸의 진행중(up) 이전 job 도크 정리(2026-07-19): 네이티브가 uniqueWork(REPLACE)로
+        //   구 워커를 취소하므로 done/failed 신호가 영영 안 옴 → '올리는 중' 영구 정체 방지. ok/fail 영수증은 남김.
+        const _prevJob = _slotLatest[`${day}::${localSeq}::${slot}`];
         _slotLatest[`${day}::${localSeq}::${slot}`] = jobId;   // 최신승리 가드 갱신
+        if (_prevJob && _ujJobs[_prevJob] && _ujJobs[_prevJob].status === 'up') ujRemove(_prevJob);
         ujRegister(jobId, localSeq, slot, localUrl);   // ① '올리는 중' 등록 + 즉시 미리보기
         if (seq === localSeq) renderSeq();
         try {
@@ -1520,6 +1524,10 @@
       // QR 스캔 → 신계기번호 + 제조월 → temp
       //   ★헬퍼앱과 동일하게 네이티브 구글 스캐너(GmsBarcodeScanner) 사용 = window.AndroidScanner.scan()
       //    결과는 네이티브가 window.__onNativeScan(rawValue) 호출(취소/실패=빈문자열). 브라우저는 웹 폴백.
+      // ★같은 QR 반복 처리 가드(2026-07-19): 카메라 재오픈·QR재인식 시 _qrDone이 리셋되는데
+      //   같은 계기 QR이 화면에 남아 있으면 같은 값이 또 인식→도크 중복+재업로드되던 실기 버그.
+      //   같은 번호+같은 raw는 2분 내 재인식 시 무시(실패 시엔 기록을 지워 재시도 허용).
+      const _qrRecent = {};   // `${seq}::${raw}` → 마지막 성공처리 ts
       async function handleScanResult(raw, localSeq){
         if (!raw){ return; }  // 취소/실패
         // 메인앱과 동일: raw 그대로 parseValue (내부에서 * / 다중포맷 처리 — 임의 가공 금지)
@@ -1528,6 +1536,9 @@
         let mfg = ''; const v2 = String(parsed.value2 || '');
         if (/^\d{6}$/.test(v2)) mfg = v2.slice(0,4)+'-'+v2.slice(4,6);
         if (!meterId){ toast('QR 인식 실패'); return; }
+        const _qk = localSeq + '::' + String(raw);
+        if (_qrRecent[_qk] && (Date.now() - _qrRecent[_qk]) < 120000){ return; }   // 중복 무시(도크·write 없음)
+        _qrRecent[_qk] = Date.now();
         // 사진과 동일: 도크 영수증(ujRegister/ujSet) + 직행 경로(할당된 계기면 메인에 직접, 아니면 임시보관)
         const jobId = dayKST()+'_'+localSeq+'_qr_'+Date.now();
         ujRegister(jobId, localSeq, 'qr', null);   // 도크에 "N번 계기번호 — 올리는 중"
@@ -1565,7 +1576,7 @@
           toast('계기번호 저장됨 ('+localSeq+'번)');
           try { await loadToday(); } catch(e2){ console.warn('[QR loadToday 임시]', e2); }
           if (seq === localSeq) renderSeq();
-        } catch(e){ console.error('[QR저장]', e); ujSet(jobId, 'fail'); toast('QR 저장 실패'); }
+        } catch(e){ console.error('[QR저장]', e); delete _qrRecent[_qk]; ujSet(jobId, 'fail'); toast('QR 저장 실패'); }
       }
       $('qr-btn').onclick = ()=>{
         const localSeq = seq;

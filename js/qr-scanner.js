@@ -603,7 +603,8 @@ const QrScanner = (() => {
     else { tag.textContent = ''; tag.style.display = 'none'; }
   }
 
-  // 셔터음 — Web Audio 노이즈 버스트 2회(찰칵). 음원파일 없이 합성, 컨텍스트는 첫 셔터 때 생성(사용자 제스처 안이라 autoplay 정책 통과).
+  // 셔터음 — Web Audio 노이즈 버스트 1회. 음원파일 없이 합성, 컨텍스트는 첫 셔터 때 생성(사용자 제스처 안이라 autoplay 정책 통과).
+  // ★2회(찰칵 흉내, 70ms 간격)였으나 실기에서 "탁탁" 두 번 소리로 들림 → 1회로 축소(2026-07-19 영준님 실기 피드백).
   let _sndCtx = null;
   function playShutterSound() {
     try {
@@ -614,7 +615,7 @@ const QrScanner = (() => {
       const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.05), ctx.sampleRate);
       const d = buf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
-      [[0, 0.5], [0.07, 0.35]].forEach(([off, vol]) => {
+      [[0, 0.5]].forEach(([off, vol]) => {
         const src = ctx.createBufferSource(); src.buffer = buf;
         const g = ctx.createGain(); g.gain.setValueAtTime(vol, t + off);
         src.connect(g); g.connect(ctx.destination);
@@ -703,6 +704,9 @@ const QrScanner = (() => {
       _video.style.cssText = 'width:100%;height:100%;object-fit:cover;background:black;display:block;';
       host.appendChild(_video);
     }
+    // ★초록박스 캔버스는 반드시 video 삽입 이후에 보장 — 위 host.innerHTML=''가 ensureCamOverlay가
+    //   만든 #cam-qr-box를 지워버려 배포 후 박스가 한 번도 안 그려지던 버그(2026-07-19 확정).
+    ensureQrBoxCanvas();
 
     setCamOverlayVisible(true);
     startCamera();
@@ -773,6 +777,18 @@ const QrScanner = (() => {
       const cap = focusTrack?.getCapabilities?.() || {};
       if (cap.focusMode && cap.focusMode.includes('continuous')) {
         await focusTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+      }
+    } catch(e) {}
+
+    // ★줌 강제 무줌 고정(2026-07-19 영준님: "강제줌하면 안되고, 줌해서 찍힌적도 있음") —
+    //   일부 기기(삼성 논리카메라)가 이전 줌 상태·기본 줌을 물고 시작해 줌된 채 찍히는 문제.
+    //   줌 UI는 없으므로(v20260707.7 제거) 시작 시 항상 1.0(범위 밖이면 지원 최솟값)으로 리셋.
+    try {
+      const zTrack = _stream.getVideoTracks()[0];
+      const zCap = zTrack?.getCapabilities?.() || {};
+      if (zCap.zoom && typeof zCap.zoom.min === 'number') {
+        const z = Math.min(Math.max(1, zCap.zoom.min), zCap.zoom.max || 1);
+        await zTrack.applyConstraints({ advanced: [{ zoom: z }] });
       }
     } catch(e) {}
 
