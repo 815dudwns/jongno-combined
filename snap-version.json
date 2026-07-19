@@ -1,5 +1,5 @@
 {
-  "versionName": "20260719.2",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260719.2.apk",
-  "notes": "셔터음 개선(뚝 끊김→120ms 자연 감쇠 '톡'). 719.1: QR 반복인식 가드·초록 인식박스 복구·줌 무줌 고정·백그라운드 업로드 보강(재촬영 최신승리 REPLACE·영속폴더·조기실패 기록)"
+  "versionName": "20260719.3",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260719.3.apk",
+  "notes": "카메라 기본=후면 카메라0 고정(설정에서 직접 고른 경우만 그 선택 유지). 719.2: 셔터음 자연감쇠. 719.1: QR반복가드·초록박스복구·줌고정·백그라운드 업로드 보강"
 }

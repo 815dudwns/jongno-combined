@@ -21,12 +21,25 @@ const QrScanner = (() => {
 
   const LS_CAM = 'qr_camera_id';
   const LS_CAM_LABEL = 'qr_camera_label';
+  const LS_CAM_EXPLICIT = 'qr_camera_explicit';   // '1' = 사용자가 설정/드롭다운에서 직접 고름
 
-  function saveCameraId(id, label) {
+  // ★explicit(2026-07-19 영준님 "후면 카메라0 기본세팅"): 카메라 시작 시 자동 저장(saveCameraId)이
+  //   기본값을 오염시켜 휴리스틱 결과가 "저장된 선택"처럼 영구화되던 문제 분리.
+  //   사용자가 직접 고른 경우만 explicit=1 → 그때만 저장값을 존중, 아니면 매번 후면 카메라0 기본.
+  function saveCameraId(id, label, explicit) {
     try {
       if (id) localStorage.setItem(LS_CAM, id);
       if (label) localStorage.setItem(LS_CAM_LABEL, label);
+      if (explicit) localStorage.setItem(LS_CAM_EXPLICIT, '1');
     } catch {}
+  }
+  function isCameraExplicit() { try { return localStorage.getItem(LS_CAM_EXPLICIT) === '1'; } catch { return false; } }
+  // 후면 카메라0(주 카메라) 선택 — 삼성 라벨 "camera2 0, facing back". 없으면 광각 제외 후면 → 후면 → 첫번째.
+  function pickDefaultCamera() {
+    const rears = _cameras.filter(c => /back|rear|environment|후면/i.test(c.label));
+    const cam0 = rears.find(c => /camera2?\s*0\b/i.test(c.label));
+    const nonWide = rears.find(c => !/(ultra.?wide|wide.?angle|광각|초광각)/i.test(c.label));
+    return cam0 || nonWide || rears[0] || _cameras[0] || null;
   }
   function loadCameraId() { try { return localStorage.getItem(LS_CAM) || ''; } catch { return ''; } }
   function loadCameraLabel() { try { return localStorage.getItem(LS_CAM_LABEL) || ''; } catch { return ''; } }
@@ -181,25 +194,24 @@ const QrScanner = (() => {
 
     await enumerateCameras();
 
-    // 카메라 선택: 1) 저장 ID 매칭  2) 저장 라벨 매칭  3) 후면 추정  4) 첫 번째
+    // 카메라 선택: 사용자가 직접 고른 경우(explicit)만 저장값 존중 — 아니면 항상 후면 카메라0 기본
     const savedId = loadCameraId();
     const savedLabel = loadCameraLabel();
     let target = null;
 
-    if (savedId) {
-      target = _cameras.find(c => c.id === savedId);
-      if (target) debugLog(`저장ID 매칭 ok → ...${target.id.slice(-8)}`);
-    }
-    if (!target && savedLabel) {
-      target = _cameras.find(c => (c.label||'') === savedLabel);
-      if (target) debugLog(`저장라벨 매칭 ok → "${savedLabel.slice(0,30)}"`);
+    if (isCameraExplicit()) {
+      if (savedId) {
+        target = _cameras.find(c => c.id === savedId);
+        if (target) debugLog(`저장ID 매칭 ok → ...${target.id.slice(-8)}`);
+      }
+      if (!target && savedLabel) {
+        target = _cameras.find(c => (c.label||'') === savedLabel);
+        if (target) debugLog(`저장라벨 매칭 ok → "${savedLabel.slice(0,30)}"`);
+      }
     }
     if (!target) {
-      // 후면 카메라 추정 — "back/rear/environment/후면" 라벨, 광각 제외 우선
-      const rears = _cameras.filter(c => /back|rear|environment|후면/i.test(c.label));
-      const nonWide = rears.find(c => !/(ultra.?wide|wide.?angle|광각|초광각)/i.test(c.label));
-      target = nonWide || rears[0] || _cameras[0];
-      if (target) debugLog(`자동 선택 → "${(target.label||'').slice(0,30)}"`);
+      target = pickDefaultCamera();   // 후면 카메라0 우선 (영준님 2026-07-19)
+      if (target) debugLog(`기본 선택(후면 카메라0) → "${(target.label||'').slice(0,30)}"`);
     }
 
     if (!target) {
@@ -727,16 +739,15 @@ const QrScanner = (() => {
 
     await enumerateCameras();
 
+    // 사용자가 직접 고른 경우(explicit)만 저장값 존중 — 아니면 항상 후면 카메라0 기본(영준님 2026-07-19)
     const savedId = loadCameraId();
     const savedLabel = loadCameraLabel();
     let target = null;
-    if (savedId) target = _cameras.find(c => c.id === savedId);
-    if (!target && savedLabel) target = _cameras.find(c => (c.label||'') === savedLabel);
-    if (!target) {
-      const rears = _cameras.filter(c => /back|rear|environment|후면/i.test(c.label));
-      const nonWide = rears.find(c => !/(ultra.?wide|wide.?angle|광각|초광각)/i.test(c.label));
-      target = nonWide || rears[0] || _cameras[0];
+    if (isCameraExplicit()) {
+      if (savedId) target = _cameras.find(c => c.id === savedId);
+      if (!target && savedLabel) target = _cameras.find(c => (c.label||'') === savedLabel);
     }
+    if (!target) target = pickDefaultCamera();
     if (!target) {
       await stopCameraMode();
       _onCamError && _onCamError('카메라를 찾을 수 없습니다');
@@ -884,6 +895,8 @@ const QrScanner = (() => {
       sel.onchange = async () => {
         const id = sel.value;
         if (!id) return;
+        // 오버레이 드롭다운에서 직접 고름 = explicit (이후 시작부터 이 카메라 유지)
+        saveCameraId(id, sel.options[sel.selectedIndex]?.textContent || '', true);
         sel.disabled = true;
         try {
           if (_mode === 'camera') await startCameraWithDeviceId(id);
