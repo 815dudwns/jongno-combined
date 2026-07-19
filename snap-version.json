@@ -1,5 +1,5 @@
 {
-  "versionName": "20260719.3",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260719.3.apk",
-  "notes": "카메라 기본=후면 카메라0 고정(설정에서 직접 고른 경우만 그 선택 유지). 719.2: 셔터음 자연감쇠. 719.1: QR반복가드·초록박스복구·줌고정·백그라운드 업로드 보강"
+  "versionName": "20260719.4",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260719.4.apk",
+  "notes": "카메라 기본설정=후면 카메라0(저장된 선택은 유지, 1회 자동저장값 청소). 719.2: 셔터음 자연감쇠. 719.1: QR반복가드·초록박스복구·줌고정·백그라운드 업로드 보강"
 }
