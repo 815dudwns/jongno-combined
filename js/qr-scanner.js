@@ -604,23 +604,25 @@ const QrScanner = (() => {
   }
 
   // 셔터음 — Web Audio 노이즈 버스트 1회. 음원파일 없이 합성, 컨텍스트는 첫 셔터 때 생성(사용자 제스처 안이라 autoplay 정책 통과).
-  // ★2회(찰칵 흉내, 70ms 간격)였으나 실기에서 "탁탁" 두 번 소리로 들림 → 1회로 축소(2026-07-19 영준님 실기 피드백).
+  // ★2회(찰칵 흉내)→"탁탁" 이중음이라 1회로 축소했더니 50ms가 여운 없이 뚝 끊김(영준님 실기 피드백 2026-07-19)
+  //   → 120ms로 늘리고 지수 감쇠(gain ramp)로 자연스러운 "톡" 여운. 시작도 5ms 뒤로 스케줄(resume 직후 앞부분 잘림 방지).
   let _sndCtx = null;
   function playShutterSound() {
     try {
       _sndCtx = _sndCtx || new (window.AudioContext || window.webkitAudioContext)();
       const ctx = _sndCtx;
       if (ctx.state === 'suspended') ctx.resume();
-      const t = ctx.currentTime;
-      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.05), ctx.sampleRate);
+      const t = ctx.currentTime + 0.005;
+      const dur = 0.12;
+      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
       const d = buf.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
-      [[0, 0.5]].forEach(([off, vol]) => {
-        const src = ctx.createBufferSource(); src.buffer = buf;
-        const g = ctx.createGain(); g.gain.setValueAtTime(vol, t + off);
-        src.connect(g); g.connect(ctx.destination);
-        src.start(t + off);
-      });
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.6, t);
+      g.gain.exponentialRampToValueAtTime(0.01, t + dur);
+      src.connect(g); g.connect(ctx.destination);
+      src.start(t);
     } catch(e) {}
   }
 

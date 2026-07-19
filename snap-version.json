@@ -1,5 +1,5 @@
 {
-  "versionName": "20260719.1",
-  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260719.1.apk",
-  "notes": "실기 피드백: 셔터음 1회(탁탁→탁), QR 반복인식 가드(같은 QR 재업로드 차단), 초록 인식박스 복구, 줌 무줌 고정, 백그라운드 업로드 보강(재촬영 최신승리 REPLACE·영속폴더·조기실패 기록)"
+  "versionName": "20260719.2",
+  "apkUrl": "https://815dudwns.github.io/jongno-combined/apk/snap-v20260719.2.apk",
+  "notes": "셔터음 개선(뚝 끊김→120ms 자연 감쇠 '톡'). 719.1: QR 반복인식 가드·초록 인식박스 복구·줌 무줌 고정·백그라운드 업로드 보강(재촬영 최신승리 REPLACE·영속폴더·조기실패 기록)"
 }
