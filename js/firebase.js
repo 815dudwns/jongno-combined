@@ -620,17 +620,33 @@ async function initFirebase() {
         await flushEventQueue();
     }, 10000);
 
-    // ── 복귀 동기화(catch-up) ──
-    // 다른 앱 갔다 옴 / 슬립·잠금 후 복귀 시 child 리스너가 freeze됐을 수 있음 →
-    // 미전송 쓰기 먼저 보내고(flush) Firebase 현재 상태를 한 번 당겨와(once) 머지.
-    // child 리스너는 떼지 않고 유지(replay 홍수 방지) — once는 일회성 보강.
+    // ── 복귀 동기화(catch-up) — 델타 게이트 ──
+    // 실시간 반영 채널 = child_added/changed/removed(위 리스너, 소켓 상시연결). 남의 완료는 이 child로 즉시 옴.
+    // catch-up의 풀노드 once('value')는 소켓이 끊겨 child가 freeze된 구간을 메우는 '보강'일 뿐.
+    // 소켓이 안 끊겼으면(카메라 갔다옴 등 흔한 복귀) child가 이미 최신 → 풀노드 재당김 불필요(월 수천회 = egress 80%).
+    // → .info/connected로 '마지막 풀다운 이후 끊긴 적 있나'(_sawDisconnect)를 추적, 끊긴 적 있거나 장시간(GRACE) 경과일 때만 once.
+    let _sawDisconnect = false;                 // 마지막 catch-up 이후 소켓 끊김 감지 여부
+    let _lastCatchUp = Date.now();              // 마지막 성공 풀다운 시각(초기로드 완료시점 기준)
+    const CATCHUP_GRACE_MS = 5 * 60 * 1000;     // 끊김 미감지(frozen TCP) 대비 안전망: 이 시간 지나면 무조건 1회 보강
+    db.ref('.info/connected').on('value', s => {
+        if (s.val() === false) _sawDisconnect = true;   // 끊김 → 다음 복귀 때 풀다운 필요
+    });
+
     let _catchUpInFlight = false;
     async function catchUpFromFirebase() {
         if (_catchUpInFlight || !_initialDone) return;   // 초기 로드 전이면 value 핸들러가 담당
+        // ★ 델타 게이트: 소켓 끊긴 적 없고(child가 실시간 반영중) 최근 풀다운했으면 스킵 = no-op.
+        if (!_sawDisconnect && (Date.now() - _lastCatchUp) < CATCHUP_GRACE_MS) {
+            console.log('[catchUp] SKIP(no-op) — 소켓유지, 마지막풀다운', Math.round((Date.now() - _lastCatchUp) / 1000) + 's전');
+            return;
+        }
+        console.log('[catchUp] PULL — sawDisconnect=' + _sawDisconnect + ', 경과', Math.round((Date.now() - _lastCatchUp) / 1000) + 's');
         _catchUpInFlight = true;
         try {
             await flushEventQueue();                       // 1) 미전송 쓰기 먼저 (resume 시 덮어쓰기 방지)
             const snap = await statusRef.once('value');     // 2) 현재 상태 1회 조회
+            _lastCatchUp = Date.now();                      // 풀다운 성공 → 시각 기록 + 끊김 플래그 리셋
+            _sawDisconnect = false;
             const data = snap.val();
             if (!data) return;
             const converted = buildWorkStatusFromFirebase(data);
