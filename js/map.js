@@ -164,6 +164,27 @@ function getSessionLock() {
 // 조건: meter_state='complete' AND comm_state!='complete', meter_updatedAt 최대
 let meterLatestAddress = null;
 
+// ── [임시] 계기팀 마지막 작업일 주소 노란마커 (영준님 2026-07-27 지시, 오늘 하루만) ──
+// 통신팀 시각에서 "계기팀이 마지막 날 작업한 집"을 한눈에 보이게 노랑으로 표시.
+// 마지막 작업일 = replaced_at/last_edited_at 중 최대값의 KST 일자(런타임 산출 — 데이터 바뀌어도 자동 추종).
+// TEMP_LASTDAY_DATE 하루만 켜지고 다음날 자동으로 꺼진다(수동 회수 잊어도 안전). 만료 후 이 블록 삭제.
+const TEMP_LASTDAY_DATE = '2026-07-27';
+let meterLastDayAddresses = new Set();
+let meterLastWorkDay = '';
+function _kstDay(ts) {
+    if (!ts) return '';
+    try { return new Date(ts).toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' }); } catch { return ''; }
+}
+function isLastDayTempActive() {
+    return _kstDay(Date.now()) === TEMP_LASTDAY_DATE;
+}
+// 통신팀 시각에서 "계기팀이 해놔서 통신팀이 갈 곳"의 색 결정.
+// 임시기간엔 마지막 작업일 주소=노랑이 최우선, 그 외는 기존대로 찐초록(최근 1곳)/초록.
+function _commActiveClass(addr) {
+    if (isLastDayTempActive() && meterLastDayAddresses.has(addr)) return 'comm-lastday';
+    return (addr === meterLatestAddress) ? 'comm-last' : 'comm-target';
+}
+
 
 function setupNaverMapThemeSync() {
     window.addEventListener('jongno:themechange', () => {
@@ -996,12 +1017,12 @@ function decideMarkerStyle(meters, status, session) {
             colorClass = 'blue';
             labelMain = `${commDoneCount}/${activeCount}`;
         } else if (activeCount === totalAll && totalAll > 0) {
-            // 계기팀 전체 완료, 통신팀 미작업 → 활성 (초록)
-            colorClass = (status.address === meterLatestAddress) ? 'comm-last' : 'comm-target';
+            // 계기팀 전체 완료, 통신팀 미작업 → 활성 (초록 / 임시기간 마지막작업일은 노랑)
+            colorClass = _commActiveClass(status.address);
             labelMain = String(activeCount);
         } else if (activeCount > 0) {
             // 계기팀 부분 완료(임시저장 포함) → 일부만 활성 + 분수. 최근 작업지면 찐초록(여기까지)
-            colorClass = (status.address === meterLatestAddress) ? 'comm-last' : 'comm-target';
+            colorClass = _commActiveClass(status.address);
             labelMain = `${activeCount}/${totalAll}`;
         } else {
             // 계기팀 미작업 — 검침일 색 + 옅게 (비활성)
@@ -1148,11 +1169,28 @@ function _meterActivityTs(st) {
 
 function updateMeterLatestAddress() {
     let latest = null, latestTs = 0;
+    // [임시 2026-07-27] 같은 순회에서 주소별 최종 작업일(KST)도 수집 — 추가 O(N) 없음
+    const dayOfAddr = isLastDayTempActive() ? new Map() : null;
     Object.entries(workStatus).forEach(([addr, st]) => {
+        if (dayOfAddr) {
+            const d = _kstDay(_meterActivityTs(st));
+            if (d) dayOfAddr.set(addr, d);
+        }
         if (st.comm_state === 'complete') return;   // 통신까지 끝난 곳은 제외
         const ts = _meterActivityTs(st);
         if (ts > 0 && ts > latestTs) { latestTs = ts; latest = addr; }
     });
+    // 마지막 작업일 = 수집된 일자 중 최대. 그 날짜에 작업된 주소 전부를 노랑 대상으로.
+    if (dayOfAddr) {
+        let maxDay = '';
+        dayOfAddr.forEach(d => { if (d > maxDay) maxDay = d; });
+        meterLastWorkDay = maxDay;
+        meterLastDayAddresses = new Set();
+        if (maxDay) dayOfAddr.forEach((d, addr) => { if (d === maxDay) meterLastDayAddresses.add(addr); });
+    } else {
+        meterLastWorkDay = '';
+        meterLastDayAddresses = new Set();
+    }
     meterLatestAddress = latest;
     _meterLatestCache = { address: latest, ts: latestTs };
     _meterLatestSeeded = true;
@@ -1188,11 +1226,12 @@ const MARKER_FILL = {
     'day-g1': '#f5cbb1', 'day-g2': '#b5dfc7', 'day-g3': '#d0c0dc', 'day-g4': '#d9b8c5',
     'pri-1': '#e8b8b8', 'pri-2': '#e8d3b8', 'pri-3': '#d6cfa0', 'pri-4': '#bfd5a8', 'pri-past': '#b0b0b0',
     'comm-target': '#54b485', 'comm-last': '#2c5e44', 'comm-done': '#6f6a5d',
+    'comm-lastday': '#dcb152',   // [임시 2026-07-27] 계기팀 마지막 작업일 주소 = 노랑
     // [임시] 명륜 팀 배분 색: 종로=파랑(#3a6bc4), 중구=주황(#c9632a)
     'team-jongno': '#3a6bc4', 'team-junggu': '#c9632a',
 };
 // 흰 원(밝은 핀) 표시 + 번호 어둡게 = green/yellow/day/pri 계열
-const CIRCLE_CLASSES = new Set(['green', 'yellow', 'day-g1', 'day-g2', 'day-g3', 'day-g4', 'pri-1', 'pri-2', 'pri-3', 'pri-4', 'pri-past']);
+const CIRCLE_CLASSES = new Set(['green', 'yellow', 'comm-lastday', 'day-g1', 'day-g2', 'day-g3', 'day-g4', 'pri-1', 'pri-2', 'pri-3', 'pri-4', 'pri-past']);
 const PIN_PATH = 'M10 0C4.48 0 0 4.48 0 10c0 6.72 10 16 10 16s10-9.28 10-16C20 4.48 15.52 0 10 0z';
 function _roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
