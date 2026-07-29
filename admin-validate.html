@@ -2211,7 +2211,7 @@ async function initApp() {
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
     startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1812 (완료28 고정·실전송 상시·대조 자동 — 옵션 제거)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1813 (완료상태 컬럼을 awms 등록상태로 교체)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -6017,7 +6017,7 @@ function _txRenderList() {
                 '<td class="mid-col">' + esc(g.mid) + '</td>' +
                 '<td class="mid-col">' + esc(g.new_meter_id || '-') + '</td>' +
                 '<td class="tx-addr-cell">' + esc(g.addr || '-') + '</td>' +
-                '<td><span class="ms ' + _txMeterStateCls(g.meter_state) + '">' + esc(g.meter_state || '-') + '</span></td>' +
+                '<td>' + _txAwmsStateCell(g) + '</td>' +
                 '<td class="tx-tabular">' + esc(String(planSeal)) + '</td>' +
                 '<td>' + (planAcct ? esc(planAcct) : acctCell) + '</td>' +
                 '</tr>';
@@ -6062,6 +6062,20 @@ async function txMarkSelected(synced) {
             } catch (e) { _txToast('처리 실패: ' + e.message, 'ng'); }
         }
     );
+}
+
+// ★완료상태 = awms 등록 상태(영준님 2026-07-29). 전에는 주소 단위 meter_state(complete/hold/…)를
+//   보여줘서 awms에 올라갔는지와 무관한 값이 떴다 — '완료상태가 적용 안 된다'는 지적의 실체.
+//   지금은 전송 성공 시 awms_seal이 함께 기록되므로 그것으로 판별한다.
+//   ※awms WORK_STEP(25/28) 원값 표시는 백엔드가 전송 시 work_step을 저장해야 가능 — 별도 과제.
+function _txAwmsStateCell(g) {
+    if (g.awms_synced) {
+        const s = g.awms_seal || {};
+        const seal = s.seal_no ? ' · 봉인 ' + esc(sealFmt(s.seal_no)) : '';
+        return '<span class="ms ms-complete">완료(28)</span>'
+             + '<span style="font-size:11px;color:var(--ink-3)">' + seal + '</span>';
+    }
+    return '<span class="ms ms-pending">미전송</span>';
 }
 
 function _txMeterStateCls(s) {
