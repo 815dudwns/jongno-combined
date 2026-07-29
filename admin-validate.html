@@ -2110,20 +2110,62 @@ let _session = authGetSession();   // 무적 어드민이면 모든 데이터셋
 // 설정
 // ══════════════════════════════════════════════════════
 // 백엔드 베이스 URL — 화면 자동발견(Firebase valBackend/url). 아래는 폴백(발견 실패 시).
-let API_BASE = 'https://why-nutritional-subscribe-matthew.trycloudflare.com';  // 2026-07-29 갱신(이전 값은 이미 죽은 터널이라 자동발견 실패 시 폴백이 무용지물이었음)
+let API_BASE = 'https://ashley-forgotten-min-retired.trycloudflare.com';  // 초기값(발행값 기준). discoverBackend가 헬스체크 후 살아있는 주소로 교체한다
 // 맥 start.sh가 터널 URL을 Firebase valBackend/url에 발행 → 여기서 무인증 REST로 읽어 자동 반영.
 // 터널이 바뀌어도 화면 코드 수정·push 불필요.
+// ★백엔드 주소 폴백 체인 (2026-07-29).
+//   trycloudflare 무료 터널은 재기동마다 주소가 바뀐다(오늘만 3번: regarded→why-nutritional→ashley).
+//   전에는 Firebase 발행값을 헬스체크 없이 그대로 썼기 때문에, 발행이 늦거나 값이 옛 것이면
+//   화면이 죽은 주소를 붙들고 '백엔드 연결 안 됨' 상태로 멈췄다.
+//   → 후보를 순서대로 찔러보고 ★살아있는 첫 주소를 쓴다. tailnet 주소는 고정이라 최후 보루가 된다.
+//   ※ https 페이지(github.io)에서는 http 로컬 주소가 mixed content로 막히므로 맨 뒤에 둔다.
+const API_FALLBACKS = [
+    'https://woodelight-imac.tail01244c.ts.net:8765',   // tailnet 고정 주소
+    'http://127.0.0.1:8765',                            // 맥에서 직접 열었을 때
+];
+
+async function _apiProbe(base, ms) {
+    try {
+        const c = new AbortController();
+        const t = setTimeout(() => c.abort(), ms || 4000);
+        const r = await fetch(base + '/datasets', { cache: 'no-store', signal: c.signal });
+        clearTimeout(t);
+        return r.ok;
+    } catch (_) { return false; }
+}
+
 async function discoverBackend() {
+    const cands = [];
     try {
         const r = await fetch('https://ami-work-1c49a-default-rtdb.asia-southeast1.firebasedatabase.app/valBackend/url.json', { cache: 'no-store' });
         if (r.ok) {
             const u = await r.json();
-            if (u && typeof u === 'string' && u.startsWith('http')) {
-                API_BASE = u.replace(/\/$/, '');
-                console.log('[discoverBackend] API_BASE =', API_BASE);
-            }
+            if (u && typeof u === 'string' && u.startsWith('http')) cands.push(u.replace(/\/$/, ''));
         }
-    } catch (e) { console.warn('[discoverBackend] 실패, 폴백 사용:', e.message); }
+    } catch (e) { console.warn('[discoverBackend] 발행값 조회 실패:', e.message); }
+    for (const f of API_FALLBACKS) if (cands.indexOf(f) < 0) cands.push(f);
+
+    for (const b of cands) {
+        if (await _apiProbe(b)) {
+            if (API_BASE !== b) console.log('[discoverBackend] API_BASE =', b);
+            API_BASE = b;
+            return true;
+        }
+    }
+    console.warn('[discoverBackend] 후보 전부 응답 없음 — 기존 주소 유지:', API_BASE);
+    return false;
+}
+
+// 주기 점검 — 현재 주소가 죽으면 ★새로고침 없이 스스로 살아있는 주소로 갈아탄다.
+let _apiWatchTimer = null;
+function startBackendWatch() {
+    if (_apiWatchTimer) return;
+    _apiWatchTimer = setInterval(async () => {
+        if (document.hidden) return;                 // 백그라운드 탭에선 쉰다
+        if (await _apiProbe(API_BASE, 3000)) return; // 살아있으면 그대로
+        console.warn('[backendWatch] 현재 주소 응답 없음 — 재발견 시도');
+        await discoverBackend();
+    }, 30000);
 }
 
 // ══════════════════════════════════════════════════════
@@ -2180,8 +2222,9 @@ let _appInited = false;
 async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
-    await discoverBackend();   // 맥 백엔드 터널 URL 자동발견(Firebase) — 실패 시 폴백 유지
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1807 (선택분만 전송 + 중지 버튼 — 전체전송 사고 방지)';
+    await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
+    startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1808 (백엔드 주소 폴백체인+자동복구 — 터널 URL 변경 대응)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
