@@ -1798,27 +1798,12 @@
                 </select>
                 <button class="cbtn cbtn-sm" onclick="transmitPlan()">봉인 미리보기</button>
                 <button class="cbtn cbtn-sm cbtn-primary" onclick="transmitRun()">전송 시작</button>
-                <label class="tx-verify-toggle">
-                    <input type="checkbox" id="txVerifyToggle" checked> 전송 후 awms 검증
-                </label>
-                <!-- ★등록 범위 25/28 선택. 기본은 완료(28) — 영준님 2026-07-29 확정.
-                     완료는 되돌릴 수 없으므로(resetRows는 25 전용) 선택값을 눈에 띄게 보여준다. -->
-                <label class="tx-verify-toggle" style="gap:6px">
-                    등록 범위
-                    <select id="txWorkStep" class="cinput" style="font-size:12px;padding:6px 10px;width:auto"
-                            onchange="_txOnWorkStepChange()"
-                            title="28=완료(되돌릴 수 없음) / 25=임시저장(resetRows로 원복 가능)">
-                        <option value="28" selected>완료(28)</option>
-                        <option value="25">임시저장(25)</option>
-                    </select>
-                </label>
-                <!-- ★실전송 스위치. 백엔드 TransmitRunReq.live 기본값이 False라, 이걸 보내지 않으면
-                     전송 버튼을 눌러도 awms에 실제로 등록되지 않는다(드라이런). 되돌릴 수 없는 동작이라
-                     기본은 꺼두고, 사람이 명시적으로 켰을 때만 실등록이 나간다. -->
-                <label class="tx-verify-toggle" style="gap:6px">
-                    <input type="checkbox" id="txLive" onchange="_txOnWorkStepChange()">
-                    <b>실전송</b>
-                </label>
+                <!-- ★전송 후 awms 재조회 대조는 옵션이 아니라 ★항상 자동 실행(영준님 2026-07-29).
+                     사용자가 켜고 끌 일이 없어야 하므로 토글을 없앴다. 요청에는 verify=true 고정 전송. -->
+                <!-- ★등록 범위는 완료(28) 고정(영준님 2026-07-29). 선택 UI를 없앤다.
+                     25로 올릴 일이 없다는 판단. 되돌릴 수 없으므로 확인 모달이 유일한 방어선이 된다. -->
+                <!-- ★[실전송] 체크박스 제거(영준님 2026-07-29) — 항상 실전송이다.
+                     연습 실행이 없어졌으므로 ★최종 확인 모달이 유일한 방어선이다(건수·차수·봉인·계정 명시). -->
                 <span id="txWorkStepHint" style="font-size:11px;margin-left:auto"></span>
             </div>
 
@@ -2226,7 +2211,7 @@ async function initApp() {
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
     startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1811 (탭 구조 개편: 오늘 리스트·전송현황 + 신설계기번호 컬럼)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1812 (완료28 고정·실전송 상시·대조 자동 — 옵션 제거)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5660,24 +5645,12 @@ let _txPollTimer      = null;        // 검증탭 _pollTimer와 분리
 let _txSessionOk      = false;       // awms 세션 확인 여부
 let _txConsName       = '';          // 전송 시 선택한 공사명 (상단 요약용)
 let _txSessionAccount = '';          // 세션 확인된 계정 아이디
-let _txVerifyToggle   = true;        // 전송 후 awms 검증 여부 (localStorage 저장)
 let _txConfirmCb      = null;        // 확인 모달 콜백
 
 // ── 전송탭 진입 ──────────────────────────────────────
 async function transmitOnEnter() {
     _txUpdateScopeLabel();
-    // verifyToggle localStorage 복원
-    const vt = localStorage.getItem('tx_verify_toggle');
-    if (vt !== null) {
-        _txVerifyToggle = vt !== 'false';
-        const chk = document.getElementById('txVerifyToggle');
-        if (chk) chk.checked = _txVerifyToggle;
-    }
-    const chk = document.getElementById('txVerifyToggle');
-    if (chk) chk.addEventListener('change', function() {
-        _txVerifyToggle = chk.checked;
-        localStorage.setItem('tx_verify_toggle', _txVerifyToggle);
-    });
+    // ★전송 후 대조는 항상 자동이라 토글·localStorage 복원이 필요 없다(영준님 2026-07-29).
     // 아코디언 초기화 — 기본 펼침(2026-07-29). 차수·봉인은 전송 전 매번 확인해야 하는 값인데
     // 기본 닫기라 "설정하는 곳이 없다"는 오인이 실제로 발생했다(단서가 화살표 하나뿐).
     const cfg = document.getElementById('txConfigBody');
@@ -5852,31 +5825,16 @@ async function transmitStop() {
     }
 }
 
-function _txWorkStep() {
-    const el = document.getElementById('txWorkStep');
-    return (el && el.value === '25') ? '25' : '28';
-}
-function _txLive() {
-    const el = document.getElementById('txLive');
-    return !!(el && el.checked);
-}
+// ★등록 범위·실전송·검증은 전부 고정이다(영준님 2026-07-29). 화면에서 고르지 않는다.
+function _txWorkStep() { return '28'; }   // 항상 완료(28)
+function _txLive()     { return true; }   // 항상 실전송
+function _txVerify()   { return true; }   // 전송 후 대조 항상 자동
 function _txOnWorkStepChange() {
     const hint = document.getElementById('txWorkStepHint');
     if (!hint) return;
-    const live = _txLive();
-    if (!live) {
-        hint.textContent = '※ 실전송 꺼짐 — awms에 실제로 등록되지 않습니다(연습). 등록하려면 [실전송]을 켜십시오';
-        hint.style.color = 'var(--ink-3)';
-        hint.style.fontWeight = '400';
-    } else if (_txWorkStep() === '28') {
-        hint.textContent = '※ 실전송 + 완료(28) — awms에 실제 등록되며 되돌릴 수 없습니다';
-        hint.style.color = 'var(--a-rose)';
-        hint.style.fontWeight = '700';
-    } else {
-        hint.textContent = '※ 실전송 + 임시저장(25) — resetRows로 원복 가능';
-        hint.style.color = 'var(--ink-2)';
-        hint.style.fontWeight = '600';
-    }
+    hint.textContent = '※ 완료(28)로 실제 등록됩니다 — 되돌릴 수 없습니다. 전송 후 awms 대조는 자동 실행됩니다.';
+    hint.style.color = 'var(--a-rose)';
+    hint.style.fontWeight = '700';
 }
 
 // 봉인박스 잔량 안내 — 미설정이면 전송이 막히므로 그 사실을 눈에 보이게 알린다.
@@ -6190,7 +6148,7 @@ async function transmitRun() {
     const account = _txPickAccount();
     if (!account) { _txToast('계정을 선택하세요.', 'ng'); return; }
 
-    const verify = document.getElementById('txVerifyToggle') ? document.getElementById('txVerifyToggle').checked : true;
+    const verify = _txVerify();   // 항상 자동 대조
 
     // 세션 미확인 경고
     if (!_txSessionOk) {
@@ -6222,17 +6180,16 @@ async function transmitRun() {
     const _isDone = workStep === '28';
     const isLive  = _txLive();
     const _lines = [
-        isLive ? '★ 실전송 — awms에 실제로 등록됩니다'
-               : '연습(실전송 꺼짐) — awms에 등록되지 않습니다',
+        '★ 실전송입니다 — awms에 실제로 등록됩니다 (연습 모드 없음)',
+        '──────────────────────────────',
         (_isDone ? '★ 완료(28)로 전송할 건수: ' : '임시저장(25)으로 전송할 건수: ') + unsent.length + '건',
         '차수: ' + (consName || '-'),
         '봉인박스: ' + sealFmt(_sbS) + ' ~ ' + sealFmt(_sbE),
         '계정: ' + account,
         '',
-        (isLive && _isDone)
-            ? '★ 완료(28)는 되돌릴 수 없습니다. 임시저장과 달리 삭제가 불가능하며,\n   이후 검침값 수정만 가능하고 신설계기번호는 잠깁니다.'
-            : (_isDone ? '완료(28) 설정이지만 실전송이 꺼져 있어 등록되지 않습니다.'
-                       : '임시저장(25)은 resetRows로 원복할 수 있습니다.'),
+        '★ 완료(28)로 등록되며 되돌릴 수 없습니다.',
+        '   삭제가 불가능하고, 이후 검침값 수정만 가능하며 신설계기번호는 잠깁니다.',
+        '   전송 후 awms 재조회 대조가 자동으로 실행됩니다.',
         '',
         '계속할까요?',
     ];
