@@ -2224,7 +2224,7 @@ async function initApp() {
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
     startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1809 (세션 표시 유지·60초 자동점검 + 백엔드 폴백체인)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1810 (전송완료 탭 실시간 갱신 + 스텝 표시 수정)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5832,6 +5832,7 @@ async function transmitSaveConfig() {
 
 // 등록 범위(25/28) — 기본 완료(28). 되돌릴 수 없는 선택이라 화면에 상시 경고를 띄운다.
 let _txJobId = null;
+let _txLastOk = -1;   // 폴링 중 성공 건수 변화 감지용(늘면 목록 갱신)
 // ★전송 중지 — 서버에 취소 플래그만 세운다. 진행 중인 한 건은 끝까지 보내고 다음 건부터 멈춘다.
 //   (프로세스를 죽여 멈추면 awms 요청이 중간에 끊겨 반쪽 등록이 될 수 있다.)
 async function transmitStop() {
@@ -6262,10 +6263,10 @@ async function transmitRun() {
                 '<div class="tx-step-row" id="txStepRow_' + esc(g.mid) + '">' +
                 '<span class="tx-step-mid">' + esc(g.mid) + '</span>' +
                 '<div class="tx-steps">' +
-                '<div class="tx-step" id="txStep_' + esc(g.mid) + '_0">철거</div>' +
-                '<div class="tx-step" id="txStep_' + esc(g.mid) + '_1">신설</div>' +
-                '<div class="tx-step" id="txStep_' + esc(g.mid) + '_2">완료28</div>' +
-                '<div class="tx-step" id="txStep_' + esc(g.mid) + '_3">필드대조</div>' +
+                '<div class="tx-step" id="txStep_' + esc(g.mid) + '_0">접수</div>' +
+                '<div class="tx-step" id="txStep_' + esc(g.mid) + '_1">등록</div>' +
+                '<div class="tx-step" id="txStep_' + esc(g.mid) + '_2">완료</div>' +
+                '<div class="tx-step" id="txStep_' + esc(g.mid) + '_3">대조</div>' +
                 '</div></div>'
             ).join('');
             if (vrEl) vrEl.innerHTML = '';
@@ -6376,9 +6377,21 @@ async function _txPollJob(jobId) {
             jobLog.innerHTML = lines.join('');
         }
 
+        // ★진행 중에도 전송완료 목록을 갱신한다(2026-07-29). 전에는 잡이 끝나야만 갱신돼
+        //   전송되는 동안 '전송완료' 탭에 아무것도 쌓이지 않아, 무엇이 성공했는지 볼 수 없었다.
+        if (typeof _txLastOk === 'undefined') window._txLastOk = -1;
+        if (ok !== _txLastOk) { window._txLastOk = ok; transmitLoadList(); }
+
         const jobTitle = document.getElementById('txJobTitle');
         const spinner  = document.getElementById('txJobSpinner');
-        if (d.status === 'done') {
+        if (d.status === 'cancelled') {
+            clearInterval(_txPollTimer); _txPollTimer = null;
+            if (jobTitle) jobTitle.textContent = '중지됨 — 성공: ' + ok + ', 실패: ' + fail + ' (남은 건은 다시 선택해 보내면 됩니다)';
+            if (spinner)  spinner.style.display = 'none';
+            const _sb = document.getElementById('txStopBtn');
+            if (_sb) _sb.classList.add('hidden');
+            await transmitLoadList();
+        } else if (d.status === 'done') {
             clearInterval(_txPollTimer); _txPollTimer = null;
             if (jobTitle) jobTitle.textContent = '전송 완료 — 성공: ' + ok + ', 실패: ' + fail;
             if (spinner)  spinner.style.display = 'none';
@@ -6394,7 +6407,10 @@ async function _txPollJob(jobId) {
 
 // ── 4단계 스텝 업데이트 ──────────────────────────────
 function _txUpdateStep(mid, phase, isFail) {
-    const stepMap = { '철거': 0, '신설': 1, '완료28': 2, '대조': 3 };
+    // ★백엔드가 실제로 보내는 phase는 '시스템' / '상세' / '완료' 3종뿐이다(2026-07-29 실측).
+    //   전에는 '철거'/'신설'/'완료28'/'대조'로 기대해 하나도 안 맞았고, idx=undefined로 즉시
+    //   빠져나가 4칸이 영원히 비어 있었다 — 어디까지 갔는지 화면으로 알 수 없었던 원인.
+    const stepMap = { '접수': 0, '상세': 1, '완료': 2, '대조': 3 };
     const idx = stepMap[phase];
     if (idx === undefined || !mid) return;
     // 이전 단계 done, 현재 done/fail
