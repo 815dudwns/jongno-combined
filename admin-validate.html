@@ -1755,13 +1755,19 @@
                     범위 밖이면 계정을 공유한 다른 사람의 봉인이라 무시합니다. 박스를 다 쓰면 새 범위로 바꿔 넣으십시오.
                 </div>
                 <div class="tx-divider"></div>
-                <div class="tx-field-label" style="margin-bottom:8px">아이디 목록 (아이디별 시작 봉인번호)</div>
+                <div class="tx-field-label" style="margin-bottom:8px">아이디 목록 (기록용 — 누가 올렸는지)</div>
+                <div style="font-size:11px;color:var(--ink-3);margin-bottom:8px">
+                    awms 실제 등록은 <b>현재 세션 계정</b>으로 나갑니다. 여기 값은 "누가 올렸는지"를
+                    데이터에 남기는 이름표일 뿐이며, 봉인 배정과는 무관합니다.
+                </div>
+                <!-- ★봉인 필드 제거(영준님 2026-07-29): 봉인은 계정 무관 팀 자원이라
+                     아이디에 묶으면 안 된다. 정본은 위 [봉인박스 범위] 하나뿐이다.
+                     옛 accounts[].start_seal은 표시·입력 모두 없앴다(배정에도 미사용). -->
                 <div class="tx-account-list" id="txAccountList">
                     <span class="tx-account-empty">등록된 아이디 없음</span>
                 </div>
                 <div class="tx-add-row">
                     <input type="text" id="txNewId" class="cinput" placeholder="awms 아이디" style="width:150px;font-size:13px;padding:9px 14px">
-                    <input type="text" id="txNewSeal" class="cinput" placeholder="시작 봉인번호" style="width:170px;font-size:13px;padding:9px 14px">
                     <button class="cbtn cbtn-sm" onclick="transmitAddAccount()">추가</button>
                 </div>
                 <div class="tx-divider"></div>
@@ -2171,7 +2177,7 @@ async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 터널 URL 자동발견(Firebase) — 실패 시 폴백 유지
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1805 (실전송 스위치 + 완료28 기본 + 전송 전 안전장치 / 봉인박스 범위)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1806 (아이디↔봉인 묶음 제거 — 봉인은 봉인박스 범위로 일원화)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5598,7 +5604,7 @@ async function doRollback(auditKey, dataset, btnEl) {
 // ══════════════════════════════════════════════════════
 
 // 전송탭 내부 상태
-let _txAccounts       = [];          // [{id, start_seal}, ...]
+let _txAccounts       = [];          // [{id}, ...] — 봉인은 계정 무관(팀 자원)이라 묶지 않는다
 let _txSubTab         = 'unsent';    // 'unsent' | 'sent'
 let _txGroups         = [];          // 검증완료 그룹 전체 (isVerified 필터됨)
 let _txPollTimer      = null;        // 검증탭 _pollTimer와 분리
@@ -5838,7 +5844,6 @@ function _txRenderAccountList() {
         el.innerHTML = _txAccounts.map((a, i) =>
             '<div class="tx-account-row">' +
             '<span class="tx-account-id">' + esc(a.id) + '</span>' +
-            '<span class="tx-account-seal">시작 봉인: ' + esc(a.start_seal || '-') + '</span>' +
             '<button class="cbtn cbtn-xs tx-account-del" onclick="transmitRemoveAccount(' + i + ')">삭제</button>' +
             '</div>'
         ).join('');
@@ -5859,12 +5864,11 @@ function _txRenderAccountList() {
 
 function transmitAddAccount() {
     const id   = document.getElementById('txNewId').value.trim();
-    const seal = document.getElementById('txNewSeal').value.trim();
+
     if (!id) { _txToast('아이디를 입력하세요.', 'ng'); return; }
     if (_txAccounts.some(a => a.id === id)) { _txToast('이미 등록된 아이디입니다.', 'ng'); return; }
-    _txAccounts.push({ id, start_seal: seal });
+    _txAccounts.push({ id });   // 봉인은 계정에 묶지 않는다
     document.getElementById('txNewId').value = '';
-    document.getElementById('txNewSeal').value = '';
     _txRenderAccountList();
 }
 
