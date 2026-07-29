@@ -1758,6 +1758,9 @@
                 <label class="tx-verify-toggle">
                     <input type="checkbox" id="txVerifyToggle" checked> 전송 후 awms 검증
                 </label>
+                <span style="font-size:11px;color:var(--ink-3);margin-left:auto">
+                    ※ awms엔 <b>임시저장(25)</b>까지만 등록 — 완료(28)는 금지(awms에서 수동)
+                </span>
             </div>
 
             <!-- 수동 마킹 바 -->
@@ -5541,11 +5544,12 @@ async function transmitOnEnter() {
         _txVerifyToggle = chk.checked;
         localStorage.setItem('tx_verify_toggle', _txVerifyToggle);
     });
-    // 아코디언 초기화 — 기본 닫기
+    // 아코디언 초기화 — 기본 펼침(2026-07-29). 차수·봉인은 전송 전 매번 확인해야 하는 값인데
+    // 기본 닫기라 "설정하는 곳이 없다"는 오인이 실제로 발생했다(단서가 화살표 하나뿐).
     const cfg = document.getElementById('txConfigBody');
-    if (cfg) cfg.classList.remove('open');
+    if (cfg) cfg.classList.add('open');
     const arr = document.getElementById('txConfigArrow');
-    if (arr) arr.classList.remove('open');
+    if (arr) arr.classList.add('open');
     // busilist 먼저 채운 뒤 config 복원 (순서 중요: option 없으면 .value 복원 실패)
     await transmitLoadBusiList();
     await transmitLoadConfig();
