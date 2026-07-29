@@ -1783,8 +1783,10 @@
         <div class="card">
             <div class="tx-subtab-row">
                 <div class="cseg">
-                    <button id="txTabUnsent" class="active" onclick="txSetSubTab('unsent')">미전송</button>
-                    <button id="txTabSent"               onclick="txSetSubTab('sent')">전송완료</button>
+                    <!-- ★탭 이름(영준님 2026-07-29): 흐름이 '오늘 리스트에서 골라 → 전송 → 현황 확인'이라
+                         '미전송/전송완료'보다 '오늘 리스트/전송현황'이 실제 작업 순서에 맞다. -->
+                    <button id="txTabUnsent" class="active" onclick="txSetSubTab('unsent')">오늘 리스트</button>
+                    <button id="txTabSent"               onclick="txSetSubTab('sent')">전송현황</button>
                 </div>
                 <div class="tx-summary-chips" id="txSummaryBadges"></div>
             </div>
@@ -1838,7 +1840,7 @@
                 <table>
                     <thead id="txTableHead"></thead>
                     <tbody id="txTableBody">
-                        <tr><td colspan="7" class="empty">전송탭을 진입하면 목록이 로드됩니다.</td></tr>
+                        <tr><td colspan="8" class="empty">전송탭을 진입하면 목록이 로드됩니다.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -2224,7 +2226,7 @@ async function initApp() {
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
     startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1810 (전송완료 탭 실시간 갱신 + 스텝 표시 수정)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1811 (탭 구조 개편: 오늘 리스트·전송현황 + 신설계기번호 컬럼)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5965,10 +5967,10 @@ async function transmitLoadList() {
 
     const tbody = document.getElementById('txTableBody');
     if (!ds || !date) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty">검증탭에서 날짜와 데이터셋을 먼저 선택하세요.</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty">검증탭에서 날짜와 데이터셋을 먼저 선택하세요.</td></tr>';
         return;
     }
-    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty">불러오는 중...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty">불러오는 중...</td></tr>';
 
     try {
         const qs   = 'dataset=' + encodeURIComponent(ds) + '&date=' + toApiDate(date);
@@ -5985,7 +5987,7 @@ async function transmitLoadList() {
         _txGroups = all.filter(g => isVerified(g));
         _txRenderList();
     } catch (e) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty">목록 로드 실패: ' + esc(e.message) + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty">목록 로드 실패: ' + esc(e.message) + '</td></tr>';
     }
 }
 
@@ -6008,16 +6010,16 @@ function _txRenderList() {
     const chkTh = '<th style="width:34px"><input type="checkbox" id="txChkAll" onclick="txToggleAll(this.checked)"></th>';
     if (thead) {
         if (_txSubTab === 'unsent') {
-            thead.innerHTML = '<tr>' + chkTh + '<th>순번</th><th>철거계기번호</th><th>주소</th><th>완료상태</th><th>봉인(미리보기)</th><th>계정</th></tr>';
+            thead.innerHTML = '<tr>' + chkTh + '<th>순번</th><th>철거계기번호</th><th>신설계기번호</th><th>주소</th><th>완료상태</th><th>봉인(미리보기)</th><th>계정</th></tr>';
         } else {
-            thead.innerHTML = '<tr>' + chkTh + '<th>순번</th><th>철거계기번호</th><th>주소</th><th>봉인번호</th><th>계정</th><th>공사번호</th></tr>';
+            thead.innerHTML = '<tr>' + chkTh + '<th>순번</th><th>철거계기번호</th><th>신설계기번호</th><th>주소</th><th>봉인번호</th><th>계정</th><th>공사번호</th></tr>';
         }
     }
 
     const tbody = document.getElementById('txTableBody');
     if (!shown.length) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="empty">' +
-            (_txSubTab === 'unsent' ? '미전송 계기 없음.' : '전송완료 계기 없음.') + '</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty">' +
+            (_txSubTab === 'unsent' ? '오늘 리스트가 비어 있습니다.' : '아직 전송된 건이 없습니다.') + '</td></tr>';
         return;
     }
 
@@ -6033,6 +6035,7 @@ function _txRenderList() {
                 '<td><input type="checkbox" class="tx-chk" value="' + esc(g.mid) + '"></td>' +
                 '<td class="seq-col">' + g.seq + '</td>' +
                 '<td class="mid-col">' + esc(g.mid) + manualBadge + '</td>' +
+                '<td class="mid-col">' + esc(g.new_meter_id || '-') + '</td>' +
                 '<td class="tx-addr-cell">' + esc(g.addr || '-') + '</td>' +
                 '<td>' + sealStr + '</td>' +
                 '<td>' + esc((seal && seal.account) || '-') + '</td>' +
@@ -6054,6 +6057,7 @@ function _txRenderList() {
                 '<td><input type="checkbox" class="tx-chk" value="' + esc(g.mid) + '"></td>' +
                 '<td class="seq-col">' + g.seq + '</td>' +
                 '<td class="mid-col">' + esc(g.mid) + '</td>' +
+                '<td class="mid-col">' + esc(g.new_meter_id || '-') + '</td>' +
                 '<td class="tx-addr-cell">' + esc(g.addr || '-') + '</td>' +
                 '<td><span class="ms ' + _txMeterStateCls(g.meter_state) + '">' + esc(g.meter_state || '-') + '</span></td>' +
                 '<td class="tx-tabular">' + esc(String(planSeal)) + '</td>' +
