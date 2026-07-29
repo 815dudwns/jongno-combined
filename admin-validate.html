@@ -2224,7 +2224,7 @@ async function initApp() {
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
     startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1808 (백엔드 주소 폴백체인+자동복구 — 터널 URL 변경 대응)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1809 (세션 표시 유지·60초 자동점검 + 백엔드 폴백체인)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5683,6 +5683,7 @@ async function transmitOnEnter() {
     const arr = document.getElementById('txConfigArrow');
     if (arr) arr.classList.add('open');
     _txOnWorkStepChange();   // 등록 범위(기본 28) 경고 문구 초기 표시
+    startSessionWatch();     // 세션 상태 60초 자동 점검(버튼 없이 항상 최신)
     // busilist 먼저 채운 뒤 config 복원 (순서 중요: option 없으면 .value 복원 실패)
     await transmitLoadBusiList();
     await transmitLoadConfig();
@@ -5922,9 +5923,9 @@ function _txRenderAccountList() {
               _txAccounts.map(a => '<option value="' + esc(a.id) + '">' + esc(a.id) + '</option>').join('');
         sel.classList.toggle('hidden', _txAccounts.length <= 1);
     }
-    // 세션 확인 무효화
-    _txSessionOk = false;
-    _txUpdateSessionPill(null);
+    // ★세션 표시를 여기서 지우지 않는다(2026-07-29). 계정 목록 렌더는 세션과 무관한데,
+    //   탭을 전환할 때마다 config를 다시 읽으며 이 함수가 불려 '세션 없음'으로 리셋됐다.
+    //   실제 세션은 살아있는데 표시만 꺼져 매번 다시 확인해야 했다. 상태는 자동 점검이 관리한다.
 }
 
 function transmitAddAccount() {
@@ -5945,6 +5946,7 @@ function transmitRemoveAccount(idx) {
 // ── 서브탭 전환 ──────────────────────────────────────
 function txSetSubTab(name) {
     _txSubTab = name;
+    _txSessionRefresh();   // 탭을 오갈 때 표시가 꺼져 보이지 않게 즉시 갱신
     document.getElementById('txTabUnsent').classList.toggle('active', name === 'unsent');
     document.getElementById('txTabSent').classList.toggle('active', name === 'sent');
     document.getElementById('txActionBar').classList.toggle('hidden', name === 'sent');
@@ -6443,6 +6445,36 @@ async function transmitPullSession() {
         _txSessionHint('세션 가져오기 실패: ' + esc(e.message), 'ng');
         _txUpdateSessionPill(null);
     }
+}
+
+// ── 세션 상태 자동 점검 ──────────────────────────────
+// 버튼을 누르지 않아도 항상 최신 상태가 보이게 한다(토스트 없이 조용히).
+let _txSessionTimer = null;
+let _txSessionCheckedAt = '';
+async function _txSessionRefresh() {
+    const ds = document.getElementById('datasetSel').value;
+    if (!ds) return;
+    try {
+        const r = await fetch(API_BASE + '/transmit/session-direct?dataset=' + encodeURIComponent(ds), { cache: 'no-store' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const d = await r.json();
+        _txSessionCheckedAt = new Date().toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false });
+        if (d.has_session && d.alive) {
+            _txSessionOk = true;
+            _txSessionAccount = d.account || _txSessionAccount || '';
+            _txUpdateSessionPill({ alive: true, account: _txSessionAccount });
+            _txSessionHint('세션 유효' + (_txSessionAccount ? ' · ' + esc(_txSessionAccount) : '') + ' · 확인 ' + _txSessionCheckedAt, 'ok');
+        } else {
+            _txSessionOk = false;
+            _txUpdateSessionPill(d.has_session ? { alive: false, account: d.account } : null);
+            _txSessionHint((d.has_session ? '세션 만료' : '세션 없음') + ' · 확인 ' + _txSessionCheckedAt, 'ng');
+        }
+    } catch (_) { /* 네트워크 일시 실패는 표시를 건드리지 않는다 */ }
+}
+function startSessionWatch() {
+    if (_txSessionTimer) return;
+    _txSessionRefresh();
+    _txSessionTimer = setInterval(() => { if (!document.hidden) _txSessionRefresh(); }, 60000);
 }
 
 // ── 세션 확인 ────────────────────────────────────────
