@@ -1779,9 +1779,18 @@
                 <label class="tx-verify-toggle">
                     <input type="checkbox" id="txVerifyToggle" checked> 전송 후 awms 검증
                 </label>
-                <span style="font-size:11px;color:var(--ink-3);margin-left:auto">
-                    ※ awms엔 <b>임시저장(25)</b>까지만 등록 — 완료(28)는 금지(awms에서 수동)
-                </span>
+                <!-- ★등록 범위 25/28 선택. 기본은 완료(28) — 영준님 2026-07-29 확정.
+                     완료는 되돌릴 수 없으므로(resetRows는 25 전용) 선택값을 눈에 띄게 보여준다. -->
+                <label class="tx-verify-toggle" style="gap:6px">
+                    등록 범위
+                    <select id="txWorkStep" class="cinput" style="font-size:12px;padding:6px 10px;width:auto"
+                            onchange="_txOnWorkStepChange()"
+                            title="28=완료(되돌릴 수 없음) / 25=임시저장(resetRows로 원복 가능)">
+                        <option value="28" selected>완료(28)</option>
+                        <option value="25">임시저장(25)</option>
+                    </select>
+                </label>
+                <span id="txWorkStepHint" style="font-size:11px;margin-left:auto"></span>
             </div>
 
             <!-- 수동 마킹 바 -->
@@ -2141,7 +2150,7 @@ async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 터널 URL 자동발견(Firebase) — 실패 시 폴백 유지
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1803 (봉인박스 범위 설정 UI + 잔량표시 / 봉인공사명 제거 / 공사 번호병기)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1804 (전송 기본값 완료(28) + 전송 전 안전장치 4종 / 봉인박스 범위 UI)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5599,6 +5608,7 @@ async function transmitOnEnter() {
     if (cfg) cfg.classList.add('open');
     const arr = document.getElementById('txConfigArrow');
     if (arr) arr.classList.add('open');
+    _txOnWorkStepChange();   // 등록 범위(기본 28) 경고 문구 초기 표시
     // busilist 먼저 채운 뒤 config 복원 (순서 중요: option 없으면 .value 복원 실패)
     await transmitLoadBusiList();
     await transmitLoadConfig();
@@ -5742,6 +5752,25 @@ async function transmitSaveConfig() {
         _txSetMsg(msgEl, '저장 완료.', 'ok');
     } catch (e) {
         _txSetMsg(msgEl, '저장 실패: ' + esc(e.message), 'err');
+    }
+}
+
+// 등록 범위(25/28) — 기본 완료(28). 되돌릴 수 없는 선택이라 화면에 상시 경고를 띄운다.
+function _txWorkStep() {
+    const el = document.getElementById('txWorkStep');
+    return (el && el.value === '25') ? '25' : '28';
+}
+function _txOnWorkStepChange() {
+    const hint = document.getElementById('txWorkStepHint');
+    if (!hint) return;
+    if (_txWorkStep() === '28') {
+        hint.textContent = '※ 완료(28)로 등록됩니다 — 되돌릴 수 없습니다';
+        hint.style.color = 'var(--a-rose)';
+        hint.style.fontWeight = '700';
+    } else {
+        hint.textContent = '※ 임시저장(25)까지만 등록 — resetRows로 원복 가능';
+        hint.style.color = 'var(--ink-3)';
+        hint.style.fontWeight = '400';
     }
 }
 
@@ -6052,9 +6081,42 @@ async function transmitRun() {
     }
 
     const consName = _txGetConsNo('txConsNo', 'txConsNoFallback');
+
+    // ── 전송 전 안전장치 (영준님 2026-07-29: 완료(28) 기본 전환에 따른 필수 조건) ──
+    const workStep = _txWorkStep();
+    // (2) 검증완료 건만 대상. _txGroups가 이미 isVerified로 걸러지지만, 완료(28)는 되돌릴 수
+    //     없으므로 전송 직전에 한 번 더 확인한다(목록 로드 후 상태가 바뀌었을 수 있다).
+    const notVerified = unsent.filter(g => !(isVerified(g) || g.validated));
+    if (notVerified.length) {
+        _txToast('검증완료되지 않은 건이 ' + notVerified.length + '건 섞여 있어 전송을 중단합니다.', 'ng');
+        return;
+    }
+    // (3) 봉인 범위 미설정이면 차단 — 배정 기준이 없으면 실물과 어긋난다
+    const _sbS = ((document.getElementById('txSealBoxStart') || {}).value || '').trim();
+    const _sbE = ((document.getElementById('txSealBoxEnd')   || {}).value || '').trim();
+    if (!/^\d+$/.test(_sbS) || !/^\d+$/.test(_sbE)) {
+        _txToast('봉인박스 범위를 먼저 등록하세요. (전송 설정 → 봉인박스 범위)', 'ng');
+        return;
+    }
+    if (!consName) { _txToast('등록 공사(차수)를 먼저 선택하세요.', 'ng'); return; }
+
+    // (1)(4) 최종 확인 모달 — 건수·차수·봉인범위·계정 요약 + 되돌릴 수 없음 경고
+    const _isDone = workStep === '28';
+    const _lines = [
+        (_isDone ? '★ 완료(28)로 전송할 건수: ' : '임시저장(25)으로 전송할 건수: ') + unsent.length + '건',
+        '차수: ' + (consName || '-'),
+        '봉인박스: ' + sealFmt(_sbS) + ' ~ ' + sealFmt(_sbE),
+        '계정: ' + account,
+        '',
+        _isDone
+            ? '★ 완료(28)는 되돌릴 수 없습니다. 임시저장과 달리 삭제가 불가능하며,\n   이후 검침값 수정만 가능하고 신설계기번호는 잠깁니다.'
+            : '임시저장(25)은 resetRows로 원복할 수 있습니다.',
+        '',
+        '계속할까요?',
+    ];
     await _txConfirm(
-        '전송 시작',
-        '검증완료 미전송 ' + unsent.length + '건을 awms에 등록합니다.\n계속할까요?',
+        _isDone ? '전송 시작 — 완료(28)' : '전송 시작 — 임시저장(25)',
+        _lines.join('\n'),
         async function() {
             const consSel = document.getElementById('txConsNo');
             _txConsName = (consSel && !consSel.classList.contains('hidden') && consSel.selectedIndex >= 0)
@@ -6096,7 +6158,8 @@ async function transmitRun() {
                 const resp = await fetch(API_BASE + '/transmit/run', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ dataset: ds, assignments, verify }),
+                    // ★work_step 명시 전송 — 안 보내면 백엔드 기본값(25)이 적용돼 완료로 나가지 않는다.
+                    body: JSON.stringify({ dataset: ds, assignments, verify, work_step: workStep }),
                 });
                 const b = await resp.json().catch(() => ({}));
                 if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
