@@ -2211,7 +2211,7 @@ async function initApp() {
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
     startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1813 (완료상태 컬럼을 awms 등록상태로 교체)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1814 (A안 오늘리스트 전체표시+전송분잠금 · 공사 차수표시 · 지사필터 · work_step 표시)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5674,6 +5674,30 @@ function _txToggleConfig() {
 }
 
 // ── 공사 목록 드롭다운 로드 (등록/봉인 공통) ─────────
+// ★공사 목록은 원본을 보관해두고, 지사 접두 필터를 화면에서 다시 적용한다.
+//   awms getBusiList가 계정이 아니라 본부(DEPT1) 단위라 타 지사 공사까지 전부 내려온다(실측 159건).
+//   접두는 코드에 박지 않고 설정값으로 두되(지사가 바뀔 수 있다) 기본은 3978.
+let _txBusiAll = [];
+const TX_BRANCH_KEY = 'tx_branch_prefix';
+function _txBranchPrefix() {
+    const el = document.getElementById('txBranchPrefix');
+    const v = el && el.value.trim();
+    if (v) return v;
+    try { return localStorage.getItem(TX_BRANCH_KEY) || '3978'; } catch (_) { return '3978'; }
+}
+function _txApplyBranchFilter() {
+    const all = document.getElementById('txBranchAll');
+    const showAll = !!(all && all.checked);
+    const pre = _txBranchPrefix();
+    try { localStorage.setItem(TX_BRANCH_KEY, pre); } catch (_) {}
+    const list = showAll ? _txBusiAll : _txBusiAll.filter(b => String(b.cons_no || '').startsWith(pre));
+    const info = document.getElementById('txBranchInfo');
+    if (info) info.textContent = showAll
+        ? '전체 ' + _txBusiAll.length + '건'
+        : pre + ' 접두 ' + list.length + '건 / 전체 ' + _txBusiAll.length + '건';
+    _txFillConsOptions(list);
+}
+
 async function transmitLoadBusiList() {
     const ds = document.getElementById('datasetSel').value;
     const targets = [
@@ -5690,27 +5714,33 @@ async function transmitLoadBusiList() {
         const data = await resp.json();
         const list = Array.isArray(data.list) ? data.list : [];
         if (!list.length) throw new Error('공사 목록 비어있음');
-        const optHtml = '<option value="">공사 선택...</option>' +
-            // 공사명만으로는 식별이 안 된다(같은 이름이 여럿, 계정에 배정된 타 지역 공사가 섞임)
-            // → 공사명 + 공사번호를 함께 표시. 공사명에 줄바꿈이 섞여 있어 한 줄로 정규화한다.
-            list.map(item => {
-                const nm = String(item.name || '').replace(/\s*[\r\n]+\s*/g, ' ').trim();
-                return '<option value="' + esc(String(item.cons_no)) + '">'
-                     + esc(nm + ' (' + String(item.cons_no) + ')') + '</option>';
-            }).join('');
-        for (const t of targets) {
-            const sel = document.getElementById(t.sel);
-            const fb  = document.getElementById(t.fb);
-            if (!sel || !fb) continue;
-            const prevVal = (sel.value && sel.value !== '') ? sel.value : fb.value.trim();
-            sel.classList.remove('hidden');
-            fb.classList.add('hidden');
-            sel.innerHTML = optHtml;
-            if (prevVal) sel.value = String(prevVal);
-        }
+        _txBusiAll = list;            // 원본 보관 — 접두 필터는 화면에서 다시 적용한다
+        _txApplyBranchFilter();
     } catch (e) {
         for (const t of targets) _txUseBusiListFallback(t.sel, t.fb);
     }
+}
+
+function _txFillConsOptions(list) {
+    const optHtml = '<option value="">공사 선택...</option>' +
+        list.map(item => {
+            const nm = String(item.name || '').replace(/\s*[\r\n]+\s*/g, ' ').trim();
+            // ★화면엔 공사명 + 차수만(영준님 2026-07-30). 공사번호는 value로만 쓰여 전송에 들어간다.
+            //   차수는 공사명의 '(N차)'에서 뽑고, 없으면 '-'.
+            const chaM = nm.match(/\((\d+)\s*차\)/);
+            const cha  = chaM ? chaM[1] + '차' : '-';
+            const base = nm.replace(/\s*\(\d+\s*차\)\s*/, ' ').replace(/\s+/g, ' ').trim();
+            return '<option value="' + esc(String(item.cons_no)) + '" data-cha="' + esc(cha) + '">'
+                 + esc(base + ' · ' + cha) + '</option>';
+        }).join('');
+    const sel = document.getElementById('txConsNo');
+    const fb  = document.getElementById('txConsNoFallback');
+    if (!sel || !fb) return;
+    const prevVal = (sel.value && sel.value !== '') ? sel.value : fb.value.trim();
+    sel.classList.remove('hidden');
+    fb.classList.add('hidden');
+    sel.innerHTML = optHtml;
+    if (prevVal) sel.value = String(prevVal);
 }
 
 function _txUseBusiListFallback(selId, fbId) {
@@ -5953,7 +5983,10 @@ async function transmitLoadList() {
 function _txRenderList() {
     const unsent = _txGroups.filter(g => !g.awms_synced);
     const sent   = _txGroups.filter(g =>  g.awms_synced);
-    const shown  = _txSubTab === 'unsent' ? unsent : sent;
+    // ★A안(영준님 2026-07-30): '오늘 리스트'는 전송 여부와 무관하게 ★오늘 작업분 전체를 보여준다.
+    //   전송된 건은 목록에서 빼지 않고 배지로 구분하고, 체크박스를 잠가 재전송을 막는다.
+    //   (완료(28)는 되돌릴 수 없어 중복 전송이 곧 사고다.)
+    const shown  = _txSubTab === 'unsent' ? _txGroups : sent;
 
     // 요약 칩
     const badgeEl = document.getElementById('txSummaryBadges');
@@ -6011,10 +6044,19 @@ function _txRenderList() {
                 const sel = document.getElementById('txAccountSel');
                 acctCell = (sel && sel.value) ? esc(sel.value) : '(선택 필요)';
             }
-            return '<tr>' +
-                '<td><input type="checkbox" class="tx-chk" value="' + esc(g.mid) + '"></td>' +
+            // ★전송된 건은 잠근다(A안): 체크박스 비활성 + 배지. 완료(28)는 되돌릴 수 없어
+            //   중복 전송이 곧 사고이므로, 목록에는 남기되 다시 고를 수 없게 한다.
+            const _done = !!g.awms_synced;
+            const _chk = _done
+                ? '<td><input type="checkbox" class="tx-chk" value="' + esc(g.mid) + '" disabled title="이미 전송된 건입니다"></td>'
+                : '<td><input type="checkbox" class="tx-chk" value="' + esc(g.mid) + '"></td>';
+            const _doneBadge = _done
+                ? ' <span class="sbadge" style="font-size:10px;background:var(--green-soft);color:var(--a-green)">전송완료</span>'
+                : '';
+            return '<tr' + (_done ? ' style="opacity:.62"' : '') + '>' +
+                _chk +
                 '<td class="seq-col">' + g.seq + '</td>' +
-                '<td class="mid-col">' + esc(g.mid) + '</td>' +
+                '<td class="mid-col">' + esc(g.mid) + _doneBadge + '</td>' +
                 '<td class="mid-col">' + esc(g.new_meter_id || '-') + '</td>' +
                 '<td class="tx-addr-cell">' + esc(g.addr || '-') + '</td>' +
                 '<td>' + _txAwmsStateCell(g) + '</td>' +
@@ -6072,7 +6114,12 @@ function _txAwmsStateCell(g) {
     if (g.awms_synced) {
         const s = g.awms_seal || {};
         const seal = s.seal_no ? ' · 봉인 ' + esc(sealFmt(s.seal_no)) : '';
-        return '<span class="ms ms-complete">완료(28)</span>'
+        // ★DB에 저장된 실제 work_step을 쓴다(2026-07-30). 없으면 '전송완료'로만 표기하고
+        //   임의로 25/28을 단정하지 않는다(예전엔 근거 없이 임시저장으로 보였다).
+        const ws = String(g.awms_work_step || '').trim();
+        const label = ws === '28' ? '완료(28)' : (ws === '25' ? '임시저장(25)' : '전송완료');
+        const cls = ws === '25' ? 'ms-hold' : 'ms-complete';
+        return '<span class="ms ' + cls + '">' + label + '</span>'
              + '<span style="font-size:11px;color:var(--ink-3)">' + seal + '</span>';
     }
     return '<span class="ms ms-pending">미전송</span>';
