@@ -1721,6 +1721,26 @@
                          (저장 시 seal_cons_no = cons_no 로 함께 보냄. 백엔드에도 `seal_cons_no or cons_no` 폴백 있음). -->
                 </div>
                 <div class="tx-divider"></div>
+                <!-- ★봉인박스 범위 — 봉인 배정의 유일한 기준(영준님 2026-07-29).
+                     봉인은 종로팀이 수령한 실물 소모품이라 계정·공사와 무관하다. 박스를 보급받으면
+                     범위를 넣고, 다 쓰면 새 범위로 교체한다. 이 값이 없으면 전송을 막는다.
+                     범위는 코드에 박지 않는다 — 반드시 여기서 입력받는다. -->
+                <div class="tx-field-label" style="margin-bottom:8px">봉인박스 범위 (실물 박스)</div>
+                <div class="tx-add-row" style="align-items:center">
+                    <input type="text" id="txSealBoxStart" class="cinput" placeholder="시작 예) 0315001" inputmode="numeric"
+                           style="width:150px;font-size:13px;padding:9px 14px;font-variant-numeric:tabular-nums"
+                           title="수령한 봉인박스의 첫 번호">
+                    <span style="color:var(--ink-3)">~</span>
+                    <input type="text" id="txSealBoxEnd" class="cinput" placeholder="끝 예) 0320000" inputmode="numeric"
+                           style="width:150px;font-size:13px;padding:9px 14px;font-variant-numeric:tabular-nums"
+                           title="수령한 봉인박스의 마지막 번호">
+                    <span id="txSealBoxInfo" style="font-size:11px;color:var(--ink-3)"></span>
+                </div>
+                <div style="font-size:11px;color:var(--ink-3);margin-top:6px">
+                    이 범위가 봉인 배정의 기준입니다. awms 조회값이 이 범위 안이면 우리가 수동으로 쓴 것으로 보고 반영하고,
+                    범위 밖이면 계정을 공유한 다른 사람의 봉인이라 무시합니다. 박스를 다 쓰면 새 범위로 바꿔 넣으십시오.
+                </div>
+                <div class="tx-divider"></div>
                 <div class="tx-field-label" style="margin-bottom:8px">아이디 목록 (아이디별 시작 봉인번호)</div>
                 <div class="tx-account-list" id="txAccountList">
                     <span class="tx-account-empty">등록된 아이디 없음</span>
@@ -2121,7 +2141,7 @@ async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 터널 URL 자동발견(Firebase) — 실패 시 폴백 유지
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1802 (봉인 공사명 드롭다운 제거 / 공사 드롭다운 공사명+번호 병기 / 폴백 URL 갱신)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1803 (봉인박스 범위 설정 UI + 잔량표시 / 봉인공사명 제거 / 공사 번호병기)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5664,6 +5684,12 @@ async function transmitLoadConfig() {
         if (cfg.cons_no) _txRestoreConsNo('txConsNo', 'txConsNoFallback', String(cfg.cons_no));
         // 봉인 공사번호 복원
         // seal_cons_no 복원 없음 — 드롭다운이 제거됐고 저장 시 등록 공사번호를 그대로 재사용한다
+        // 봉인박스 범위 복원 + 잔량 표시
+        const _bs = document.getElementById('txSealBoxStart');
+        const _be = document.getElementById('txSealBoxEnd');
+        if (_bs) _bs.value = cfg.seal_box_start ? String(cfg.seal_box_start) : '';
+        if (_be) _be.value = cfg.seal_box_end   ? String(cfg.seal_box_end)   : '';
+        _txUpdateSealBoxInfo(cfg.seal_last);
         if (Array.isArray(cfg.accounts)) {
             _txAccounts = cfg.accounts.slice();
             _txRenderAccountList();
@@ -5692,11 +5718,24 @@ async function transmitSaveConfig() {
     //   공사번호를 요구하므로 등록 공사번호를 그대로 재사용해 보낸다 — 옛 값이 config에 남아
     //   엉뚱한 공사로 봉인이 저장되는 것을 막기 위해 비워두지 않고 명시적으로 덮어쓴다.
     const seal_cons_no = cons_no;
+    // 봉인박스 범위 — 숫자만 허용, 시작>끝이면 저장 거부(잘못 넣으면 배정이 통째로 어긋난다)
+    const _sb = (document.getElementById('txSealBoxStart') || {}).value || '';
+    const _se = (document.getElementById('txSealBoxEnd')   || {}).value || '';
+    const seal_box_start = _sb.trim(), seal_box_end = _se.trim();
+    if ((seal_box_start || seal_box_end)) {
+        if (!/^\d+$/.test(seal_box_start) || !/^\d+$/.test(seal_box_end)) {
+            _txSetMsg(msgEl, '봉인박스 범위는 숫자만 입력하세요.', 'err'); return;
+        }
+        if (parseInt(seal_box_end, 10) < parseInt(seal_box_start, 10)) {
+            _txSetMsg(msgEl, '봉인박스 끝번호가 시작번호보다 작습니다.', 'err'); return;
+        }
+    }
     try {
         const resp = await fetch(API_BASE + '/transmit/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dataset: ds, cons_no, seal_cons_no, accounts: _txAccounts }),
+            body: JSON.stringify({ dataset: ds, cons_no, seal_cons_no, accounts: _txAccounts,
+                                   seal_box_start, seal_box_end }),
         });
         const b = await resp.json().catch(() => ({}));
         if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
@@ -5704,6 +5743,24 @@ async function transmitSaveConfig() {
     } catch (e) {
         _txSetMsg(msgEl, '저장 실패: ' + esc(e.message), 'err');
     }
+}
+
+// 봉인박스 잔량 안내 — 미설정이면 전송이 막히므로 그 사실을 눈에 보이게 알린다.
+function _txUpdateSealBoxInfo(sealLast) {
+    const el = document.getElementById('txSealBoxInfo');
+    if (!el) return;
+    const s = ((document.getElementById('txSealBoxStart') || {}).value || '').trim();
+    const e = ((document.getElementById('txSealBoxEnd')   || {}).value || '').trim();
+    if (!/^\d+$/.test(s) || !/^\d+$/.test(e)) {
+        el.textContent = '범위 미설정 — 전송이 차단됩니다';
+        el.style.color = 'var(--a-rose)';
+        return;
+    }
+    const last = /^\d+$/.test(String(sealLast || '')) ? parseInt(sealLast, 10) : 0;
+    const cur  = Math.max(parseInt(s, 10) - 1, last);          // 커서 = 마지막 사용값
+    const left = Math.max(parseInt(e, 10) - cur, 0);
+    el.textContent = '잔량 ' + left.toLocaleString('ko-KR') + '개 (다음 ' + sealFmt(cur + 1) + ')';
+    el.style.color = left > 0 ? 'var(--ink-3)' : 'var(--a-rose)';
 }
 
 function _txGetConsNo(selId, fbId) {
