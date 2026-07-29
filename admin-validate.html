@@ -1714,6 +1714,20 @@
                         </select>
                         <input type="text" id="txConsNoFallback" class="cinput hidden" placeholder="예) 397820263153" style="width:200px" title="공사번호 직접 입력 (공사목록 로드 실패 시)">
                         <div style="font-size:11px;color:var(--ink-3);margin-top:4px">실제 시공등록이 들어갈 공사(차수)</div>
+                        <!-- ★지사 필터. awms getBusiList는 계정이 아니라 본부(DEPT1) 단위라 타 지사 공사까지
+                             전부 내려온다(실측 159건). 우리 지사 접두로 걸러 쓴다. 접두는 코드에 박지 않고
+                             설정값으로 두되(지사가 바뀔 수 있다) 기본은 3978. 필터가 맞지 않을 때 사용자가
+                             막히면 안 되므로 [전체] 토글을 함께 둔다. -->
+                        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
+                            <span style="font-size:11px;color:var(--ink-3)">지사 접두</span>
+                            <input type="text" id="txBranchPrefix" class="cinput" inputmode="numeric"
+                                   style="width:70px;font-size:12px;padding:5px 8px"
+                                   title="이 접두로 시작하는 공사만 목록에 표시합니다(기본 3978)">
+                            <label class="tx-verify-toggle" style="font-size:11px">
+                                <input type="checkbox" id="txBranchAll" onchange="_txApplyBranchFilter()"> 전체 보기
+                            </label>
+                            <span id="txBranchInfo" style="font-size:11px;color:var(--ink-3)"></span>
+                        </div>
                     </div>
                     <!-- ★봉인 공사명 드롭다운 제거(영준님 2026-07-29): 실무에 없는 개념이다.
                          봉인은 공사·계정과 무관한 종로팀 소모품이고, 기준은 설정에 등록한 실물 봉인박스 범위뿐이다.
@@ -1789,6 +1803,13 @@
                         <option value="28" selected>완료(28)</option>
                         <option value="25">임시저장(25)</option>
                     </select>
+                </label>
+                <!-- ★실전송 스위치. 백엔드 TransmitRunReq.live 기본값이 False라, 이걸 보내지 않으면
+                     전송 버튼을 눌러도 awms에 실제로 등록되지 않는다(드라이런). 되돌릴 수 없는 동작이라
+                     기본은 꺼두고, 사람이 명시적으로 켰을 때만 실등록이 나간다. -->
+                <label class="tx-verify-toggle" style="gap:6px">
+                    <input type="checkbox" id="txLive" onchange="_txOnWorkStepChange()">
+                    <b>실전송</b>
                 </label>
                 <span id="txWorkStepHint" style="font-size:11px;margin-left:auto"></span>
             </div>
@@ -2150,7 +2171,7 @@ async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 터널 URL 자동발견(Firebase) — 실패 시 폴백 유지
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1804 (전송 기본값 완료(28) + 전송 전 안전장치 4종 / 봉인박스 범위 UI)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1805 (실전송 스위치 + 완료28 기본 + 전송 전 안전장치 / 봉인박스 범위)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5760,17 +5781,26 @@ function _txWorkStep() {
     const el = document.getElementById('txWorkStep');
     return (el && el.value === '25') ? '25' : '28';
 }
+function _txLive() {
+    const el = document.getElementById('txLive');
+    return !!(el && el.checked);
+}
 function _txOnWorkStepChange() {
     const hint = document.getElementById('txWorkStepHint');
     if (!hint) return;
-    if (_txWorkStep() === '28') {
-        hint.textContent = '※ 완료(28)로 등록됩니다 — 되돌릴 수 없습니다';
+    const live = _txLive();
+    if (!live) {
+        hint.textContent = '※ 실전송 꺼짐 — awms에 실제로 등록되지 않습니다(연습). 등록하려면 [실전송]을 켜십시오';
+        hint.style.color = 'var(--ink-3)';
+        hint.style.fontWeight = '400';
+    } else if (_txWorkStep() === '28') {
+        hint.textContent = '※ 실전송 + 완료(28) — awms에 실제 등록되며 되돌릴 수 없습니다';
         hint.style.color = 'var(--a-rose)';
         hint.style.fontWeight = '700';
     } else {
-        hint.textContent = '※ 임시저장(25)까지만 등록 — resetRows로 원복 가능';
-        hint.style.color = 'var(--ink-3)';
-        hint.style.fontWeight = '400';
+        hint.textContent = '※ 실전송 + 임시저장(25) — resetRows로 원복 가능';
+        hint.style.color = 'var(--ink-2)';
+        hint.style.fontWeight = '600';
     }
 }
 
@@ -6102,15 +6132,19 @@ async function transmitRun() {
 
     // (1)(4) 최종 확인 모달 — 건수·차수·봉인범위·계정 요약 + 되돌릴 수 없음 경고
     const _isDone = workStep === '28';
+    const isLive  = _txLive();
     const _lines = [
+        isLive ? '★ 실전송 — awms에 실제로 등록됩니다'
+               : '연습(실전송 꺼짐) — awms에 등록되지 않습니다',
         (_isDone ? '★ 완료(28)로 전송할 건수: ' : '임시저장(25)으로 전송할 건수: ') + unsent.length + '건',
         '차수: ' + (consName || '-'),
         '봉인박스: ' + sealFmt(_sbS) + ' ~ ' + sealFmt(_sbE),
         '계정: ' + account,
         '',
-        _isDone
+        (isLive && _isDone)
             ? '★ 완료(28)는 되돌릴 수 없습니다. 임시저장과 달리 삭제가 불가능하며,\n   이후 검침값 수정만 가능하고 신설계기번호는 잠깁니다.'
-            : '임시저장(25)은 resetRows로 원복할 수 있습니다.',
+            : (_isDone ? '완료(28) 설정이지만 실전송이 꺼져 있어 등록되지 않습니다.'
+                       : '임시저장(25)은 resetRows로 원복할 수 있습니다.'),
         '',
         '계속할까요?',
     ];
@@ -6159,7 +6193,7 @@ async function transmitRun() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     // ★work_step 명시 전송 — 안 보내면 백엔드 기본값(25)이 적용돼 완료로 나가지 않는다.
-                    body: JSON.stringify({ dataset: ds, assignments, verify, work_step: workStep }),
+                    body: JSON.stringify({ dataset: ds, assignments, verify, work_step: workStep, live: isLive }),
                 });
                 const b = await resp.json().catch(() => ({}));
                 if (!resp.ok) throw new Error(b.detail || 'HTTP ' + resp.status);
