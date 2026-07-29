@@ -1509,6 +1509,9 @@
                                 <th>무효전력</th>
                                 <th>최대전력</th>
                                 <th>완료상태</th>
+                                <th>봉인번호</th>
+                                <th>차수</th>
+                                <th>계정</th>
                                 <th>비고</th>
                                 <th>검증상태</th>
                                 <th>검증완료</th>
@@ -2120,7 +2123,7 @@ async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 터널 URL 자동발견(Firebase) — 실패 시 폴백 유지
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1800 (전송탭 v2: 세션가져오기/세션확인 2버튼, 봉인공사번호 분리, 봉인불일치 배너, 4단계 스텝, 토스트/모달)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1801 (데이터탭 봉인번호·차수·계정 3컬럼 추가 / 봉인 표시 7자리 zero-pad 통일 / 전송설정 기본 펼침)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -2718,7 +2721,7 @@ async function loadResults() {
             document.getElementById('resultsSection').classList.remove('hidden');
             document.getElementById('summaryBadges').innerHTML = '';
             const tbody = document.getElementById('resultBody');
-            tbody.innerHTML = `<tr><td colspan="13" class="empty">이 날짜는 아직 OCR 검증 안 됨 — [검증 실행]을 눌러 실행하세요.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="16" class="empty">이 날짜는 아직 OCR 검증 안 됨 — [검증 실행]을 눌러 실행하세요.</td></tr>`;
             return;
         }
 
@@ -3013,6 +3016,19 @@ function statusBucket(s) {
 // 계기번호(ri/mi) 행 단위 정제 버킷
 // need 건 중 OCR이 '판독불가'이고 작업자값이 있으면 → 'ocrfail'
 // mv 행은 항상 기존 bucket 그대로 (isMid=false)
+// ── 봉인번호 표시 포맷 ──────────────────────────────
+// 봉인은 실물 스티커라 자릿수가 화면마다 다르면 대조가 안 된다(옛 기록은 6자리 '315331',
+// 현재 배정은 7자리 '0315700'). 표시할 때 항상 zero-pad 해 통일한다.
+// ★자릿수는 코드에 박지 않는다 — 전송 설정의 seal_width를 쓰고, 없을 때만 7로 떨어진다.
+let _txSealWidth = 7;
+function sealFmt(v) {
+    const s = String(v == null ? '' : v).trim();
+    if (!s) return '-';
+    if (!/^\d+$/.test(s)) return s;          // 숫자 아닌 값은 원문 그대로
+    const w = _txSealWidth || 7;
+    return s.length >= w ? s : s.padStart(w, '0');
+}
+
 function rowBucketRefined(row, isMid, kind) {
     if (!row) return null;
     const base = statusBucket(row.status || 'auto');
@@ -3328,7 +3344,7 @@ function renderTable() {
         const _emptyMsg = _filter === 'incomplete' ? '미완료 항목이 없습니다 (전부 완료).'
                         : _filter === 'problem'    ? '문제 있는 항목이 없습니다 (전부 정상).'
                         : '결과 없음';
-        tbody.innerHTML = `<tr><td colspan="13" class="empty">${_emptyMsg}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="16" class="empty">${_emptyMsg}</td></tr>`;
         return;
     }
 
@@ -3363,6 +3379,18 @@ function renderTable() {
         // 신설 제조년월 (없으면 '-')
         const newMfgYm = g.new_meter_mfg_ym ? esc(g.new_meter_mfg_ym) : '<span style="color:var(--ink-3)">-</span>';
 
+        // 봉인·차수·계정 — 소스는 계기 stub의 awms_seal{seal_no,seal_no2,cons_no,account}.
+        // 라이브는 주간아카이브가 스트립해 비어 있고 백엔드가 아카이브 원본으로 폴백해 채운다.
+        // 차수는 awms_seal.cons_no가 1순위, 없으면 cha(한전 '7차' 라벨) 보조.
+        const _sl   = g.awms_seal || null;
+        const _dash = '<span style="color:var(--ink-3)">-</span>';
+        const sealCell = _sl && _sl.seal_no
+            ? esc(sealFmt(_sl.seal_no)) + (_sl.seal_no2 ? ' / ' + esc(sealFmt(_sl.seal_no2)) : '')
+            : _dash;
+        const chaCell  = (_sl && _sl.cons_no) ? esc(String(_sl.cons_no))
+                       : (g.cha ? esc(String(g.cha)) : _dash);
+        const acctCell = (_sl && _sl.account) ? esc(String(_sl.account)) : _dash;
+
         return `
         <tr class="clickable-row" data-mid="${esc(g.mid)}" onclick="openModal(${g.seq - 1 /* groups index */}, ${_filter !== 'all' ? JSON.stringify(groups.map(x => x.seq - 1)) : 'null'})">
             <td class="seq-col">${g.seq}</td>
@@ -3372,6 +3400,9 @@ function renderTable() {
             <td class="val-col" style="font-size:12px;color:var(--ink-2)">${newMfgYm}</td>
             ${fvs.join('')}
             <td>${workStateBadge(g)}</td>
+            <td class="val-col" style="font-size:12px;font-variant-numeric:tabular-nums">${sealCell}</td>
+            <td class="val-col" style="font-size:12px;color:var(--ink-2)">${chaCell}</td>
+            <td class="val-col" style="font-size:12px;color:var(--ink-2)">${acctCell}</td>
             <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:12px">${remarkText}</td>
             <td>
                 <span class="${stClass(bucket)}">${BUCKET_LABEL[bucket]}</span>
@@ -5623,6 +5654,8 @@ async function transmitLoadConfig() {
         const resp = await fetch(API_BASE + '/transmit/config?dataset=' + encodeURIComponent(ds));
         if (!resp.ok) return;
         const cfg = await resp.json();
+        // 봉인 자릿수 — 표시용 zero-pad 폭. 설정값이 정본이고 없을 때만 7로 떨어진다.
+        _txSealWidth = parseInt(cfg.seal_width, 10) || 7;
         // 등록 공사번호 복원
         if (cfg.cons_no) _txRestoreConsNo('txConsNo', 'txConsNoFallback', String(cfg.cons_no));
         // 봉인 공사번호 복원
@@ -5797,7 +5830,7 @@ function _txRenderList() {
         if (_txSubTab === 'sent') {
             const seal = g.awms_seal;
             const sealStr = seal
-                ? esc(String(seal.seal_no || '-')) + (seal.seal_no2 ? ' / ' + esc(String(seal.seal_no2)) : '')
+                ? esc(sealFmt(seal.seal_no)) + (seal.seal_no2 ? ' / ' + esc(sealFmt(seal.seal_no2)) : '')
                 : '-';
             const manualBadge = g.awms_synced_manual
                 ? ' <span class="sbadge sb-warn" style="font-size:10px">수동</span>' : '';
@@ -5910,10 +5943,11 @@ async function transmitPlan() {
         const accts = b.accounts || {};
         const seal  = b.seal     || {};
 
-        // 봉인 카운터 업데이트 (zero-padded 문자열 그대로)
+        // 봉인 카운터 — plan 응답의 next_after/start는 정수라 그대로 쓰면 앞 0이 날아간다
+        // (실제로 0315700이 315700으로 보이던 문제). 표시 폭으로 zero-pad 해서 넣는다.
         const nextAfter = seal.next_after || '';
         const sealEl = document.getElementById('txSealNext');
-        if (sealEl && nextAfter) sealEl.textContent = String(nextAfter);
+        if (sealEl && nextAfter) sealEl.textContent = sealFmt(nextAfter);
 
         // 미리보기 결과를 그룹에 임시 기록
         for (const g of unsent) {
@@ -5928,7 +5962,7 @@ async function transmitPlan() {
         // 계정별 요약
         const lines = ['[봉인 미리보기 결과]'];
         for (const [acct, info] of Object.entries(accts)) {
-            lines.push('계정 ' + acct + ' — 시작: ' + String(info.start || '-') + ', 건수: ' + (info.count || 0) + ', 다음: ' + String(info.next_after || '-'));
+            lines.push('계정 ' + acct + ' — 시작: ' + sealFmt(info.start) + ', 건수: ' + (info.count || 0) + ', 다음: ' + sealFmt(info.next_after));
         }
         if (planBox) planBox.innerHTML = lines.map(l => '<div>' + esc(l) + '</div>').join('');
     } catch (e) {
@@ -6033,11 +6067,11 @@ async function _txPollJob(jobId) {
         if (progFill) progFill.style.width = pct + '%';
         if (progLbl)  progLbl.textContent = done + ' / ' + total + '  (성공: ' + ok + ', 실패: ' + fail + ')';
 
-        // 봉인 카운터 갱신 (zero-padded 문자열 그대로)
+        // 봉인 카운터 갱신 — 정수로 와도 앞 0이 유지되도록 표시 폭으로 zero-pad
         const sealCur = d.seal_current || '';
         if (sealCur) {
             const sealEl = document.getElementById('txSealNext');
-            if (sealEl) sealEl.textContent = String(sealCur);
+            if (sealEl) sealEl.textContent = sealFmt(sealCur);
         }
 
         // 로그 렌더 — 구조화 라인
