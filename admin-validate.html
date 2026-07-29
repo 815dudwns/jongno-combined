@@ -2211,7 +2211,7 @@ async function initApp() {
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
     startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1814 (A안 오늘리스트 전체표시+전송분잠금 · 공사 차수표시 · 지사필터 · work_step 표시)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1815 (상세모달 봉인·차수·계정 추가)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -3952,6 +3952,18 @@ function openModal(rowIdx, filteredIdxs) {
     const remarkFmt = g.remark ? esc(g.remark) : '-';
     const newMfgYmFmt = g.new_meter_mfg_ym ? esc(g.new_meter_mfg_ym) : '-';
     const oldMfgYmFmt = g.old_meter_mfg_ym ? esc(g.old_meter_mfg_ym) : '';
+
+    // 봉인·차수·계정 — 데이터탭(renderTable)과 동일 소스·동일 규칙을 재사용한다.
+    // 소스 = 계기 stub의 awms_seal{seal_no,seal_no2,cons_no,account}.
+    // 차수는 awms_seal.cons_no가 1순위, 없으면 cha(한전 '7차' 라벨) 보조.
+    const _mSl   = g.awms_seal || null;
+    const _mDash = '<span style="color:var(--ink-3)">-</span>';
+    const sealFmtd = _mSl && _mSl.seal_no
+        ? esc(sealFmt(_mSl.seal_no)) + (_mSl.seal_no2 ? ' / ' + esc(sealFmt(_mSl.seal_no2)) : '')
+        : _mDash;
+    const chaFmtd  = (_mSl && _mSl.cons_no) ? esc(String(_mSl.cons_no))
+                   : (g.cha ? esc(String(g.cha)) : _mDash);
+    const acctFmtd = (_mSl && _mSl.account) ? esc(String(_mSl.account)) : _mDash;
     summary.innerHTML = `
         <div class="ev-field"><label>작업순번</label><span>${g.seq}</span></div>
         <div class="ev-field"><label>고객번호</label><span>${custNoFmt ? esc(custNoFmt) : '<span style="color:var(--ink-3)">-</span>'}</span></div>
@@ -3961,6 +3973,9 @@ function openModal(rowIdx, filteredIdxs) {
         <div class="ev-field"><label>신설 제조년월</label><span>${newMfgYmFmt}</span></div>
         ${oldMfgYmFmt ? `<div class="ev-field"><label>철거 제조년월</label><span>${oldMfgYmFmt}</span></div>` : ''}
         <div class="ev-field"><label>완료상태</label><span>${workStateBadge(g)}</span></div>
+        <div class="ev-field"><label>봉인번호</label><span style="font-variant-numeric:tabular-nums">${sealFmtd}</span></div>
+        <div class="ev-field"><label>차수</label><span>${chaFmtd}</span></div>
+        <div class="ev-field"><label>계정</label><span>${acctFmtd}</span></div>
         <div class="ev-field" style="grid-column: 1 / -1"><label>비고</label><span style="white-space:pre-wrap">${remarkFmt}</span></div>
     `;
 
