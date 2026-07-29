@@ -1851,6 +1851,10 @@
                 <span class="tx-progress-title" id="txJobTitle">전송 중...</span>
                 <span style="font-size:12px;color:var(--ink-3)" id="txJobMeta"></span>
                 <span class="tx-progress-subtitle" id="txProgressLabel"></span>
+                <!-- ★[중지] — 프로세스를 죽여 멈추면 진행 중 요청이 끊겨 반쪽 등록이 된다.
+                     이 버튼은 서버에 취소 플래그만 세우고, 전송 루프가 다음 건 시작 전에 멈춘다. -->
+                <button id="txStopBtn" class="cbtn cbtn-xs hidden" style="margin-left:auto"
+                        onclick="transmitStop()">중지</button>
             </div>
             <div class="tx-progress-track">
                 <div class="tx-progress-fill" id="txProgressFill" style="width:0%"></div>
@@ -2177,7 +2181,7 @@ async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 터널 URL 자동발견(Firebase) — 실패 시 폴백 유지
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1806 (아이디↔봉인 묶음 제거 — 봉인은 봉인박스 범위로 일원화)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1807 (선택분만 전송 + 중지 버튼 — 전체전송 사고 방지)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5783,6 +5787,24 @@ async function transmitSaveConfig() {
 }
 
 // 등록 범위(25/28) — 기본 완료(28). 되돌릴 수 없는 선택이라 화면에 상시 경고를 띄운다.
+let _txJobId = null;
+// ★전송 중지 — 서버에 취소 플래그만 세운다. 진행 중인 한 건은 끝까지 보내고 다음 건부터 멈춘다.
+//   (프로세스를 죽여 멈추면 awms 요청이 중간에 끊겨 반쪽 등록이 될 수 있다.)
+async function transmitStop() {
+    if (!_txJobId) { _txToast('중지할 전송이 없습니다.', 'ng'); return; }
+    const btn = document.getElementById('txStopBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '중지 요청됨...'; }
+    try {
+        const r = await fetch(API_BASE + '/transmit/stop?job_id=' + encodeURIComponent(_txJobId), { method: 'POST' });
+        const b = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(b.detail || 'HTTP ' + r.status);
+        _txToast('중지 요청됨 — 진행 중인 건까지만 보내고 멈춥니다.', 'ok');
+    } catch (e) {
+        _txToast('중지 실패: ' + e.message, 'ng');
+        if (btn) { btn.disabled = false; btn.textContent = '중지'; }
+    }
+}
+
 function _txWorkStep() {
     const el = document.getElementById('txWorkStep');
     return (el && el.value === '25') ? '25' : '28';
@@ -5983,7 +6005,7 @@ function _txRenderList() {
                 acctCell = (sel && sel.value) ? esc(sel.value) : '(선택 필요)';
             }
             return '<tr>' +
-                '<td><input type="checkbox" class="tx-chk" value="' + esc(g.mid) + '" checked></td>' +
+                '<td><input type="checkbox" class="tx-chk" value="' + esc(g.mid) + '"></td>' +
                 '<td class="seq-col">' + g.seq + '</td>' +
                 '<td class="mid-col">' + esc(g.mid) + '</td>' +
                 '<td class="tx-addr-cell">' + esc(g.addr || '-') + '</td>' +
@@ -6047,8 +6069,14 @@ function _txMeterStateCls(s) {
 async function transmitPlan() {
     const ds  = document.getElementById('datasetSel').value;
     if (!ds) { _txToast('데이터셋을 선택하세요.', 'ng'); return; }
-    const unsent = _txGroups.filter(g => !g.awms_synced);
-    if (!unsent.length) { _txToast('미전송 계기가 없습니다.', 'ng'); return; }
+    // ★선택분만 대상(2026-07-29). 전에는 미전송 전체를 보내서, 한 건만 고른 줄 알았는데
+    //   89건이 통째로 나갔다. 체크박스를 읽어 명시적으로 고른 것만 대상으로 삼는다.
+    if (_txSubTab === 'sent') { _txToast('미전송 탭에서 대상을 선택하세요.', 'ng'); return; }
+    const _selMids = txSelectedMids();
+    if (!_selMids.length) { _txToast('대상을 선택하세요. (체크박스 또는 [전체선택])', 'ng'); return; }
+    const _selSet = new Set(_selMids.map(String));
+    const unsent = _txGroups.filter(g => !g.awms_synced && _selSet.has(String(g.mid)));
+    if (!unsent.length) { _txToast('선택한 건 중 미전송 계기가 없습니다.', 'ng'); return; }
     const account = _txPickAccount();
     if (!account) { _txToast('계정을 선택하세요.', 'ng'); return; }
 
@@ -6101,8 +6129,14 @@ async function transmitPlan() {
 async function transmitRun() {
     const ds  = document.getElementById('datasetSel').value;
     if (!ds) { _txToast('데이터셋을 선택하세요.', 'ng'); return; }
-    const unsent = _txGroups.filter(g => !g.awms_synced);
-    if (!unsent.length) { _txToast('미전송 계기가 없습니다.', 'ng'); return; }
+    // ★선택분만 대상(2026-07-29). 전에는 미전송 전체를 보내서, 한 건만 고른 줄 알았는데
+    //   89건이 통째로 나갔다. 체크박스를 읽어 명시적으로 고른 것만 대상으로 삼는다.
+    if (_txSubTab === 'sent') { _txToast('미전송 탭에서 대상을 선택하세요.', 'ng'); return; }
+    const _selMids = txSelectedMids();
+    if (!_selMids.length) { _txToast('대상을 선택하세요. (체크박스 또는 [전체선택])', 'ng'); return; }
+    const _selSet = new Set(_selMids.map(String));
+    const unsent = _txGroups.filter(g => !g.awms_synced && _selSet.has(String(g.mid)));
+    if (!unsent.length) { _txToast('선택한 건 중 미전송 계기가 없습니다.', 'ng'); return; }
     const account = _txPickAccount();
     if (!account) { _txToast('계정을 선택하세요.', 'ng'); return; }
 
@@ -6204,6 +6238,9 @@ async function transmitRun() {
 
                 const jobId = b.job_id;
                 if (!jobId) throw new Error('job_id 없음');
+                _txJobId = jobId;
+                const stopBtn = document.getElementById('txStopBtn');
+                if (stopBtn) { stopBtn.classList.remove('hidden'); stopBtn.disabled = false; stopBtn.textContent = '중지'; }
 
                 if (_txPollTimer) clearInterval(_txPollTimer);
                 _txPollTimer = setInterval(() => _txPollJob(jobId), 1500);
