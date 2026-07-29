@@ -1708,19 +1708,17 @@
                 <div class="tx-divider"></div>
                 <div class="tx-config-grid">
                     <div class="tx-field-group">
-                        <div class="tx-field-label">등록 공사명</div>
-                        <select id="txConsNo" class="cinput" style="font-size:13px">
+                        <div class="tx-field-label">등록 공사명 (차수)</div>
+                        <select id="txConsNo" class="cinput" style="font-size:13px" title="실제 시공등록이 들어갈 공사(차수)입니다. 공사명 뒤 괄호는 공사번호입니다.">
                             <option value="">로딩 중...</option>
                         </select>
                         <input type="text" id="txConsNoFallback" class="cinput hidden" placeholder="예) 397820263153" style="width:200px" title="공사번호 직접 입력 (공사목록 로드 실패 시)">
+                        <div style="font-size:11px;color:var(--ink-3);margin-top:4px">실제 시공등록이 들어갈 공사(차수)</div>
                     </div>
-                    <div class="tx-field-group">
-                        <div class="tx-field-label">봉인 공사명</div>
-                        <select id="txSealConsNo" class="cinput" style="font-size:13px">
-                            <option value="">로딩 중...</option>
-                        </select>
-                        <input type="text" id="txSealConsNoFallback" class="cinput hidden" placeholder="예) 397820263153" style="width:200px" title="봉인 공사번호 직접 입력 (공사목록 로드 실패 시)">
-                    </div>
+                    <!-- ★봉인 공사명 드롭다운 제거(영준님 2026-07-29): 실무에 없는 개념이다.
+                         봉인은 공사·계정과 무관한 종로팀 소모품이고, 기준은 설정에 등록한 실물 봉인박스 범위뿐이다.
+                         awms 봉인 저장 API가 파라미터로 공사번호를 요구하므로 내부적으로 등록 공사번호를 재사용한다
+                         (저장 시 seal_cons_no = cons_no 로 함께 보냄. 백엔드에도 `seal_cons_no or cons_no` 폴백 있음). -->
                 </div>
                 <div class="tx-divider"></div>
                 <div class="tx-field-label" style="margin-bottom:8px">아이디 목록 (아이디별 시작 봉인번호)</div>
@@ -2052,7 +2050,7 @@ let _session = authGetSession();   // 무적 어드민이면 모든 데이터셋
 // 설정
 // ══════════════════════════════════════════════════════
 // 백엔드 베이스 URL — 화면 자동발견(Firebase valBackend/url). 아래는 폴백(발견 실패 시).
-let API_BASE = 'https://rico-included-tool-drops.trycloudflare.com';
+let API_BASE = 'https://why-nutritional-subscribe-matthew.trycloudflare.com';  // 2026-07-29 갱신(이전 값은 이미 죽은 터널이라 자동발견 실패 시 폴백이 무용지물이었음)
 // 맥 start.sh가 터널 URL을 Firebase valBackend/url에 발행 → 여기서 무인증 REST로 읽어 자동 반영.
 // 터널이 바뀌어도 화면 코드 수정·push 불필요.
 async function discoverBackend() {
@@ -2123,7 +2121,7 @@ async function initApp() {
     if (_appInited) return;   // 로그인 성공 시 1회만
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 터널 URL 자동발견(Firebase) — 실패 시 폴백 유지
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1801 (데이터탭 봉인번호·차수·계정 3컬럼 추가 / 봉인 표시 7자리 zero-pad 통일 / 전송설정 기본 펼침)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1802 (봉인 공사명 드롭다운 제거 / 공사 드롭다운 공사명+번호 병기 / 폴백 URL 갱신)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -5600,7 +5598,7 @@ async function transmitLoadBusiList() {
     const ds = document.getElementById('datasetSel').value;
     const targets = [
         { sel: 'txConsNo',         fb: 'txConsNoFallback' },
-        { sel: 'txSealConsNo',     fb: 'txSealConsNoFallback' },
+        // 봉인 공사 드롭다운은 제거됨 — 봉인은 공사·계정과 무관(박스 범위가 유일 기준)
     ];
     if (!ds) {
         for (const t of targets) _txUseBusiListFallback(t.sel, t.fb);
@@ -5613,7 +5611,13 @@ async function transmitLoadBusiList() {
         const list = Array.isArray(data.list) ? data.list : [];
         if (!list.length) throw new Error('공사 목록 비어있음');
         const optHtml = '<option value="">공사 선택...</option>' +
-            list.map(item => '<option value="' + esc(String(item.cons_no)) + '">' + esc(item.name) + '</option>').join('');
+            // 공사명만으로는 식별이 안 된다(같은 이름이 여럿, 계정에 배정된 타 지역 공사가 섞임)
+            // → 공사명 + 공사번호를 함께 표시. 공사명에 줄바꿈이 섞여 있어 한 줄로 정규화한다.
+            list.map(item => {
+                const nm = String(item.name || '').replace(/\s*[\r\n]+\s*/g, ' ').trim();
+                return '<option value="' + esc(String(item.cons_no)) + '">'
+                     + esc(nm + ' (' + String(item.cons_no) + ')') + '</option>';
+            }).join('');
         for (const t of targets) {
             const sel = document.getElementById(t.sel);
             const fb  = document.getElementById(t.fb);
@@ -5659,7 +5663,7 @@ async function transmitLoadConfig() {
         // 등록 공사번호 복원
         if (cfg.cons_no) _txRestoreConsNo('txConsNo', 'txConsNoFallback', String(cfg.cons_no));
         // 봉인 공사번호 복원
-        if (cfg.seal_cons_no) _txRestoreConsNo('txSealConsNo', 'txSealConsNoFallback', String(cfg.seal_cons_no));
+        // seal_cons_no 복원 없음 — 드롭다운이 제거됐고 저장 시 등록 공사번호를 그대로 재사용한다
         if (Array.isArray(cfg.accounts)) {
             _txAccounts = cfg.accounts.slice();
             _txRenderAccountList();
@@ -5684,7 +5688,10 @@ async function transmitSaveConfig() {
     const msgEl      = document.getElementById('txConfigMsg');
     if (!ds) { _txSetMsg(msgEl, '데이터셋을 먼저 선택하세요.', 'err'); return; }
     const cons_no      = _txGetConsNo('txConsNo',     'txConsNoFallback');
-    const seal_cons_no = _txGetConsNo('txSealConsNo', 'txSealConsNoFallback');
+    // ★봉인 공사번호는 화면에서 고르지 않는다(실무에 없는 개념). awms 봉인 저장 API가 파라미터로
+    //   공사번호를 요구하므로 등록 공사번호를 그대로 재사용해 보낸다 — 옛 값이 config에 남아
+    //   엉뚱한 공사로 봉인이 저장되는 것을 막기 위해 비워두지 않고 명시적으로 덮어쓴다.
+    const seal_cons_no = cons_no;
     try {
         const resp = await fetch(API_BASE + '/transmit/config', {
             method: 'POST',
