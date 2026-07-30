@@ -2382,7 +2382,7 @@ async function initApp() {
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
     startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1821 (확인완료 건도 전송 대상 — 전송탭 목록 필터 통일)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1822 (전송현황 리스트 깜빡임 제거 — 첫 로드만 로딩표시)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -6259,7 +6259,10 @@ async function transmitLoadList() {
         if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty">검증탭에서 날짜와 데이터셋을 먼저 선택하세요.</td></tr>';
         return;
     }
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="empty">불러오는 중...</td></tr>';
+    // ★첫 로드에만 '불러오는 중'을 띄운다(영준님 2026-07-30). 전송 중에는 job 폴링이 매 회차마다
+    //   이 함수를 불러 목록을 갱신하는데, 그때마다 표를 로딩문구로 비우면 리스트가 나타났다 사라졌다
+    //   깜빡여 화면이 어지럽다. 이미 목록이 있으면 조용히 갱신한다(갱신 실패 시에만 문구 노출).
+    if (tbody && !_txGroups.length) tbody.innerHTML = '<tr><td colspan="8" class="empty">불러오는 중...</td></tr>';
 
     try {
         const qs   = 'dataset=' + encodeURIComponent(ds) + '&date=' + toApiDate(date);
