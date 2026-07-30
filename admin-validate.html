@@ -1337,6 +1337,170 @@
         #txConfirmModal .tx-modal-title { font-size: 16px; font-weight: 800; color: var(--ink); margin-bottom: 10px; }
         #txConfirmModal .tx-modal-body { font-size: 13px; color: var(--ink-2); line-height: 1.6; margin-bottom: 20px; white-space: pre-line; }
         #txConfirmModal .tx-modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+
+        /* ══════════════════════════════════════════════════════
+           모바일 적응형 (2026-07-30 검증팀)
+           영준님이 현장·이동 중 폰으로 본다. 폰 실사용폭 360~430px.
+           ★규칙 전부를 미디어쿼리 안에만 둔다 — 데스크톱 CSS는 한 줄도 건드리지 않는다.
+           ★색·그림자·radius는 css/clay.css 토큰만 사용(임의 토큰 신설 금지 — 프로젝트 규칙).
+           ══════════════════════════════════════════════════════ */
+        @media (max-width: 768px) {
+            /* 좌우 여백 회수 */
+            .container { padding: 12px 12px; }
+            /* 헤더 — h1이 nowrap + build 스탬프까지 한 줄이라 409px로 문서를 넘겼다(실측) */
+            .page-header { padding: 10px 12px; gap: 8px; }
+            .page-header h1 { white-space: normal; font-size: 15px; min-width: 0; }
+            #buildStamp { display: block; font-size: 10px; }
+            .card { padding: 14px 14px; margin-bottom: 12px; }
+
+            /* 상단 탭 — 넘치면 잘리던 것을 가로스크롤로 */
+            .main-tabs {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                flex-wrap: nowrap;
+            }
+            .main-tabs::-webkit-scrollbar { display: none; }
+            .main-tab-btn { flex: 0 0 auto; padding: 11px 18px; min-height: 44px; }
+
+            /* 터치타겟 44px + iOS 포커스 자동확대 차단(16px) */
+            .cbtn, .cbtn-sm, .cbtn-xs,
+            .form-group select, .form-group input[type="date"], .cinput {
+                min-height: 44px;
+                font-size: 16px;
+            }
+            .cbtn-xs { padding: 8px 14px; }
+            .form-group, .form-group select, .form-group input[type="date"] { width: 100%; }
+            .form-group select, .form-group input[type="date"] { min-width: 0; }
+            .control-bar { gap: 10px; }
+            /* 선택·날짜묶음은 한 줄 전체, 버튼은 서로 나눠 쓰게(세로 낭비 방지) */
+            .control-bar > .form-group, .control-bar > .date-nav { flex: 1 1 100%; }
+            .control-bar > button, .control-bar > label { flex: 1 1 auto; min-width: 104px; }
+            /* 날짜 내비(‹ 날짜 › 오늘 어제 최근작업일)는 한 줄에 안 들어간다 → 줄바꿈 허용 */
+            .date-nav { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; width: 100%; }
+            .date-display { flex: 1 1 140px; width: auto; }
+            .preset-btn { min-height: 36px; }
+            /* 라디오·순번입력 묶음도 좁은 폭에서 줄바꿈 */
+            .control-bar label { flex-wrap: wrap; }
+            .cinput.seq-input { min-width: 0; width: 68px; }
+
+            /* 필터 세그먼트(전체리스트·미완료·확인필요·문제만·검증대기 5개) — 가로스크롤로 */
+            .filter-seg { display: flex; flex-wrap: wrap; gap: 8px; }
+            .filter-seg .cseg {
+                max-width: 100%;
+                flex: 1 1 100%;
+                min-width: 0;          /* flex item 기본 min-width:auto가 내용폭을 강제해 넘치는 것 차단 */
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                flex-wrap: nowrap;
+            }
+            .filter-seg .cseg::-webkit-scrollbar { display: none; }
+            .filter-seg .cseg button { flex: 0 0 auto; min-height: 40px; }
+            .filter-seg #chaFilter { margin-left: 0 !important; max-width: 100% !important; width: 100%; }
+
+            /* ── 리스트: 16컬럼 테이블 → 카드형 ──
+               가로스크롤로만 볼 수 있던 것을 행 1개 = 카드 1장으로 바꾼다.
+               라벨은 td[data-label]::before가 그린다(렌더 JS는 data-label만 추가). */
+            .table-wrap { overflow-x: visible; background: transparent; box-shadow: none; }
+            .table-wrap table, .table-wrap thead, .table-wrap tbody,
+            .table-wrap tr, .table-wrap th, .table-wrap td { display: block; }
+            .table-wrap thead { display: none; }              /* 헤더는 라벨이 대신한다 */
+            .table-wrap tr {
+                background: var(--surface);
+                border-radius: var(--radius-sm);
+                box-shadow: var(--clay-sm);
+                padding: 12px 14px;
+                margin-bottom: 10px;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px 12px;
+            }
+            .table-wrap td {
+                border-bottom: none;
+                padding: 0;
+                text-align: left;
+                min-width: 0;
+            }
+            .table-wrap td::before {
+                content: attr(data-label);
+                display: block;
+                font-size: 10px;
+                font-weight: 700;
+                color: var(--ink-3);
+                margin-bottom: 2px;
+                white-space: nowrap;
+            }
+            /* 카드 안 배치 순서 — DOM(테이블 컬럼 순서)이 아니라 폰에서 읽는 순서로 재배열.
+               머리에 작업순번·검증상태, 다음 계기번호, 검침값, 그 뒤 부가정보. */
+            .table-wrap td[data-label="작업순번"]     { order: 1; font-size: 17px; }
+            .table-wrap td[data-label="검증상태"]     { order: 2; text-align: right; }
+            .table-wrap td[data-label="철거계기번호"] { order: 3; }
+            .table-wrap td[data-label="신설계기번호"] { order: 4; }
+            .table-wrap td[data-label="주간"]         { order: 5; }
+            .table-wrap td[data-label="야간"]         { order: 6; }
+            .table-wrap td[data-label="무효전력"]     { order: 7; }
+            .table-wrap td[data-label="최대전력"]     { order: 8; }
+            /* 완료상태·검증완료는 늘 한 줄 짝으로 (앞의 빈 검침칸이 감춰져도 어긋나지 않게 1열 고정) */
+            .table-wrap td[data-label="완료상태"]     { order: 9; grid-column: 1; }
+            .table-wrap td[data-label="검증완료"]     { order: 10; }
+            .table-wrap td[data-label="봉인번호"]     { grid-column: 1; }
+            .table-wrap td[data-label="봉인번호"]     { order: 11; }
+            .table-wrap td[data-label="차수"]         { order: 12; }
+            .table-wrap td[data-label="계정"]         { order: 13; }
+            .table-wrap td[data-label="신설제조년월"] { order: 14; }
+            .table-wrap td[data-label="고객번호"]     { order: 15; }
+            .table-wrap td[data-label="비고"]         { order: 16; }
+            /* 계기번호·비고는 한 줄 전체 (11자리가 두 줄로 깨지지 않게) */
+            .table-wrap td[data-label="철거계기번호"],
+            .table-wrap td[data-label="신설계기번호"],
+            .table-wrap td[data-label="비고"] { grid-column: 1 / -1; }
+            .table-wrap td.remark-col { max-width: none !important; white-space: normal !important; }
+            .table-wrap td.mid-col { font-size: 15px; }
+            /* 값 없는 검침 칸은 카드에서 감춰 빈 라벨만 남지 않게 */
+            .table-wrap td.val-col:empty { display: none; }
+
+            /* ── 모달: 폰에서 전체화면 ── */
+            .modal-overlay { padding: 0; align-items: stretch; justify-content: stretch; }
+            .modal-box {
+                max-width: none;
+                width: 100%;
+                max-height: 100dvh;
+                height: 100dvh;
+                border-radius: 0;
+                padding: 16px 14px 24px;
+            }
+            .modal-header {
+                position: sticky;
+                top: 0;
+                z-index: 2;
+                background: var(--surface);
+                padding: 6px 0 10px;
+                margin: 0 0 10px;
+            }
+            .modal-close-btn { min-width: 44px; min-height: 44px; }
+            /* 제목이 flex:1로 눌려 한 글자씩 세로로 쌓이던 것 — 한 줄 전체로 */
+            .modal-title { flex: 1 1 100%; white-space: normal; font-size: 15px; }
+            .modal-header button, .modal-header .cbtn { min-height: 44px; }
+            /* 상세모달 요약·사진셀 — 2열 그리드를 1열로(인라인 스타일이라 !important 필요) */
+            .event-summary { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+            #ig-grid { grid-template-columns: 1fr !important; }
+
+            /* 판정 카드(니드휴먼)·통계 그리드 — 1열 */
+            .verdict-body { grid-template-columns: 1fr; }
+            .verdict-photo img, .no-photo-box { max-width: 100%; }
+            .stat-grid { grid-template-columns: repeat(2, 1fr); }
+            .sbadge { font-size: 11px; padding: 5px 10px; }
+        }
+
+        @media (max-width: 430px) {
+            .container { padding: 10px 10px; }
+            .card { padding: 12px 12px; }
+            /* 폰 최소폭에서는 카드 내부도 1열 — 라벨:값이 잘리지 않게 */
+            .table-wrap tr { grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+            .main-tab-btn { padding: 11px 14px; font-size: 13px; }
+        }
     </style>
 </head>
 <body>
@@ -2211,7 +2375,7 @@ async function initApp() {
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
     startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1816 (사진 있는 no_photo → OCR미판독 판정큐 승격)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1817 (모바일 적응형 — 리스트 카드형·모달 전체화면·터치 44px)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -3446,6 +3610,8 @@ function renderTable() {
 
     // fid 순서 고정: 주간 → 야간 → 무효전력 → 최대전력
     const FIDS = ['whme_day', 'whme_mngt', 'var_day', 'dm_mt_day'];
+    // 좁은 화면(≤768px) 카드형에서 td::before가 쓰는 라벨. 데스크톱에선 무영향(::before 미발동).
+    const MFID_L = { whme_day: '주간', whme_mngt: '야간', var_day: '무효전력', dm_mt_day: '최대전력' };
 
     tbody.innerHTML = groups.map(g => {
         const bucket = displayBucket(g);   // 확인완료(validated) 반영 라벨
@@ -3457,13 +3623,13 @@ function renderTable() {
         // 검침값 컬럼 (없으면 빈칸)
         const fvs = FIDS.map(fid => {
             const r = g.mv[fid];
-            if (!r) return `<td class="val-col"></td>`;
+            if (!r) return `<td class="val-col" data-label="${MFID_L[fid]}"></td>`;
             // 값은 final 우선, 없으면 worker_val
             const val = r.final || r.worker_val || '';
             // 확인필요 행은 강조
             const needClass = (r.status === 'need_human' || r.status === 'need_sonnet' || r.status === 'swap_suspect')
                 ? ' style="color:var(--amber);font-weight:700"' : '';
-            return `<td class="val-col"${needClass}>${esc(val)}</td>`;
+            return `<td class="val-col" data-label="${MFID_L[fid]}"${needClass}>${esc(val)}</td>`;
         });
 
         // 고객번호 — site 데이터 조인으로 채워짐 (01-XXXX-XXXX 형식)
@@ -3489,23 +3655,23 @@ function renderTable() {
 
         return `
         <tr class="clickable-row" data-mid="${esc(g.mid)}" onclick="openModal(${g.seq - 1 /* groups index */}, ${_filter !== 'all' ? JSON.stringify(groups.map(x => x.seq - 1)) : 'null'})">
-            <td class="seq-col">${g.seq}</td>
-            <td class="val-col">${esc(custNo) || '<span style="color:var(--ink-3)">-</span>'}</td>
-            <td class="mid-col">${midHtml(oldMid)}</td>
-            <td class="mid-col">${midHtml(newMid)}</td>
-            <td class="val-col" style="font-size:12px;color:var(--ink-2)">${newMfgYm}</td>
+            <td class="seq-col" data-label="작업순번">${g.seq}</td>
+            <td class="val-col" data-label="고객번호">${esc(custNo) || '<span style="color:var(--ink-3)">-</span>'}</td>
+            <td class="mid-col" data-label="철거계기번호">${midHtml(oldMid)}</td>
+            <td class="mid-col" data-label="신설계기번호">${midHtml(newMid)}</td>
+            <td class="val-col" data-label="신설제조년월" style="font-size:12px;color:var(--ink-2)">${newMfgYm}</td>
             ${fvs.join('')}
-            <td>${workStateBadge(g)}</td>
-            <td class="val-col" style="font-size:12px;font-variant-numeric:tabular-nums">${sealCell}</td>
-            <td class="val-col" style="font-size:12px;color:var(--ink-2)">${chaCell}</td>
-            <td class="val-col" style="font-size:12px;color:var(--ink-2)">${acctCell}</td>
-            <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:12px">${remarkText}</td>
-            <td>
+            <td data-label="완료상태">${workStateBadge(g)}</td>
+            <td class="val-col" data-label="봉인번호" style="font-size:12px;font-variant-numeric:tabular-nums">${sealCell}</td>
+            <td class="val-col" data-label="차수" style="font-size:12px;color:var(--ink-2)">${chaCell}</td>
+            <td class="val-col" data-label="계정" style="font-size:12px;color:var(--ink-2)">${acctCell}</td>
+            <td class="remark-col" data-label="비고" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:12px">${remarkText}</td>
+            <td data-label="검증상태">
                 <span class="${stClass(bucket)}">${BUCKET_LABEL[bucket]}</span>
                 ${bucket !== 'unverified' && groupConsistency(g).hasError ? '<span class="st st-consistency" style="margin-left:4px">정합성오류</span>' : ''}
                 ${bucket !== 'unverified' && g._swapPartner != null ? '<span class="st st-swap" style="margin-left:4px">스왑 의심</span>' : ''}
             </td>
-            <td>${bucket !== 'kepco' && (isVerified(g) || g.validated)
+            <td data-label="검증완료">${bucket !== 'kepco' && (isVerified(g) || g.validated)
                 ? '<span class="st st-validated">검증완료</span>'
                 : '<span style="color:var(--ink-3);font-size:12px">-</span>'}</td>
         </tr>`;
