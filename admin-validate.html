@@ -2382,7 +2382,7 @@ async function initApp() {
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
     startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1819 (행 단위 재판독 — 상세모달 [재판독] · 증분skip 우회)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1820 (리스트 행 사진 열기 + 사진없음→사진 대기 라벨)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -3288,6 +3288,38 @@ function sealFmt(v) {
     return s.length >= w ? s : s.padStart(w, '0');
 }
 
+// ── 행에서 사진 바로 열기 (2026-07-30 검증팀) ────────────────────────────────
+// 왜: 라벨만 보고 "사진이 없다"고 오인하는 사고가 실제로 났다(2026-07-30). 그 행에 사진이
+//     실제로 있는지 리스트에서 바로 눈으로 확인할 수 있어야 한다. 모달을 열지 않고 한 번에.
+// 소스는 /results가 이미 행마다 붙여주는 photo_url — 새 조회 없다.
+const _ROW_FID_L = { whme_day: '주간', whme_mngt: '야간', var_day: '무효전력', dm_mt_day: '최대전력' };
+function _rowPhotos(g) {
+    const out = [];
+    if (g.ri && g.ri.photo_url) out.push({ label: '철거계기번호', url: g.ri.photo_url });
+    if (g.mi && g.mi.photo_url) out.push({ label: '신설계기번호', url: g.mi.photo_url });
+    for (const [fid, r] of Object.entries(g.mv || {})) {
+        if (r && r.photo_url) out.push({ label: _ROW_FID_L[fid] || fid, url: r.photo_url });
+    }
+    // 한 장에 계기번호·검침값을 같이 찍는 경우가 많아 같은 URL이 여러 행에 붙는다 → 중복 제거
+    const seen = new Set();
+    return out.filter(p => !seen.has(p.url) && seen.add(p.url));
+}
+function photoBtnHtml(g) {
+    const n = _rowPhotos(g).length;
+    if (!n) return '';
+    return '<button class="cbtn cbtn-xs" style="margin-left:6px"'
+         + ' onclick="event.stopPropagation();openRowPhotos(\'' + esc(String(g.mid)) + '\')"'
+         + ' title="이 계기의 사진 ' + n + '장을 새 탭으로 엽니다">사진 ' + n + '</button>';
+}
+function openRowPhotos(mid) {
+    const g = _groups.find(x => String(x.mid) === String(mid));
+    if (!g) return;
+    const ps = _rowPhotos(g);
+    if (!ps.length) { alert('이 계기에는 사진 URL이 없습니다.'); return; }
+    // 첫 장은 바로, 나머지는 순차로 (팝업 차단에 걸리면 첫 장은 열린다)
+    for (const p of ps) window.open(p.url, '_blank', 'noopener');
+}
+
 function rowBucketRefined(row, isMid, kind) {
     if (!row) return null;
     let base = statusBucket(row.status || 'auto');
@@ -3347,7 +3379,10 @@ function displayBucket(g) {
 const BUCKET_LABEL = {
     pass:    '자동통과',
     done:    '확인완료',
-    skip:    '사진없음',
+    // ★'사진없음' → '사진 대기' (2026-07-30, 영준님 승인). 이 라벨의 실제 뜻은 "유실"이 아니라
+    //   "배치가 훑은 시점에 업로드가 아직 안 됐다"인데, 실제로 데이터 유실로 오인됐다.
+    //   사진이 있는 행은 build 1816에서 'OCR미판독'으로 승격돼 여기 오지 않는다.
+    skip:    '사진 대기',
     need:    '확인필요',
     ocrfail: 'OCR미판독',
     unverified: '검증대기',
@@ -3674,7 +3709,7 @@ function renderTable() {
             <td class="val-col" data-label="계정" style="font-size:12px;color:var(--ink-2)">${acctCell}</td>
             <td class="remark-col" data-label="비고" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;font-size:12px">${remarkText}</td>
             <td data-label="검증상태">
-                <span class="${stClass(bucket)}">${BUCKET_LABEL[bucket]}</span>
+                <span class="${stClass(bucket)}">${BUCKET_LABEL[bucket]}</span>${photoBtnHtml(g)}
                 ${bucket !== 'unverified' && groupConsistency(g).hasError ? '<span class="st st-consistency" style="margin-left:4px">정합성오류</span>' : ''}
                 ${bucket !== 'unverified' && g._swapPartner != null ? '<span class="st st-swap" style="margin-left:4px">스왑 의심</span>' : ''}
             </td>
@@ -4479,9 +4514,9 @@ function buildCompareHtml(dbVal, ocrVal, bucket, isMid, fid) {
         matchColor = 'var(--mint-strong)';
         matchLabel = '확인완료';
     } else {
-        // skip(사진없음/dl_err)
+        // skip(사진 대기/dl_err) — 유실이 아니라 아직 도착 전이라는 뜻
         matchColor = 'var(--ink-3)';
-        matchLabel = '사진없음';
+        matchLabel = '사진 대기';
     }
 
     // 값 표시: 계기번호는 midHtml, 검침값은 일반 텍스트
@@ -5240,7 +5275,7 @@ const REPORT_STATUS_LABELS = {
     need:    '확인필요',
     ocrfail: 'OCR미판독',
     done:    '확인완료',
-    skip:    '사진없음',
+    skip:    '사진 대기',
     // raw status도 대비
     auto:           '자동통과',
     google:         '자동통과(Google)',
