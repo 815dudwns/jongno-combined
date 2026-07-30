@@ -2036,6 +2036,8 @@
             <span class="modal-title" id="modalTitle">작업 이벤트 상세</span>
             <button class="cbtn cbtn-sm" id="modalMapBtn" onclick="openMapForCurrent()"
                 style="margin-left:auto;margin-right:8px">지도</button>
+            <button class="cbtn cbtn-sm" id="modalForceBtn" onclick="forceRevalidateCurrent()"
+                style="margin-right:8px" title="이 계기만 OCR을 다시 돌립니다(사람 판정한 값은 보존)">재판독</button>
             <button class="cbtn cbtn-sm" id="modalCompleteBtn" onclick="toggleComplete()"
                 style="margin-right:8px">완료 처리</button>
             <button class="modal-close-btn" onclick="closeModal()">닫기</button>
@@ -2380,7 +2382,7 @@ async function initApp() {
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
     startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1818 (공사명 목록 복구 — 활성차수 실시간·세션복귀 재조회·다시불러오기)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1819 (행 단위 재판독 — 상세모달 [재판독] · 증분skip 우회)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -4181,6 +4183,59 @@ function openMapForCurrent() {
     const region = regionOf(_currentDataset || document.getElementById('datasetSel').value);
     const url = `${JONGNO_MAP_URL}?q=${encodeURIComponent(mid)}&auth=admin&region=${region}`;
     window.open(url, '_blank', 'noopener');
+}
+
+// ── 행 단위 강제 재판독 (2026-07-30 검증팀) ──────────────────────────────────
+// 왜 필요한가: 배치가 CSV에 status를 한 번 쓰면 daily_cycle이 증분 skip으로 그 행을 다시 안 본다.
+//   그래서 [검증 실행]을 다시 눌러도 재판독이 안 된다. 사진이 늦게 올라온 건(no_photo)이 대표 사례로,
+//   2026-07-30에는 CSV 행을 사람이 손으로 지워야 고쳐졌다. 그 수동 작업을 화면 버튼으로 만든 것.
+// 백엔드 POST /validate/force 가 대상 행을 백업 후 지우고 그 계기만 다시 OCR한다.
+//   사람 판정(human/human_skip)·준공(kepco) 행은 보존한다(재판독하면 사람 판단이 날아가므로).
+async function forceRevalidateCurrent() {
+    const g = _modalGroup;
+    const mid = g && g.mid ? String(g.mid) : '';
+    if (!mid) { showErr('계기번호가 없어 재판독할 수 없습니다.'); return; }
+    const ds   = _currentDataset || document.getElementById('datasetSel').value;
+    const date = _currentDate || toApiDate(document.getElementById('dateInput').value);
+    if (!ds || !date) { showErr('자료·날짜를 먼저 선택하세요.'); return; }
+    if (!confirm('계기 ' + mid + ' 를 다시 판독합니다.\n\n'
+               + '사진·검침값을 OCR로 새로 읽어 판정을 갱신합니다.\n'
+               + '사람이 판정한 값은 그대로 보존됩니다.\n\n계속할까요?')) return;
+
+    const btn = document.getElementById('modalForceBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '재판독 중...'; }
+    try {
+        const resp = await fetch(API_BASE + '/validate/force', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dataset: ds, date, mids: [mid] }),
+        });
+        const body = await resp.json();
+        if (!resp.ok) throw new Error(body.detail || ('HTTP ' + resp.status));
+        const nHeld = Object.values(body.kept_human || {}).reduce((a, v) => a + v.length, 0);
+        // 잡 완료까지 폴링 — 끝나면 결과를 다시 불러 화면에 즉시 반영한다.
+        const jid = body.job_id;
+        for (let i = 0; i < 90; i++) {
+            await new Promise(r => setTimeout(r, 2000));
+            const jr = await fetch(API_BASE + '/jobs/' + encodeURIComponent(jid), { cache: 'no-store' });
+            if (!jr.ok) continue;
+            const j = await jr.json();
+            if (j.status === 'running') continue;
+            if (j.status === 'error') throw new Error('재판독 실패 — 잡 로그를 확인하세요');
+            break;
+        }
+        await _loadResultsAndSummary();
+        const g2 = _groups.find(x => x.mid === mid);
+        if (g2) openModal(g2.seq - 1);
+        alert('재판독 완료 — 계기 ' + mid
+              + (nHeld ? '\n(사람 판정 ' + nHeld + '건은 보존했습니다)' : ''));
+    } catch (e) {
+        showErr('재판독 실패: ' + e.message);
+        alert('재판독 실패: ' + e.message);
+    } finally {
+        const b = document.getElementById('modalForceBtn');
+        if (b) { b.disabled = false; b.textContent = '재판독'; }
+    }
 }
 
 // 헤더 지도 버튼 — 현재 선택된 데이터셋 지역의 지도 전체 열기(계기 지정 없음).
