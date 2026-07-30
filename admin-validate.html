@@ -2211,7 +2211,7 @@ async function initApp() {
     _appInited = true;
     await discoverBackend();   // 맥 백엔드 주소 자동발견 + 헬스체크 폴백 체인
     startBackendWatch();       // 주소가 바뀌어도 새로고침 없이 따라가게
-    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1815 (상세모달 봉인·차수·계정 추가)';
+    const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = 'build 1816 (사진 있는 no_photo → OCR미판독 판정큐 승격)';
     document.getElementById('headerUser').textContent = _session.name + ' (' + _session.id + ')';
     _restoreValScope();
 
@@ -3119,7 +3119,15 @@ function sealFmt(v) {
 
 function rowBucketRefined(row, isMid, kind) {
     if (!row) return null;
-    const base = statusBucket(row.status || 'auto');
+    let base = statusBucket(row.status || 'auto');
+    // ★no_photo/dl_err인데 사진 URL이 실제로 있으면 판정 대기로 승격(2026-07-30 검증팀).
+    //   배경: 배치(daily_cycle)가 사진 업로드 전 시점을 훑으면 no_photo가 굳는다. 사진은 몇 분~1시간 뒤
+    //   도착하는데(실측 +3~68분) 배치는 증분 skip으로 그 행을 다시 안 본다.
+    //   'skip'으로 두면 (a)판정 큐에 안 떠 사람이 손댈 수 없고 (b)라벨이 '사진없음'이라 데이터 유실로 오인된다
+    //   (2026-07-30 실제 오인 발생). 사진이 있으면 사람이 보고 판정할 수 있으니 need로 올린다.
+    //   → isMid 행은 아래 정제에서 OCR '판독불가'로 'ocrfail'(OCR미판독)이 되어 라벨까지 정확해진다.
+    //   선례: crop_fail 확인필요 승격(app.py _status_group, fa6d3738).
+    if ((base === 'skip') && row.photo_url) base = 'need';
     if (base !== 'need') return base;
     if (isMid) {
         const dbVal = kind === 'ri' ? row.old_meter_id : row.new_meter_id;
