@@ -10,7 +10,9 @@
 const ACCOUNTS = [
     { id: 'admin',  pw: '1201', name: '우영준', role: 'admin' },                    // 무적 — 지역토글
     { id: 'admin2', pw: '1234', name: '김창숙', role: 'admin' },                    // 구로 사장님 — 지역토글
-    { id: 'meter1', pw: '1111', name: '계기팀', role: 'meter', region: 'jongno', lock: { team: '종로' } },  // 종로 계기팀 — 명륜 종로배분만
+    // meter1 비활성화(영준님 지시 2026-08-02). 로그인 차단 + 이미 로그인된 세션도 다음 진입에 축출.
+    //   되살리려면 disabled 를 지우면 된다(계정 정의는 그대로 둔다).
+    { id: 'meter1', pw: '1111', name: '계기팀', role: 'meter', region: 'jongno', lock: { team: '종로' }, disabled: true },  // 종로 계기팀 — 명륜 종로배분만
     { id: 'comm1',  pw: '1111', name: '통신팀', role: 'comm',  region: 'jongno', lock: { team: '종로' } },  // 종로 통신팀 — 명륜 종로배분만
     { id: 'Joong',     pw: '1111', name: '중구팀',   role: 'meter', region: 'jongno', lock: { dong: '명륜', team: '중구' } }, // 중구 계기팀 — 명륜 중구배분만
     { id: 'joongcomm', pw: '1111', name: '중구통신', role: 'comm',  region: 'jongno', lock: { dong: '명륜', team: '중구' } }, // 중구 통신팀 — 명륜 중구배분만
@@ -33,6 +35,9 @@ function authLogin(id, pw) {
     if (!account) {
         return { ok: false, error: '아이디 또는 비밀번호가 올바르지 않습니다.' };
     }
+    if (account.disabled) {
+        return { ok: false, error: '사용이 중지된 계정입니다. 관리자에게 문의하세요.' };
+    }
     const session = { id: account.id, name: account.name, role: account.role };
     if (account.region) session.region = account.region;   // 작업자 지역 고정(어드민은 없음=토글)
     if (account.lock) session.lock = account.lock;          // 명륜 팀 잠금(종로/중구 배분분 고정)
@@ -47,7 +52,17 @@ function authLogin(id, pw) {
 function authGetSession() {
     try {
         const raw = localStorage.getItem(AUTH_KEY);
-        return raw ? JSON.parse(raw) : null;
+        const s = raw ? JSON.parse(raw) : null;
+        if (!s) return null;
+        // 비활성화된 계정(또는 삭제된 계정)의 세션은 즉시 축출한다.
+        //   ※ 전체 강제 로그아웃(버전 범프)을 쓰지 않는 이유: 그러면 무관한 작업자까지
+        //     전부 재로그인해야 한다. 대상 계정만 끊는다.
+        const acc = ACCOUNTS.find(a => a.id.toLowerCase() === String(s.id || '').toLowerCase());
+        if (!acc || acc.disabled) {
+            localStorage.removeItem(AUTH_KEY);
+            return null;
+        }
+        return s;
     } catch {
         return null;
     }

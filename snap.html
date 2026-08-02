@@ -15,7 +15,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <script src="js/regions.js?v=20260629c"></script>
     <script src="js/config.js?v=snap2"></script>
-    <script src="js/auth.js?v=20260630b"></script>
+    <script src="js/auth.js?v=20260802a"></script>
     <script src="js/photo-uploader.js?v=20260717a"></script>
     <script src="js/awms-parseValue.js?v=snap-qr"></script>
     <script src="js/qr-scanner.js?v=20260717b"></script>
@@ -322,7 +322,7 @@
             </div>
             <button id="logout" style="min-height:48px; padding:0 18px; font-size:16px; font-weight:800; border:2px solid #d9534f; color:#d9534f; background:transparent; border-radius:12px;">로그아웃</button>
         </div>
-        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260719.4</div>
+        <div style="text-align:center; font-size:13px; font-weight:700; color:var(--ink-2); margin-top:16px; opacity:0.7;">MCS 보조앱 v20260802.1</div>
     </div>
 
     <!-- 작업번호 네비 박스 2 (철거 검침 섹션 위 — 상단 박스와 동기화) -->
@@ -417,7 +417,7 @@
       <div id="qr-error-msg" style="display:none;padding:14px;background:#7f1d1d;color:white;font-size:13px;text-align:center;"></div>
     </div>
 
-    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260719.4</div>
+    <div style="text-align:center; font-size:13px; font-weight:700; color:#5a6b7d; padding:8px 0 4px; letter-spacing:.03em;">MCS 보조앱 v20260802.1</div>
 
     <!-- 업로드 현황 도크 (하단 고정) -->
     <div class="uj-dock" id="uj-dock">
@@ -457,7 +457,7 @@
       const $ = id => document.getElementById(id);
 
       // ── 앱 버전 (자동업데이트 비교 기준 — 화면 버전 라벨과 반드시 동일하게 유지) ──
-      const APP_VER = "20260719.4";
+      const APP_VER = "20260802.1";
       const VER_JSON_URL = "https://815dudwns.github.io/jongno-combined/snap-version.json";
 
       // ── Firebase (ami-jongno 공유) ──
