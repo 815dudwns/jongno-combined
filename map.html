@@ -15,7 +15,7 @@
       // 앱 버전 바뀌면 localStorage 자동 클리어 (auth/eventQueue만 유지)
       // 폰 사용자가 콘솔 없이도 새 버전 받게
       (function () {
-        const APP_VERSION = '20260802.1';
+        const APP_VERSION = '20260813.1';
         if (localStorage.getItem('app_version') !== APP_VERSION) {
           const keep = {};
           // 지역 데이터·설정 전부 보존(종로/구로 모든 jongno_/guro_ 키 + 지역선택 mcs_region)
@@ -227,7 +227,7 @@
             <span class="am-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M9 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/></svg></span>
             <span class="am-txt">로그아웃</span>
         </button>
-        <div style="padding:8px 16px 12px;text-align:right;font-size:10px;color:var(--text-muted,#888);opacity:0.6;letter-spacing:0.03em;">v20260802.1</div>
+        <div style="padding:8px 16px 12px;text-align:right;font-size:10px;color:var(--text-muted,#888);opacity:0.6;letter-spacing:0.03em;">v20260813.1</div>
     </div>
 
     <!-- 통계 모달 (iframe — 페이지 이동 없이 지도 유지: 닫으면 즉시 원상태, Firebase 동기화 안 끊김) -->
@@ -482,7 +482,7 @@
     <script src="js/config.js?v=20260629a"></script>
     <script src="js/utils.js?v=20260615a"></script>
     <script src="js/firebase.js?v=20260721a"></script>
-    <script src="js/detail.js?v=20260707b"></script>
+    <script src="js/detail.js?v=20260813a"></script>
     <script src="js/idb.js?v=20260618b"></script>
     <script src="js/map.js?v=20260727a"></script>
     <script src="js/awms-parseValue.js?v=20260602a"></script>

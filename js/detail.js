@@ -250,7 +250,8 @@ function showDetail(address, meters) {
         // 통신팀 — 변대주 강조 (모든 계기 같은 변대주일 때만)
         if (allSamePole && meters[0].변대주 && meters[0].변대주 !== '0') {
             const poleText = meters[0].변대주;
-            const isDcuId = !!meters[0].DCUID;
+            // 뒤 2자리 분리표시는 변대주 필드 자체가 DCUID 형식일 때만 (종로는 아니다)
+            const isDcuId = !!meters[0].DCUID && meters[0].DCUID === poleText;
             const poleMain = isDcuId ? poleText.slice(0, -2) : poleText;
             const poleHtml = isDcuId
                 ? `<span>${poleMain}</span><span class="seg-dup">${poleText.slice(-2)}</span>`
@@ -568,11 +569,21 @@ function renderMetersList() {
             const ip = [meter.인입주번호, meter.인입주전산화].filter(Boolean);
             if (ip.length) extraParts.push(`인입주(${ip.join(', ')})`);
         }
+        // DCU — 계기팀 시각에 표시 (영준님 지시 2026-08-13).
+        // DCUID = 변대주 전산화번호(8) + 차수코드(2). 대장 매칭분에만 값이 있다.
+        if (_role === 'meter') {
+            if (meter.DCUID) {
+                const dcuCpyBtn = `<button class="copy-btn" data-copy="${meter.DCUID}" title="DCU ID 복사" style="margin-left:3px;vertical-align:middle;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
+                extraParts.push(`DCU(${meter.DCUID})${dcuCpyBtn}`);
+            }
+        }
         // 변대주 — 계기팀은 숨김, 통신팀·admin은 표시
         if (_role !== 'meter') {
             if (meter.변대주) {
                 const pv = meter.변대주;
-                const isDcu = !!meter.DCUID;
+                // 뒤 2자리 분리표시는 변대주 필드 자체가 DCUID 형식일 때만.
+                // 종로는 변대주=전산화번호(8) / DCUID=별도(10) 라 잘라내면 안 된다.
+                const isDcu = !!meter.DCUID && meter.DCUID === pv;
                 const pvMain = isDcu ? pv.slice(0, -2) : pv;
                 const pvHtml = isDcu
                     ? `${pvMain}<span class="seg-dup">${pv.slice(-2)}</span>`
