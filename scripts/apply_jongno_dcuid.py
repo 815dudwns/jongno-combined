@@ -41,7 +41,7 @@ def load_dcu_ledger(xlsx_path):
     rows = ws.iter_rows(min_row=2, values_only=True)
     header = [str(x).strip() if x is not None else '' for x in next(rows)]
     idx = {h: i for i, h in enumerate(header)}
-    for need in ('변대주번호', '변대주명', 'DCU ID'):
+    for need in ('변대주번호', '변대주명', 'DCU ID', '인입망 통신방식', '회선상태'):
         if need not in idx:
             raise SystemExit(f'대장 시트에 {need!r} 컬럼이 없다 — 헤더: {header}')
 
@@ -54,7 +54,12 @@ def load_dcu_ledger(xlsx_path):
         dcuid = unformula(r[idx['DCU ID']])
         if not pole_no or not dcuid:
             continue
-        rec = {'DCUID': dcuid, '변대주명': unformula(r[idx['변대주명']])}
+        rec = {
+            'DCUID': dcuid,
+            '변대주명': unformula(r[idx['변대주명']]),
+            '통신방식': unformula(r[idx['인입망 통신방식']]),
+            '회선상태': unformula(r[idx['회선상태']]),
+        }
         if pole_no in ledger and ledger[pole_no]['DCUID'] != dcuid:
             # 같은 전주에 DCU 가 둘 이상 = 어느 쪽인지 확정 불가 -> 부착하지 않는다
             dupes.add(pole_no)
@@ -82,13 +87,18 @@ def main():
     c = Counter()
     label_mismatch = []
     for item in site:
+        # 재실행 대비 — 지난 회차 값이 남아 조용히 틀리지 않게 매번 비우고 다시 채운다
+        item.pop('DCUID', None)
+        item.pop('통신방식', None)
         pole = str(item.get('변대주') or '').strip()
         if not pole or pole == '0':
             c['변대주없음'] += 1
             continue
         rec = ledger.get(pole)
         if not rec:
-            c['대장미등재'] += 1
+            # 대장에 DCU 가 없는 전주 = 개별 LTE 회선
+            item['통신방식'] = 'LTE'
+            c['대장미등재_LTE'] += 1
             continue
         # 변대주명 교차검증 — 양쪽 이름이 다르면 전산화번호가 같아도 같은 전주라 단정할 수 없다.
         # 틀린 DCU 를 현장에 보여주는 쪽이 비어 있는 것보다 위험하므로 부착하지 않는다.
@@ -99,12 +109,24 @@ def main():
             continue
         item['DCUID'] = rec['DCUID']
         c['부착'] += 1
+        # 회선상태 해지·정지는 LTE 전환 대상이라 현 통신방식을 단정할 수 없다.
+        # 아미맵 확정 규칙과 동일하게 통신방식은 비우고 DCU ID 만 남긴다.
+        if rec['회선상태'] in ('해지', '정지'):
+            c[f'통신방식보류_{rec["회선상태"]}'] += 1
+        elif rec['통신방식']:
+            item['통신방식'] = rec['통신방식']
+            c[f'통신방식_{rec["통신방식"]}'] += 1
 
     # 원본과 같은 compact 포맷 유지 — 폰이 직접 받는 파일이라 indent 를 넣으면 용량이 커진다
     with open(site_path, 'w', encoding='utf-8') as f:
         json.dump(site, f, ensure_ascii=False)
 
-    print(f'총 {len(site)}건 — 부착 {c["부착"]} / 대장미등재 {c["대장미등재"]} / 변대주없음 {c["변대주없음"]}')
+    print(f'총 {len(site)}건 — DCU부착 {c["부착"]} / 대장미등재=LTE {c["대장미등재_LTE"]} / 변대주없음 {c["변대주없음"]}')
+    print('통신방식 ' + ' / '.join(f'{k.split("_", 1)[1]} {v}' for k, v in sorted(c.items())
+                                  if k.startswith('통신방식_')) +
+          f' / LTE {c["대장미등재_LTE"]}')
+    print('통신방식 보류(해지·정지, DCU만 표시) '
+          f'해지 {c["통신방식보류_해지"]} · 정지 {c["통신방식보류_정지"]}')
     print(f'변대주라벨 vs 대장 변대주명 불일치로 제외 {c["라벨불일치제외"]}건'
           f' (고유 전주 {len({m[0] for m in label_mismatch})}개)')
     for m in sorted({m for m in label_mismatch}):

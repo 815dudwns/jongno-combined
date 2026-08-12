@@ -571,10 +571,15 @@ function renderMetersList() {
         }
         // DCU — 계기팀 시각에 표시 (영준님 지시 2026-08-13).
         // DCUID = 변대주 전산화번호(8) + 차수코드(2). 대장 매칭분에만 값이 있다.
+        // 통신방식: DCU 있으면 PLC/K-DCU/HPGP, 대장에 DCU 없으면 LTE.
+        // 회선상태 해지·정지는 LTE 전환 대상이라 통신방식을 비워둔다(DCU ID 만 표시).
         if (_role === 'meter') {
             if (meter.DCUID) {
                 const dcuCpyBtn = `<button class="copy-btn" data-copy="${meter.DCUID}" title="DCU ID 복사" style="margin-left:3px;vertical-align:middle;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`;
-                extraParts.push(`DCU(${meter.DCUID})${dcuCpyBtn}`);
+                const commStr = meter.통신방식 ? `${meter.통신방식}, ` : '';
+                extraParts.push(`DCU(${commStr}${meter.DCUID})${dcuCpyBtn}`);
+            } else if (meter.통신방식) {
+                extraParts.push(`통신(${meter.통신방식})`);
             }
         }
         // 변대주 — 계기팀은 숨김, 통신팀·admin은 표시
