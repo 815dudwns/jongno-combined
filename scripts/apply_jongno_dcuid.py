@@ -23,6 +23,7 @@ from zoneinfo import ZoneInfo
 import openpyxl
 
 SHEET = '전체DCU 현황'
+SHEET_REVIEW = '검토'      # 철거 예정 개소 검토 결과 (검토 컬럼 = 해지/유지)
 KST = ZoneInfo('Asia/Seoul')
 
 
@@ -69,12 +70,40 @@ def load_dcu_ledger(xlsx_path):
     return ledger, dupes
 
 
+def load_removal_poles(xlsx_path):
+    """'검토' 시트에서 철거 확정(검토=해지) 변대주번호 집합을 뽑는다.
+
+    철거되는 DCU 에 물린 계기는 LTE 로 전환되므로 통신방식을 LTE 로 본다.
+    """
+    wb = openpyxl.load_workbook(xlsx_path, read_only=True, data_only=False)
+    if SHEET_REVIEW not in wb.sheetnames:
+        print(f'경고: {SHEET_REVIEW!r} 시트가 없어 철거예정 판정을 건너뛴다')
+        return set()
+    ws = wb[SHEET_REVIEW]
+    rows = ws.iter_rows(min_row=2, values_only=True)
+    header = [str(x).strip() if x is not None else '' for x in next(rows)]
+    idx = {h: i for i, h in enumerate(header)}
+    for need in ('변대주번호', '검토'):
+        if need not in idx:
+            raise SystemExit(f'검토 시트에 {need!r} 컬럼이 없다 — 헤더: {header}')
+    poles = set()
+    for r in rows:
+        if not r or all(x is None for x in r):
+            continue
+        no = unformula(r[idx['변대주번호']])
+        if no and unformula(r[idx['검토']]) == '해지':
+            poles.add(no)
+    return poles
+
+
 def main():
     site_path = sys.argv[1] if len(sys.argv) > 1 else 'jongno-combined/data/jongno-site-data.json'
     xlsx_path = sys.argv[2] if len(sys.argv) > 2 else 'data/reference/간선망_해지_정지대상.xlsx'
 
     ledger, dupes = load_dcu_ledger(xlsx_path)
     print(f'DCU 대장 고유 변대주번호 {len(ledger)}건 (다중DCU 제외 {len(dupes)}건)')
+    removal = load_removal_poles(xlsx_path)
+    print(f'철거 확정(검토=해지) 변대주 {len(removal)}건')
 
     with open(site_path, encoding='utf-8') as f:
         site = json.load(f)
@@ -109,10 +138,16 @@ def main():
             continue
         item['DCUID'] = rec['DCUID']
         c['부착'] += 1
-        # 회선상태 해지·정지는 LTE 전환 대상이라 현 통신방식을 단정할 수 없다.
-        # 아미맵 확정 규칙과 동일하게 통신방식은 비우고 DCU ID 만 남긴다.
-        if rec['회선상태'] in ('해지', '정지'):
-            c[f'통신방식보류_{rec["회선상태"]}'] += 1
+        # DCU 가 있어도 LTE 로 보는 두 경우 (영준님 지시 2026-08-13).
+        # DCU ID 는 어느 전주 소속이었는지 알 수 있게 남긴다.
+        #   1) 회선상태 해지·정지 — DCU 회선이 이미 끊겼거나 끊길 대상
+        #   2) 검토 시트 철거 확정 — DCU 자체가 철거되어 계기가 LTE 로 전환
+        if pole in removal:
+            item['통신방식'] = 'LTE'
+            c['철거예정_LTE'] += 1
+        elif rec['회선상태'] in ('해지', '정지'):
+            item['통신방식'] = 'LTE'
+            c[f'해지정지_LTE_{rec["회선상태"]}'] += 1
         elif rec['통신방식']:
             item['통신방식'] = rec['통신방식']
             c[f'통신방식_{rec["통신방식"]}'] += 1
@@ -125,8 +160,8 @@ def main():
     print('통신방식 ' + ' / '.join(f'{k.split("_", 1)[1]} {v}' for k, v in sorted(c.items())
                                   if k.startswith('통신방식_')) +
           f' / LTE {c["대장미등재_LTE"]}')
-    print('통신방식 보류(해지·정지, DCU만 표시) '
-          f'해지 {c["통신방식보류_해지"]} · 정지 {c["통신방식보류_정지"]}')
+    print('  ㄴ그중 DCU 있으나 LTE 처리 — 철거확정 '
+          f'{c["철거예정_LTE"]} / 회선해지 {c["해지정지_LTE_해지"]} · 회선정지 {c["해지정지_LTE_정지"]}')
     print(f'변대주라벨 vs 대장 변대주명 불일치로 제외 {c["라벨불일치제외"]}건'
           f' (고유 전주 {len({m[0] for m in label_mismatch})}개)')
     for m in sorted({m for m in label_mismatch}):
